@@ -1,0 +1,69 @@
+# Global settings for graph_bot
+
+# How many years of history to show (the "last N years" window).
+years_window: 50
+
+# Video output
+video:
+  width: 1080          # vertical format for Reels / Shorts / Status
+  height: 1920
+  fps: 30
+  # Aim every chart video at roughly this length. The pace is derived from the
+  # topic's year span, so a 50-year series and an 11-year series both land here.
+  # Set a topic-level `seconds_per_year:` to override for one video.
+  target_seconds: 24
+  seconds_per_year: 0.5   # fallback when target_seconds is unset
+  top_n: 12               # how many entities (bars) to show in bar_race mode
+
+# Paths (relative to project root)
+paths:
+  cache: data/cache
+  curated: data/curated
+  output: output
+
+# Background music (muxed on after rendering).
+# Drop your OWN royalty-free / Creative Commons / public-domain tracks into the
+# folder below — see assets/music/README.md for legal sources. No tracks bundled.
+audio:
+  enabled: true          # set false to render silent videos
+  source: folder         # "generate" = original synthesized ambient (copyright-free)
+                         # "folder"   = pick from your own files in `folder` below
+                         # Folder tracks are chosen by mood (subfolder or filename);
+                         # moods with no track fall back to the synth.
+  folder: assets/music   # used only when source: folder
+  volume: 0.6            # 0.0–1.0 for music-only videos
+  volume_under_voice: 0.15   # much quieter when the video has narration
+  fade_in: 1.5           # seconds, trimmed by fade_max_fraction on short videos
+  fade_out: 2.0          # seconds, ditto
+  # A fixed 1.5s/2.0s pair eats 58% of a 6-second video. Cap each fade at this
+  # share of the runtime so short topics are not mostly fading.
+  fade_max_fraction: 0.08
+  # Videos this short get NO tail fade: they are watched on loop (the 6-9s AI
+  # topics retain >100%), and fading to silence breaks the seam.
+  loop_seamless_below: 12
+  # Normalize every export to YouTube's playback target so levels are consistent
+  # whatever the mood or track. Set to null to skip normalization.
+  loudness_lufs: -14
+  true_peak_db: -1.5
+
+# Branding shown on every video
+branding:
+  footer: "Data in Motion  •  new data every day"
+
+# Disk retention. Durations are measured from the LIFECYCLE EVENT, not from the
+# folder date: a working copy is only disposable once it has been exported, and
+# an export is only disposable once the video is actually live on YouTube.
+# Anything not yet uploaded is NEVER deleted, however old it gets — the channel
+# produces faster than it can post, so age alone does not mean abandoned.
+retention:
+  output_days_after_export: 7    # delete output/<date>/<key>/ this long after export
+  export_days_after_upload: 30   # delete export/<date>/<series>/<NN_key>/ after upload
+  stale_warn_days: 60            # warn about anything staged this long without posting
+
+# YouTube upload target. The Google account also owns a personal channel, and the
+# OAuth account chooser defaults to it — authorising the wrong one would upload
+# every video to a channel nobody watches. The uploader refuses to run unless the
+# token resolves to exactly this channel.
+youtube:
+  channel_id: UCEekmhdfptp7tvPVe5cZthg
+  channel_name: Data in Motion

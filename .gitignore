@@ -1,0 +1,99 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# graph_bot — what never leaves this machine
+#
+# Three rules behind everything below:
+#   1. SECRETS never get committed, and are listed first so they are obvious.
+#   2. MEDIA never gets committed — output/ and export/ alone are ~860 MB, and
+#      caches another ~430 MB. The pipeline regenerates all of it.
+#   3. RUNTIME STATE never gets committed. Uploads, jobs and analytics live in
+#      Postgres; the JSON files under data/ are a pre-migration backup of the
+#      channel's own operating record, not source.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── secrets ──────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+config/client_secret.json
+config/youtube_token.json
+config/*token*.json
+config/*secret*.json
+config/*credential*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ── python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── node (the dashboard UI is built, not shipped as source deps) ─────────────
+node_modules/
+npm-debug.log*
+.vite/
+
+# ── generated video + media ──────────────────────────────────────────────────
+output/
+export/
+upload/
+logs/
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# ── caches and generated assets ──────────────────────────────────────────────
+data/cache/
+data/music_cache/
+data/manim_media/
+data/flags/
+media/           # Manim's own scratch directory
+
+# Music is licensed per-track and stays local; keep the folder's README.
+assets/music/*
+!assets/music/README.md
+
+# ── runtime state ────────────────────────────────────────────────────────────
+# The operational store is Postgres (graph_bot.store). These files are the
+# pre-migration backup of a real channel's upload history — not source, and not
+# something to publish.
+data/upload_log.json
+data/discarded.json
+data/queue_order.json
+data/dashboard_jobs.json
+data/brand.json
+data/export/
+
+# Channel analytics exports: private business data.
+analytics_data/
+!analytics_data/README.md
+
+# Brand identity — banner, avatar, watermark, community art. The repo is public
+# and these are the channel's visual identity, not part of the software.
+assets/brand/
+
+# Unpublished series roadmaps. These are editorial plans for episodes that have
+# not shipped; the published series' docs stay.
+docs/SERIES_how_charts_lie.md
+docs/SERIES_llm_basics.md
+
+# A generated report, derived from the store.
+UPLOAD_QUEUE.md
+
+# ── os / editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/

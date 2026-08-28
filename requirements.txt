@@ -1,0 +1,25 @@
+# Core data + video pipeline (Phase 1)
+pandas>=2.0,<3          # 3.x wheels are unsigned and get blocked by Windows
+                        # Smart App Control (ImportError on pandas._libs.groupby)
+requests>=2.31
+PyYAML>=6.0
+matplotlib>=3.7
+numpy>=1.24
+python-dotenv>=1.0
+imageio-ffmpeg>=0.4.9   # bundles an ffmpeg binary so no system install is needed
+
+# Mission-control dashboard (python -m dashboard.server)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Analytics warehouse (python -m graph_bot.analytics)
+psycopg[binary]>=3.2
+
+# Publishing (added in later phases; safe to install now)
+google-api-python-client>=2.100
+google-auth-oauthlib>=1.2
+google-auth-httplib2>=0.2
+
+# NOTE: ffmpeg is a SYSTEM dependency (not pip). Install separately and put it on PATH:
+#   Windows (winget):  winget install Gyan.FFmpeg
+#   or download from    https://www.gyan.dev/ffmpeg/builds/

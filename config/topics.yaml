@@ -1,0 +1,932 @@
+﻿# ---------------------------------------------------------------------------
+# Topic catalog. Each entry is ONE video idea.
+# Adding a topic = adding a block here (no code changes).
+#
+# Common fields:
+#   key            unique id (used in output paths / --topic)
+#   title          headline shown on the video
+#   subtitle       optional smaller line under the title
+#   fetcher        one of: worldbank | owid | dbnomics | curated_csv
+#   mode           bar_race (top-N racing bars) | line_grow (single growing line)
+#   source         attribution string shown on the video + caption
+#   unit           optional label (e.g. "people", "USD")
+#   value_scale    optional divisor for display (e.g. 1_000_000 -> "millions")
+#   top_n          optional override of settings.video.top_n
+#   hashtags       optional list appended to the caption
+#
+# Fetcher-specific fields:
+#   worldbank:   code           (indicator code, e.g. SP.POP.TOTL)
+#   owid:        slug           (grapher slug); value_column (optional, else auto)
+#   dbnomics:    series_url     (full https://api.db.nomics.world/v22/series/... URL)
+#   curated_csv: file           (filename under data/curated/, cols: entity,year,value)
+# ---------------------------------------------------------------------------
+
+topics:
+  - key: population
+    title: "Most Populous Countries"
+    subtitle: "Population over time"
+    fetcher: worldbank
+    code: SP.POP.TOTL
+    mode: bar_race
+    source: "World Bank"
+    unit: "people"
+    value_scale: 1000000
+    unit_suffix: "M"
+    hashtags: ["population", "worldstats", "dataviz"]
+
+  - key: gdp
+    title: "Largest Economies"
+    subtitle: "GDP (current US$)"
+    fetcher: worldbank
+    code: NY.GDP.MKTP.CD
+    mode: bar_race
+    source: "World Bank"
+    unit: "USD"
+    value_scale: 1000000000000
+    unit_suffix: "T"
+    hashtags: ["gdp", "economy", "dataviz"]
+
+  - key: tourists
+    title: "Most Visited Countries"
+    subtitle: "International tourist arrivals"
+    fetcher: worldbank
+    code: ST.INT.ARVL
+    mode: bar_race
+    source: "World Bank"
+    unit: "arrivals"
+    value_scale: 1000000
+    unit_suffix: "M"
+    hashtags: ["travel", "tourism", "dataviz"]
+
+  - key: mobile
+    title: "Mobile Phone Subscriptions"
+    subtitle: "Total mobile cellular subscriptions"
+    fetcher: worldbank
+    code: IT.CEL.SETS
+    mode: bar_race
+    source: "World Bank"
+    unit: "subscriptions"
+    value_scale: 1000000
+    unit_suffix: "M"
+    hashtags: ["mobile", "tech", "dataviz"]
+
+  - key: co2
+    title: "Annual CO₂ Emissions"
+    subtitle: "By country"
+    fetcher: owid
+    slug: annual-co2-emissions-per-country
+    mode: bar_race
+    source: "Our World in Data"
+    unit: "tonnes"
+    value_scale: 1000000000
+    unit_suffix: "Bt"
+    hashtags: ["climate", "co2", "dataviz"]
+
+  - key: life_expectancy
+    title: "Life Expectancy"
+    subtitle: "Years at birth"
+    fetcher: owid
+    slug: life-expectancy
+    mode: bar_race
+    source: "Our World in Data"
+    unit: "years"
+    top_n: 12
+    hashtags: ["health", "lifeexpectancy", "dataviz"]
+
+  - key: world_population
+    title: "World Population"
+    subtitle: "Total, global"
+    fetcher: worldbank
+    code: SP.POP.TOTL
+    mode: line_grow
+    # No entity_filter -> line_grow sums across all countries for the global total.
+    # (World Bank aggregate rows like "World" are intentionally filtered out upstream.)
+    source: "World Bank (sum of countries)"
+    unit: "people"
+    value_scale: 1000000000
+    unit_suffix: "B"
+    hashtags: ["population", "worldstats", "dataviz"]
+
+  # ------- Curated (report-based) example: not a live API -------
+  - key: developers
+    title: "Software Developers by Country"
+    subtitle: "Estimated developer population"
+    fetcher: curated_csv
+    file: developers.csv
+    flags: false
+    mode: bar_race
+    source: "SlashData / GitHub Octoverse (curated estimates)"
+    unit: "developers"
+    value_scale: 1000000
+    unit_suffix: "M"
+    hashtags: ["developers", "coding", "tech"]
+
+  # ------------------------- Expanded catalog -------------------------
+  - key: military
+    title: "Biggest Military Spenders"
+    subtitle: "Military expenditure (US$)"
+    fetcher: worldbank
+    code: MS.MIL.XPND.CD
+    mode: bar_race
+    source: "World Bank / SIPRI"
+    value_scale: 1000000000
+    unit_suffix: "B"
+    hashtags: ["military", "defense", "dataviz"]
+
+  - key: air_passengers
+    title: "Most Air Passengers"
+    subtitle: "Air transport, passengers carried"
+    fetcher: worldbank
+    code: IS.AIR.PSGR
+    mode: bar_race
+    source: "World Bank / ICAO"
+    value_scale: 1000000
+    unit_suffix: "M"
+    hashtags: ["aviation", "travel", "dataviz"]
+
+  - key: patents
+    title: "Most Patent Applications"
+    subtitle: "By residents"
+    fetcher: worldbank
+    code: IP.PAT.RESD
+    mode: bump_race
+    top_n: 10
+    source: "World Bank / WIPO"
+    # Counts run 8k-1.4M, so a millions scale printed "0.0M" for most of the
+    # field. Show the real number instead.
+    value_fmt: integer
+    hashtags: ["patents", "innovation", "dataviz"]
+
+  - key: science
+    title: "Most Scientific Papers"
+    subtitle: "Journal articles per year"
+    fetcher: worldbank
+    code: IP.JRN.ARTC.SC
+    mode: bar_race
+    source: "World Bank / NSF"
+    value_scale: 1000
+    unit_suffix: "K"
+    hashtags: ["science", "research", "dataviz"]
+
+  - key: exports
+    title: "Biggest Exporters"
+    subtitle: "Exports of goods & services (US$)"
+    fetcher: worldbank
+    code: NE.EXP.GNFS.CD
+    mode: bar_race
+    source: "World Bank"
+    value_scale: 1000000000000
+    unit_suffix: "T"
+    hashtags: ["trade", "exports", "economy"]
+
+  - key: forest
+    title: "Most Forest Area"
+    subtitle: "Forest cover"
+    fetcher: worldbank
+    code: AG.LND.FRST.K2
+    mode: bar_race
+    source: "World Bank / FAO"
+    value_scale: 1000000
+    unit_suffix: "M km²"
+    hashtags: ["forest", "nature", "climate"]
+
+  - key: migrants
+    title: "Most International Migrants"
+    subtitle: "Migrant stock"
+    fetcher: worldbank
+    code: SM.POP.TOTL
+    mode: bar_race
+    source: "World Bank / UN"
+    value_scale: 1000000
+    unit_suffix: "M"
+    hashtags: ["migration", "population", "dataviz"]
+
+  - key: electricity
+    title: "Electricity Generation"
+    subtitle: "Total, terawatt-hours"
+    fetcher: owid
+    slug: electricity-generation
+    mode: bar_race
+    source: "Our World in Data"
+    unit_suffix: " TWh"
+    hashtags: ["energy", "electricity", "dataviz"]
+
+  - key: meat
+    title: "Top Meat Producers"
+    subtitle: "Total meat production"
+    fetcher: owid
+    slug: meat-production-tonnes
+    mode: bar_race
+    source: "Our World in Data / FAO"
+    value_scale: 1000000
+    unit_suffix: "Mt"
+    hashtags: ["food", "agriculture", "dataviz"]
+
+  - key: co2_per_capita
+    title: "CO₂ Emissions Per Person"
+    subtitle: "Tonnes per capita"
+    fetcher: owid
+    slug: co2-emissions-per-capita
+    mode: bar_race
+    source: "Our World in Data"
+    top_n: 12
+    unit_suffix: " t"
+    hashtags: ["climate", "co2", "dataviz"]
+
+  # ===================== AI / TECH PILLAR =====================
+  # Source: Epoch AI (CC-BY). Generic `csv_url` fetcher with aggregation.
+  #   agg: cummax (running max -> frontier curve) | cumcount (cumulative count)
+  #        | count | sum | max | none
+  # NOTE: year_max caps an incomplete current year so counts don't look like
+  #       they are falling off a cliff at the end.
+
+  - key: ai_compute
+    title: "AI Training Compute"
+    subtitle: "Largest model ever trained (FLOP)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    date_col: "Publication date"
+    value_col: "Training compute (FLOP)"
+    entity_label: "Frontier model"
+    agg: cummax
+    year_min: 2012
+    year_max: 2025
+    years_window: 20
+    mode: line_grow
+    log_scale: true
+    value_fmt: scientific
+    source: "Epoch AI (CC BY)"
+    mood: hopeful
+    hashtags: ["ai", "technology", "dataviz"]
+
+  - key: ai_orgs
+    title: "Who Builds the Most AI Models?"
+    subtitle: "Notable models released (cumulative)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    date_col: "Publication date"
+    entity_col: "Organization"
+    agg: cumcount
+    year_min: 2010
+    year_max: 2025
+    years_window: 20
+    value_fmt: integer
+    flags: false
+    mode: bar_race
+    source: "Epoch AI (CC BY)"
+    mood: lofi
+    hashtags: ["ai", "openai", "technology"]
+
+  - key: ai_countries
+    title: "AI Superpowers"
+    subtitle: "Notable AI models by country (cumulative)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    date_col: "Publication date"
+    entity_col: "Country (of organization)"
+    entity_clean: country
+    agg: cumcount
+    year_min: 2010
+    year_max: 2025
+    years_window: 20
+    value_fmt: integer
+    mode: bar_race
+    source: "Epoch AI (CC BY)"
+    mood: majestic
+    hashtags: ["ai", "technology", "worldstats"]
+
+  - key: ai_params
+    title: "How Big Are AI Models?"
+    subtitle: "Largest model by parameters"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    date_col: "Publication date"
+    value_col: "Parameters"
+    entity_label: "Largest model"
+    agg: cummax
+    year_min: 2012
+    year_max: 2025
+    years_window: 20
+    mode: line_grow
+    log_scale: true
+    value_fmt: scientific
+    source: "Epoch AI (CC BY)"
+    mood: hopeful
+    hashtags: ["ai", "machinelearning", "dataviz"]
+
+  - key: ai_cost
+    title: "The Cost of Training AI"
+    subtitle: "Most expensive model (2023 US$)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    date_col: "Publication date"
+    value_col: "Training compute cost (2023 USD)"
+    entity_label: "Most expensive"
+    agg: cummax
+    year_min: 2016
+    year_max: 2025
+    years_window: 20
+    mode: line_grow
+    log_scale: true
+    value_scale: 1000000
+    unit_suffix: "M"
+    source: "Epoch AI (CC BY)"
+    mood: reflective
+    hashtags: ["ai", "technology", "money"]
+
+  - key: ai_boom
+    title: "The AI Explosion"
+    subtitle: "Notable AI models released (cumulative)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    date_col: "Publication date"
+    entity_label: "All models"
+    agg: cumcount
+    year_min: 2010
+    year_max: 2025
+    years_window: 20
+    value_fmt: integer
+    mode: line_grow
+    source: "Epoch AI (CC BY)"
+    mood: hopeful
+    hashtags: ["ai", "technology", "dataviz"]
+
+  # ===================== CONCEPTS PILLAR (Manim) =====================
+  # Authored animations, not data-driven: mode: manim + scene: <key from
+  # graph_bot/scenes/__init__.py>. No fetcher/url needed.
+
+  - key: gradient_descent
+    title: "How AI Learns"
+    subtitle: "Gradient descent, visualized"
+    mode: manim
+    scene: gradient_descent
+    source: "Concept explainer"
+    mood: hopeful
+    hashtags: ["ai", "machinelearning", "explained"]
+
+  - key: simpsons_paradox
+    title: "The Trend That Lies"
+    subtitle: "Simpson's Paradox"
+    mode: manim
+    scene: simpsons_paradox
+    source: "Concept explainer"
+    mood: reflective
+    hashtags: ["statistics", "data", "explained"]
+
+  - key: kmeans
+    title: "How Computers Find Patterns"
+    subtitle: "K-means clustering"
+    mode: manim
+    scene: kmeans
+    source: "Concept explainer"
+    mood: lofi
+    hashtags: ["machinelearning", "datascience", "explained"]
+
+  # ----- AI pillar, wave 2 (GPU clusters + hardware; zip datasets supported) -----
+  - key: ai_clusters_country
+    title: "AI Supercomputers by Country"
+    subtitle: "Known GPU clusters built (cumulative)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/gpu_clusters.csv"
+    date_col: "First Operational Date"
+    entity_col: "Country"
+    entity_clean: country
+    agg: cumcount
+    year_min: 2015
+    year_max: 2025
+    years_window: 15
+    mode: bar_race
+    value_fmt: integer
+    source: "Epoch AI (CC BY)"
+    mood: majestic
+    hashtags: ["ai", "technology", "worldstats"]
+
+  - key: ai_cluster_owners
+    title: "Who Owns the AI Compute?"
+    subtitle: "GPU clusters by operator (cumulative)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/gpu_clusters.csv"
+    date_col: "First Operational Date"
+    entity_col: "Owner"
+    agg: cumcount
+    year_min: 2015
+    year_max: 2025
+    years_window: 15
+    flags: false
+    mode: bar_race
+    value_fmt: integer
+    source: "Epoch AI (CC BY)"
+    mood: lofi
+    hashtags: ["ai", "nvidia", "technology"]
+
+  - key: ai_datacenter_power
+    title: "AI's Power Appetite"
+    subtitle: "Total GPU cluster capacity (MW)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/gpu_clusters.csv"
+    date_col: "First Operational Date"
+    value_col: "Power Capacity (MW)"
+    entity_label: "All clusters"
+    agg: cumsum
+    year_min: 2015
+    year_max: 2025
+    years_window: 15
+    mode: line_grow
+    unit_suffix: " MW"
+    source: "Epoch AI (CC BY)"
+    mood: reflective
+    hashtags: ["ai", "energy", "datacenter"]
+
+  - key: ai_chip_speed
+    title: "How Fast AI Chips Got"
+    subtitle: "Peak FP16 performance (FLOP/s)"
+    fetcher: csv_url
+    url: "https://epoch.ai/data/ml_hardware.zip"
+    zip_member: "ml_hardware.csv"
+    date_col: "Release date"
+    value_col: "Tensor-FP16/BF16 performance (FLOP/s)"
+    entity_label: "Fastest chip"
+    agg: cummax
+    year_min: 2010
+    year_max: 2025
+    years_window: 20
+    mode: line_grow
+    log_scale: true
+    value_fmt: scientific
+    source: "Epoch AI (CC BY)"
+    mood: hopeful
+    hashtags: ["ai", "gpu", "technology"]
+
+  # ===================== INDIA IN DATA PILLAR =====================
+  # Keys prefixed `india_` land in the `india_in_data` series/playlist.
+  # `mode: line_multi` + `entities:` renders a head-to-head race of named
+  # countries (the lines literally cross when one overtakes the other).
+  # Plan for the full run: docs/SERIES_india_in_data.md
+
+  - key: india_vs_china_population
+    title: "India Overtakes China"
+    subtitle: "Population, head to head"
+    fetcher: worldbank
+    code: SP.POP.TOTL
+    mode: line_multi
+    entities: ["India", "China"]
+    years_window: 50
+    source: "World Bank"
+    value_scale: 1000000000
+    unit_suffix: "B"
+    value_decimals: 2
+    mood: majestic
+    hashtags: ["india", "china", "population"]
+
+  - key: india_vs_china_gdp
+    title: "India vs China"
+    subtitle: "The economy, head to head"
+    fetcher: worldbank
+    code: NY.GDP.MKTP.CD
+    mode: line_multi
+    entities: ["India", "China"]
+    years_window: 50
+    source: "World Bank"
+    value_scale: 1000000000000
+    unit_suffix: "T"
+    mood: reflective
+    hashtags: ["india", "china", "economy"]
+
+  - key: india_vs_china_life
+    title: "Who Lives Longer?"
+    subtitle: "India vs China, life expectancy"
+    fetcher: owid
+    slug: life-expectancy
+    mode: line_multi
+    entities: ["India", "China"]
+    years_window: 50
+    source: "Our World in Data"
+    unit_suffix: " yrs"
+    mood: calm
+    hashtags: ["india", "china", "health"]
+
+  - key: india_vs_china_internet
+    title: "Getting Online"
+    subtitle: "India vs China, internet users"
+    fetcher: worldbank
+    code: IT.NET.USER.ZS
+    mode: line_multi
+    entities: ["India", "China"]
+    years_window: 35
+    source: "World Bank"
+    unit_suffix: "%"
+    mood: hopeful
+    hashtags: ["india", "china", "internet"]
+
+  - key: india_gdp
+    title: "India's Economy"
+    subtitle: "50 years in 30 seconds"
+    fetcher: worldbank
+    code: NY.GDP.MKTP.CD
+    mode: line_grow
+    entity_filter: "India"
+    years_window: 50
+    source: "World Bank"
+    value_scale: 1000000000000
+    unit_suffix: "T"
+    mood: majestic
+    hashtags: ["india", "economy", "dataviz"]
+
+  - key: india_internet
+    title: "India Got Online"
+    subtitle: "Share of people using the internet"
+    fetcher: worldbank
+    code: IT.NET.USER.ZS
+    mode: line_grow
+    entity_filter: "India"
+    years_window: 35
+    source: "World Bank"
+    unit_suffix: "%"
+    mood: hopeful
+    hashtags: ["india", "internet", "technology"]
+
+  - key: india_mobile
+    title: "India's Mobile Revolution"
+    subtitle: "Mobile subscriptions"
+    fetcher: worldbank
+    code: IT.CEL.SETS
+    mode: line_grow
+    entity_filter: "India"
+    years_window: 40
+    source: "World Bank"
+    value_scale: 1000000
+    unit_suffix: "M"
+    mood: hopeful
+    hashtags: ["india", "mobile", "technology"]
+
+  - key: india_life
+    title: "India's Life Expectancy"
+    subtitle: "Years at birth"
+    fetcher: owid
+    slug: life-expectancy
+    mode: line_grow
+    entity_filter: "India"
+    years_window: 50
+    source: "Our World in Data"
+    unit_suffix: " yrs"
+    mood: calm
+    hashtags: ["india", "health", "progress"]
+
+  # ===================== HOW CHARTS LIE PILLAR =====================
+  # Keys prefixed `lie_` land in the `charts_lie` series/playlist.
+  # Plan for the full 17-episode run: docs/SERIES_how_charts_lie.md
+
+  - key: lie_truncated_axis
+    title: "Grew 200%… or 2%?"
+    subtitle: "Charts Lie #1"
+    mode: manim
+    scene: lie_truncated_axis
+    source: "Concept explainer"
+    mood: reflective
+    hashtags: ["data", "statistics", "datalliteracy"]
+
+  # ===================== MONEY & COST OF LIVING PILLAR =====================
+  # Keys prefixed `money_` land in the `money` series/playlist.
+
+  - key: money_gdp_per_capita
+    title: "Richest Countries Per Person"
+    subtitle: "GDP per capita (US$)"
+    fetcher: worldbank
+    code: NY.GDP.PCAP.CD
+    mode: bar_race
+    source: "World Bank"
+    value_scale: 1000
+    unit_suffix: "K"
+    hashtags: ["money", "economy", "dataviz"]
+
+  - key: money_inflation
+    title: "Where Prices Rose Fastest"
+    subtitle: "Annual inflation rate (%)"
+    fetcher: worldbank
+    code: FP.CPI.TOTL.ZG
+    mode: bar_race
+    top_n: 10
+    unit_suffix: "%"
+    source: "World Bank"
+    mood: reflective
+    hashtags: ["inflation", "money", "economy"]
+
+  - key: money_unemployment
+    title: "Highest Unemployment"
+    subtitle: "Share of labour force (%)"
+    fetcher: worldbank
+    code: SL.UEM.TOTL.ZS
+    mode: bar_race
+    top_n: 10
+    unit_suffix: "%"
+    source: "World Bank / ILO"
+    mood: reflective
+    hashtags: ["jobs", "economy", "dataviz"]
+
+  - key: money_inequality
+    title: "Most Unequal Countries"
+    subtitle: "Gini index (higher = more unequal)"
+    fetcher: worldbank
+    code: SI.POV.GINI
+    mode: bar_race
+    top_n: 10
+    source: "World Bank"
+    mood: reflective
+    hashtags: ["inequality", "money", "dataviz"]
+
+  # World Bank republishes UN Tourism (UNWTO) data under CC BY, but has not
+  # refreshed it past 2020 — and 2020 is the pandemic collapse, so an uncapped
+  # race would present crashed COVID numbers as the finishing ranking. Capped at
+  # 2019 for an honest pre-pandemic table; the 2020 cliff deserves its own video.
+  - key: money_tourism_receipts
+    title: "Who Earns the Most From Tourists?"
+    subtitle: "International tourism receipts (US$)"
+    fetcher: worldbank
+    code: ST.INT.RCPT.CD
+    mode: bar_race
+    year_max: 2019
+    value_scale: 1000000000
+    unit_suffix: "B"
+    source: "World Bank / UN Tourism"
+    mood: serene
+    hashtags: ["travel", "money", "tourism"]
+
+  - key: money_remittances
+    title: "Money Sent Home"
+    subtitle: "Remittances received (US$)"
+    fetcher: worldbank
+    code: BX.TRF.PWKR.CD.DT
+    mode: bar_race
+    value_scale: 1000000000
+    unit_suffix: "B"
+    source: "World Bank"
+    mood: calm
+    hashtags: ["money", "migration", "economy"]
+
+  - key: money_poverty
+    title: "Extreme Poverty Is Falling"
+    subtitle: "Share living on under $2.15/day"
+    fetcher: worldbank
+    code: SI.POV.DDAY
+    mode: line_grow
+    unit_suffix: "%"
+    source: "World Bank"
+    mood: hopeful
+    hashtags: ["poverty", "progress", "dataviz"]
+
+  - key: money_spending
+    title: "Who Spends the Most?"
+    subtitle: "Household consumption per person"
+    fetcher: worldbank
+    code: NE.CON.PRVT.PC.KD
+    mode: bar_race
+    value_scale: 1000
+    unit_suffix: "K"
+    source: "World Bank"
+    hashtags: ["money", "spending", "economy"]
+
+  # ---------- ML BASICS series (narrated with Edge neural TTS) ----------
+  - key: ml_what_is
+    title: "What Is Machine Learning?"
+    subtitle: "ML Basics #1"
+    mode: manim
+    scene: ml_what_is
+    source: "Concept explainer"
+    mood: hopeful
+    hashtags: ["machinelearning", "ai", "learnai"]
+
+  - key: ml_overfitting
+    title: "Overfitting"
+    subtitle: "ML Basics #2"
+    mode: manim
+    scene: ml_overfitting
+    source: "Concept explainer"
+    mood: calm
+    hashtags: ["machinelearning", "datascience", "learnai"]
+
+  - key: ml_train_test
+    title: "Train / Test Split"
+    subtitle: "ML Basics #3"
+    mode: manim
+    scene: ml_train_test
+    source: "Concept explainer"
+    mood: calm
+    hashtags: ["machinelearning", "datascience", "learnai"]
+
+  - key: ml_features_labels
+    title: "Features & Labels"
+    subtitle: "ML Basics #4"
+    mode: manim
+    scene: ml_features_labels
+    source: "Concept explainer"
+    mood: calm
+    hashtags: ["machinelearning", "datascience", "learnai"]
+
+  - key: ml_supervised
+    title: "Supervised vs Unsupervised"
+    subtitle: "ML Basics #5"
+    mode: manim
+    scene: ml_supervised
+    source: "Concept explainer"
+    mood: hopeful
+    hashtags: ["machinelearning", "ai", "learnai"]
+
+  - key: ml_class_vs_reg
+    title: "Classification vs Regression"
+    subtitle: "ML Basics #6"
+    mode: manim
+    scene: ml_class_vs_reg
+    source: "Concept explainer"
+    mood: calm
+    hashtags: ["machinelearning", "datascience", "learnai"]
+
+  - key: ml_loss
+    title: "The Loss Function"
+    subtitle: "ML Basics #7"
+    mode: manim
+    scene: ml_loss
+    source: "Concept explainer"
+    mood: hopeful
+    hashtags: ["machinelearning", "ai", "learnai"]
+
+  - key: ml_train_infer
+    title: "Training vs Inference"
+    subtitle: "ML Basics #8"
+    mode: manim
+    scene: ml_train_infer
+    source: "Concept explainer"
+    mood: lofi
+    hashtags: ["machinelearning", "ai", "learnai"]
+
+  - key: ml_bias_variance
+    title: "Bias vs Variance"
+    subtitle: "ML Basics #9"
+    mode: manim
+    scene: ml_bias_variance
+    source: "Concept explainer"
+    mood: calm
+    hashtags: ["machinelearning", "datascience", "learnai"]
+
+  - key: ml_accuracy_lies
+    title: "Why Accuracy Lies"
+    subtitle: "ML Basics #10"
+    mode: manim
+    scene: ml_accuracy_lies
+    source: "Concept explainer"
+    mood: reflective
+    hashtags: ["machinelearning", "datascience", "learnai"]
+
+  # ===================== SPORTS PILLAR =====================
+  # Keys prefixed `cricket_` or `football_` land in the `sports` series —
+  # one "Sports in Data" playlist for both, split later if the pillar grows.
+  # Cricsheet is ODC-BY: attribution is REQUIRED, hence the `source` string —
+  # it is carried into every description by caption.build_description.
+  #
+  # Coverage note: Cricsheet's archive runs 2002-present — ODIs have been played
+  # since 1971, so this is NOT an all-time table and the copy must not imply it.
+  # No `year_min`: `cumcount` totals are computed before `_clip_years`, so
+  # trimming the start year would keep 2002's matches in the running totals while
+  # the title claimed otherwise. Letting it start at 2002 keeps title, subtitle
+  # and numbers all telling the same story.
+  - key: cricket_odi_wins
+    title: "Who Wins the Most ODIs?"
+    subtitle: "Cumulative wins since 2002"
+    fetcher: cricsheet
+    url: "https://cricsheet.org/downloads/odis_male_csv2.zip"
+    agg: cumcount
+    mode: bar_race
+    top_n: 12
+    source: "Cricsheet (ODC-BY)"
+    mood: majestic
+    hashtags: ["cricket", "odi", "sports"]
+
+  # T20 internationals began in 2005 and Cricsheet covers the format from the
+  # start, so unlike the ODI table this one IS all-time and the copy can say so.
+  - key: cricket_t20_wins
+    title: "Who Wins the Most T20s?"
+    subtitle: "All-time T20 international wins"
+    fetcher: cricsheet
+    url: "https://cricsheet.org/downloads/t20s_male_csv2.zip"
+    agg: cumcount
+    mode: bar_race
+    top_n: 12
+    value_fmt: integer
+    source: "Cricsheet (ODC-BY)"
+    mood: hopeful
+    hashtags: ["cricket", "t20", "sports"]
+
+  # IPL started in 2008; Cricsheet has every season. Franchise teams, not
+  # countries, so no flags. Renamed franchises are merged under their current
+  # name (Deccan Chargers stays separate from Sunrisers — different franchise).
+  - key: cricket_ipl_wins
+    title: "IPL's Winningest Teams"
+    subtitle: "All-time match wins"
+    fetcher: cricsheet
+    url: "https://cricsheet.org/downloads/ipl_male_csv2.zip"
+    agg: cumcount
+    entity_map:
+      "Royal Challengers Bangalore": "Royal Challengers Bengaluru"
+      "Kings XI Punjab": "Punjab Kings"
+      "Delhi Daredevils": "Delhi Capitals"
+      "Rising Pune Supergiants": "Rising Pune Supergiant"
+    mode: bar_race
+    top_n: 10
+    flags: false
+    value_fmt: integer
+    source: "Cricsheet (ODC-BY)"
+    mood: lofi
+    hashtags: ["ipl", "cricket", "india"]
+
+  # Football topics are curated snapshots built by scripts/curate_football.py
+  # from martj42/international_results (CC0) — re-run it to refresh. The raw
+  # data has no winner column, so the csv_url fetcher can't race it directly.
+  - key: football_intl_wins
+    title: "Most Football Wins Ever"
+    subtitle: "International match wins since 1872"
+    fetcher: curated_csv
+    file: football_wins.csv
+    mode: bar_race
+    top_n: 12
+    years_window: 160
+    value_fmt: integer
+    source: "martj42/international_results (CC0)"
+    mood: majestic
+    hashtags: ["football", "soccer", "sports"]
+
+  - key: football_goals
+    title: "Most International Goals"
+    subtitle: "Goals scored since 1872"
+    fetcher: curated_csv
+    file: football_goals.csv
+    mode: bar_race
+    top_n: 12
+    years_window: 160
+    value_fmt: integer
+    source: "martj42/international_results (CC0)"
+    mood: hopeful
+    hashtags: ["football", "goals", "sports"]
+
+  # Hand-curated: every FIFA World Cup winner 1930-2022, West Germany counted
+  # as Germany (the standard convention for title tallies).
+  - key: football_world_cup
+    title: "Most World Cup Titles"
+    subtitle: "FIFA World Cup wins, 1930–2022"
+    fetcher: curated_csv
+    file: football_world_cup.csv
+    mode: bar_race
+    top_n: 10
+    years_window: 100
+    value_fmt: integer
+    source: "FIFA (public record, curated)"
+    mood: majestic
+    hashtags: ["worldcup", "football", "sports"]
+
+  # ------- DBnomics example (universal aggregator) -------
+  # DBnomics needs a valid series URL. This one is a template you can swap.
+  # Find series at https://db.nomics.world then copy the API URL here.
+  # - key: films
+  #   title: "Feature Films Produced"
+  #   fetcher: dbnomics
+  #   series_url: "https://api.db.nomics.world/v22/series/UNESCO/FILM?observations=1&dimensions=..."
+  #   mode: bar_race
+  #   source: "UNESCO via DBnomics"
+
+
+
+  # added via dashboard 2026-08-27
+  - key: "cricket_test_wins"
+    title: "Who Wins the Most Test Matches?"
+    subtitle: "Cumulative Test wins"
+    fetcher: "cricsheet"
+    url: "https://cricsheet.org/downloads/tests_male_csv2.zip"
+    mode: "bar_race"
+    series: "sports"
+    source: "Cricsheet (ODC-BY)"
+    top_n: 10
+    mood: "majestic"
+    hashtags: ["cricket", "testcricket", "sports"]
+
+  # added via dashboard 2026-08-27
+  - key: "cricket_women_odi_wins"
+    title: "Who Wins the Most Women's ODIs?"
+    subtitle: "Cumulative wins"
+    fetcher: "cricsheet"
+    url: "https://cricsheet.org/downloads/odis_female_csv2.zip"
+    mode: "bar_race"
+    series: "sports"
+    source: "Cricsheet (ODC-BY)"
+    top_n: 10
+    mood: "majestic"
+    hashtags: ["cricket", "womenscricket", "sports"]
+
+
+  # added via dashboard 2026-08-29
+  - key: "lie_inverted_axis"
+    title: "The Chart That Was Upside Down"
+    subtitle: "Charts Lie #2"
+    mode: "manim"
+    scene: "lie_inverted_axis"
+    series: "charts_lie"
+    source: "Concept explainer"
+    mood: "reflective"
+    hashtags: ["data", "statistics", "dataliteracy"]
