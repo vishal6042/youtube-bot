@@ -3,7 +3,8 @@ import YouTubeIcon from "./YouTubeIcon.jsx";
 import { STATE_CHIP } from "../api.js";
 
 export default function EpisodeRow({ it, queueRank, working, onMark, onOpen, onRender, onLink, onWatch }) {
-  const [cls, label] = STATE_CHIP[it.state];
+  // Unknown states must degrade to a chip, never crash the whole page.
+  const [cls, label] = STATE_CHIP[it.state] || ["chip-missing", (it.state || "?").toUpperCase()];
   return (
     <div className="pl-row">
       <span className="ep">{String(it.episode).padStart(2, "0")}</span>

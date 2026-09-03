@@ -101,3 +101,46 @@ CREATE TABLE IF NOT EXISTS api_quota (
     uploads    integer NOT NULL DEFAULT 0,
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Channel & playlist copy (moved off data/brand.json 2026-09-04). One row of
+-- channel identity, one row per playlist. yt_* columns remember what YouTube
+-- last reported so the dashboard can show a local-vs-live diff and push edits.
+CREATE TABLE IF NOT EXISTS brand_channel (
+    id           smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    tagline      text NOT NULL DEFAULT '',
+    description  text NOT NULL DEFAULT '',
+    updated_at   timestamptz NOT NULL DEFAULT now(),
+    yt_synced_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS brand_playlist (
+    series         text PRIMARY KEY,
+    name           text NOT NULL,
+    description    text NOT NULL DEFAULT '',
+    created        boolean NOT NULL DEFAULT false,
+    yt_playlist_id text,
+    updated_at     timestamptz NOT NULL DEFAULT now(),
+    yt_synced_at   timestamptz
+);
+
+-- Live counts pulled from the YouTube Data API (videos.list / channels.list —
+-- ~1 unit per 50 videos, so a full sync costs almost nothing). Snapshots, not
+-- upserts: history is cheap and shows growth between analytics exports.
+CREATE TABLE IF NOT EXISTS channel_stats_live (
+    fetched_at  timestamptz PRIMARY KEY DEFAULT now(),
+    subscribers bigint,
+    views       bigint,
+    video_count integer
+);
+
+CREATE TABLE IF NOT EXISTS video_stats_live (
+    video_id       text NOT NULL,
+    fetched_at     timestamptz NOT NULL DEFAULT now(),
+    views          bigint,
+    likes          bigint,
+    comments       integer,
+    privacy_status text,
+    PRIMARY KEY (video_id, fetched_at)
+);
+CREATE INDEX IF NOT EXISTS video_stats_live_latest_idx
+    ON video_stats_live (video_id, fetched_at DESC);

@@ -428,8 +428,11 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
                         annotation_clip=False, zorder=6)
 
         yr = int(round(float(curves[entities[0]][0][n - 1])))
-        ax.text(0.99, 1.03, str(yr), transform=ax.transAxes, ha="right", va="bottom",
-                color=FG, fontsize=44, fontweight="bold", alpha=0.9)
+        # Ghosted watermark year inside the plot, matching line_grow/line_multi;
+        # above the axes it collides with the subtitle (axes stop at right=0.72).
+        ax.text(0.98, 0.05, str(yr), transform=ax.transAxes, ha="right",
+                va="bottom", color=ACCENT, alpha=0.30, fontsize=64,
+                fontweight="bold", zorder=1)
         _progress_bar(ax, n / n_pts)
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)

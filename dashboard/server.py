@@ -54,7 +54,6 @@ from graph_bot.queue import (  # noqa: E402
     load_log,
     next_up,
     playlist_of,
-    write_report,
 )
 
 LOG_TAIL_PERSISTED = 120  # lines of log kept per finished job on disk
@@ -407,7 +406,9 @@ def _series_payload() -> dict[str, Any]:
 
     picks = []
     for p in next_up(by_series, 60):
-        series = topic_series({"key": p["key"]})
+        # next_up carries the true series; deriving from the key alone loses
+        # explicit `series:` fields (fallback path only).
+        series = p.get("series") or topic_series({"key": p["key"]})
         name, exists = playlist_of(series)
         item = by_key.get(p["key"], {})
         meta = meta_by_key.get(p["key"], {})
@@ -476,7 +477,6 @@ def api_playlist_created(req: PlaylistCreatedReq) -> dict[str, Any]:
     )
     entry["created"] = bool(req.created)
     save_brand(data)
-    _refresh_queue_md()
     return {"ok": True, "series": req.series, "created": req.created}
 
 
@@ -816,29 +816,12 @@ class MarkReq(BaseModel):
     url: str | None = None
 
 
-def _refresh_queue_md() -> None:
-    """Regenerate UPLOAD_QUEUE.md off the request path.
-
-    data/upload_log.json is the source of truth; the markdown is a rendered
-    view of it for reading outside the dashboard. Writing it synchronously
-    made every mark wait on a full re-scan, so it happens in the background.
-    """
-    def run() -> None:
-        try:
-            write_report(build_status())
-        except Exception as exc:  # never let a report write break a mark
-            print(f"UPLOAD_QUEUE.md refresh failed: {exc}")
-
-    threading.Thread(target=run, daemon=True).start()
-
-
 @app.post("/api/mark")
 def api_mark(req: MarkReq) -> dict[str, Any]:
     valid = {t["key"] for t in load_topics()}
     if req.key not in valid:
         raise HTTPException(400, f"Unknown topic: {req.key}")
     store.mark_uploaded(req.key, req.url, _now())
-    _refresh_queue_md()
     return {"ok": True}
 
 
@@ -880,7 +863,6 @@ def api_discard(req: DiscardReq) -> dict[str, Any]:
     )
     # Drop it out of any saved manual order so ranks stay contiguous.
     store.remove_from_order(req.key)
-    _refresh_queue_md()
     return {"ok": True, "key": req.key, "moved_to": moved_to}
 
 
@@ -897,14 +879,12 @@ def api_discard_restore(req: DiscardReq) -> dict[str, Any]:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(src), str(dest))
 
-    _refresh_queue_md()
     return {"ok": True, "key": req.key}
 
 
 @app.post("/api/unmark")
 def api_unmark(req: MarkReq) -> dict[str, Any]:
-    if store.unmark(req.key):
-        _refresh_queue_md()
+    store.unmark(req.key)
     return {"ok": True}
 
 
@@ -932,21 +912,24 @@ def _role_of(name: str) -> tuple[str, str]:
 
 
 def load_brand() -> dict[str, Any]:
+    """Brand copy from the brand_channel/brand_playlist tables.
+
+    data/brand.json is only the read fallback for when the database is down
+    (stale beats broken); nothing writes it any more.
+    """
     data: dict[str, Any] = {"channel": {"description": "", "tagline": ""}, "playlists": {}}
-    if BRAND_JSON.exists():
-        try:
-            data.update(json.loads(BRAND_JSON.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+    try:
+        data = store.brand_load()
+    except Exception:
+        if BRAND_JSON.exists():
+            try:
+                data.update(json.loads(BRAND_JSON.read_text(encoding="utf-8")))
+            except Exception:
+                pass
     # Seed any playlist that has no saved copy yet.
     for series, (name, _) in PLAYLISTS.items():
         data["playlists"].setdefault(series, {"name": name, "description": ""})
     return data
-
-
-def save_brand(data: dict[str, Any]) -> None:
-    BRAND_JSON.parent.mkdir(parents=True, exist_ok=True)
-    BRAND_JSON.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def _image_info(path: Path) -> dict[str, Any]:
@@ -995,15 +978,103 @@ class SettingsReq(BaseModel):
 
 @app.post("/api/settings")
 def api_settings_save(req: SettingsReq) -> dict[str, Any]:
-    data = load_brand()
     if req.channel:
-        data["channel"].update(req.channel)
+        store.brand_save_channel(req.channel.get("tagline"),
+                                 req.channel.get("description"))
     if req.playlists:
         for series, vals in req.playlists.items():
-            data["playlists"].setdefault(series, {"name": series, "description": ""})
-            data["playlists"][series].update(vals)
-    save_brand(data)
+            store.brand_save_playlist(
+                series, vals.get("name"), vals.get("description"),
+                vals.get("created") if "created" in vals else None)
     return {"ok": True}
+
+
+# --------------------------------------------------------------------------- #
+# YouTube sync: pull live channel/playlist/video state, push local edits
+# --------------------------------------------------------------------------- #
+@app.post("/api/yt/sync")
+def api_yt_sync() -> dict[str, Any]:
+    """Pull from YouTube (~4 quota units) and return a local-vs-live diff."""
+    from graph_bot.publish import channel_sync
+    from graph_bot.publish.auth import AuthError
+
+    try:
+        remote = channel_sync.pull()
+        d = channel_sync.diff(remote)
+    except AuthError as exc:
+        raise HTTPException(400, str(exc))
+    return {
+        "channel": {**remote["channel"], **d["channel"]},
+        "playlists": d["playlists"],
+        "videos": remote["videos"],
+        "private": remote["private"],
+        "adopted": remote["adopted"],
+        "units_spent": remote["units_spent"],
+        "fetched_at": store.now(),
+    }
+
+
+class YtPushReq(BaseModel):
+    channel: bool = False
+    playlists: list[str] = []
+
+
+@app.post("/api/yt/push")
+def api_yt_push(req: YtPushReq) -> dict[str, Any]:
+    """Apply confirmed local edits to YouTube (50 quota units per item)."""
+    from graph_bot.publish import channel_sync
+    from graph_bot.publish.auth import AuthError
+
+    if not req.channel and not req.playlists:
+        raise HTTPException(400, "Nothing selected to push")
+    try:
+        result = channel_sync.push(req.channel, req.playlists)
+    except AuthError as exc:
+        raise HTTPException(400, str(exc))
+    return result
+
+
+@app.post("/api/queue/ai-review")
+def api_queue_ai_review() -> dict[str, Any]:
+    """Review of the formula-ranked top picks, fully local and free: rule
+    checks always (stale series, long titles, repeated hooks, pending Private
+    flips), plus judgment from the Ollama model in OLLAMA_MODEL when the local
+    server is up — rules stand alone when it isn't. graph_bot/ai_review.py
+    holds a dormant Claude-API version if hosted-model quality is ever wanted."""
+    from graph_bot.queue_review import review
+
+    state = api_state()
+    picks = [p for p in state["next_up"] if not p.get("blocked")][:10]
+    if not picks:
+        raise HTTPException(400, "Nothing in the queue to review")
+    return review(picks)
+
+
+class AnalyticsSyncReq(BaseModel):
+    days: int = 90
+
+
+@app.post("/api/analytics/sync")
+def api_analytics_sync(req: AnalyticsSyncReq) -> dict[str, Any]:
+    """Pull daily analytics from the YouTube Analytics API (own quota pool,
+    costs the upload pipeline nothing). Impressions/CTR still come only from
+    Studio zip exports — the API does not serve them."""
+    from graph_bot.analytics.api_sync import sync
+    from graph_bot.publish.auth import AuthError
+
+    try:
+        return sync(days=max(7, min(365, req.days)))
+    except AuthError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.get("/api/yt/stats")
+def api_yt_stats() -> dict[str, Any]:
+    """Latest stored snapshots — no quota spent, safe to call on page load."""
+    return {
+        "channel": store.latest_channel_stats(),
+        "videos": store.latest_video_stats(),
+    }
 
 
 @app.get("/api/brand/{name}")
@@ -1447,6 +1518,19 @@ def api_uploads() -> dict[str, Any]:
         except Exception:
             pass
 
+    # Live counts from the last YouTube sync, keyed back to topics by video id.
+    live: dict[str, dict[str, Any]] = {}
+    try:
+        from graph_bot.analytics.importer import VIDEO_ID_RE
+
+        by_id = store.latest_video_stats()
+        for key, entry in log.items():
+            m = VIDEO_ID_RE.search(entry.get("url") or "")
+            if m and m.group(1) in by_id:
+                live[key] = by_id[m.group(1)]
+    except Exception:
+        pass
+
     rows = []
     for t in load_topics():
         key = t["key"]
@@ -1470,6 +1554,7 @@ def api_uploads() -> dict[str, Any]:
             "rendered_on": (meta.get("generated_at") or "")[:10] or None,
             "exported": rel,
             "has_thumb": bool(rel and (PROJECT_ROOT / rel / "thumbnail.jpg").exists()),
+            "live": live.get(key),
         })
 
     rows.sort(key=lambda r: (r["uploaded_at"] or ""), reverse=True)
@@ -1490,7 +1575,6 @@ def api_upload_link(req: LinkReq) -> dict[str, Any]:
     """Set or clear the YouTube link on an already-uploaded topic."""
     if not store.set_link(req.key, req.url):
         raise HTTPException(404, f"'{req.key}' is not marked uploaded")
-    _refresh_queue_md()
     return {"ok": True}
 
 

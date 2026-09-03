@@ -2,7 +2,8 @@
 
 Uploads are manual (the YouTube API locks API-uploaded videos to Private), so the
 pipeline cannot know what actually went live. This keeps a small log you update
-as you post, and regenerates a human-readable UPLOAD_QUEUE.md.
+as you post. All state lives in Postgres (graph_bot.store); the dashboard is the
+human-readable view — the old UPLOAD_QUEUE.md render was removed 2026-09-04.
 
 Usage:
     python -m graph_bot.queue status                 # print + refresh the file
@@ -29,8 +30,6 @@ from .config import (
     topic_series,
 )
 
-QUEUE_MD = PROJECT_ROOT / "UPLOAD_QUEUE.md"
-
 # Order series appear in the report.
 SERIES_ORDER = ["india_in_data", "ml_concept", "world_in_data",
                 "money", "ai_trends", "charts_lie", "sports"]
@@ -48,26 +47,30 @@ PLAYLISTS: dict[str, tuple[str, bool]] = {
 }
 
 
-# The dashboard writes playlist name / "created on YouTube" overrides here, so
-# both the CLI report and the UI agree on which playlists actually exist.
+# Playlist name / "created on YouTube" overrides live in the brand_playlist
+# table (moved off data/brand.json 2026-09-04), so both the CLI report and the
+# UI agree on which playlists actually exist. The JSON file remains a read-only
+# fallback for when the database is down — stale beats broken.
 BRAND_JSON = PROJECT_ROOT / "data" / "brand.json"
-_BRAND_CACHE: dict[str, Any] = {"stamp": None, "data": {}}
+_BRAND_CACHE: dict[str, Any] = {"at": 0.0, "data": {}}
 
 
 def _playlist_overrides() -> dict[str, Any]:
+    import time
+    if time.time() - _BRAND_CACHE["at"] < 5.0:
+        return _BRAND_CACHE["data"]
     try:
-        st = BRAND_JSON.stat()
-        stamp = (st.st_mtime_ns, st.st_size)
-    except OSError:
-        return {}
-    if _BRAND_CACHE["stamp"] != stamp:
+        from . import store
+
+        data = store.brand_load().get("playlists", {}) or {}
+    except Exception:
         try:
-            data = json.loads(BRAND_JSON.read_text(encoding="utf-8"))
-            _BRAND_CACHE["data"] = data.get("playlists", {}) or {}
+            raw = json.loads(BRAND_JSON.read_text(encoding="utf-8"))
+            data = raw.get("playlists", {}) or {}
         except Exception:
-            _BRAND_CACHE["data"] = {}
-        _BRAND_CACHE["stamp"] = stamp
-    return _BRAND_CACHE["data"]
+            return _BRAND_CACHE["data"]
+    _BRAND_CACHE.update(at=time.time(), data=data)
+    return data
 
 
 def playlist_of(series: str) -> tuple[str, bool]:
@@ -79,30 +82,10 @@ def playlist_of(series: str) -> tuple[str, bool]:
         exists = bool(override["created"])
     return name, exists
 
-# Wave 3, re-cut 2026-08-27 against the 2026-05-29..08-27 export
-# (49 videos, 20.6k views, +72 subs, 2.52% channel CTR).
-#
-#   pillar          n   med views   med v/day   %viewed   CTR      subs/1k
-#   sports          2         849       609.1       23%   4.37%       0.00
-#   world_in_data   8         603        75.2       25%   3.21%       0.32
-#   ai_trends      12         362        27.1       30%   2.52%       0.38
-#   money           8         251        26.1       26%   1.99%       0.00
-#   india_in_data   7         189        48.8       17%   2.21%       0.99
-#   ml_concept     10          52         2.7       22%   1.23%       4.10
-#
-# Sports is the breakout: 4.37% CTR against a 2.52% channel average, and
-# "Most World Cup Titles" took 1,058 views on day one. Only two are live, so
-# the sample is thin, but CTR that far above the channel is a real signal, not
-# a launch spike. Sports therefore leads this wave.
-#
-# ML Concepts inverts the usual trade-off: worst reach (52 median views, 1.23%
-# CTR) but by far the best subscriber conversion at 4.10 subs per 1,000 views,
-# 4-12x every other pillar. It earns its place as an occasional release, not as
-# a reach play — and its 32s median length is the main thing holding it back.
-#
-# Length still matters and is partly confounded with pillar: <=10s videos hold
-# 33.8% viewed at 642 median views, while 30s+ collapses to 21.2% and 52 views.
-# Anything over ~30s should be re-cut before posting.
+# FALLBACK ONLY: the recommended order is now computed live from the analytics
+# warehouse (see next_up / _series_scores). This hand-written list from the
+# 2026-08-27 wave-3 analysis is used solely when the database is unreachable —
+# a stale ranking beats no ranking, but nothing should be added here.
 RECOMMENDED: list[tuple[str, str]] = [
     ("cricket_odi_wins", "Sports leads on CTR (4.4% vs 2.5%) — India rivalry drives comments"),
     ("meat", "World in Data is the workhorse: 603 median views at 3.2% CTR"),
@@ -231,16 +214,165 @@ def _state(entry: dict[str, Any]) -> tuple[str, str]:
 
 
 # --------------------------------------------------------------------------- #
+# Analytics-driven ranking
+# --------------------------------------------------------------------------- #
+# Scores come from the warehouse (video_daily view, filled by both the zip
+# importer and the Analytics API sync), so the queue reorders itself whenever
+# analytics are pulled. Deliberately a plain formula, not a model: it reruns on
+# the hot /api/state path, and every rank must be explainable from the reason
+# string alone.
+#
+# Measured facts the formula encodes (wave-3 analysis, still re-verified by the
+# live numbers): median views/day is the fairest series signal (a median so one
+# breakout can't carry a series), and length is the killer — <=10s videos held
+# a 642 median while 30s+ collapsed to 52.
+_RANK_CACHE: dict[str, Any] = {"at": 0.0, "scores": None, "channel": 1.0}
+_DUR_CACHE: dict[str, Any] = {"at": 0.0, "data": {}}
+
+
+def _series_scores(max_age: float = 60.0) -> tuple[dict[str, dict[str, Any]] | None, float]:
+    """series -> {vpd, n} (median views/day-live per series) + channel median.
+
+    Returns (None, _) when the warehouse is unreachable or empty, which sends
+    next_up down the static-fallback path.
+    """
+    import time
+    if time.time() - _RANK_CACHE["at"] < max_age:
+        return _RANK_CACHE["scores"], _RANK_CACHE["channel"]
+    try:
+        from .db import connect
+
+        with connect() as conn:
+            rows = conn.execute(
+                """
+                WITH per_video AS (
+                    SELECT series,
+                           sum(views)::float / GREATEST(
+                               COALESCE(max(day) - min(published_at),
+                                        max(day) - min(day)) + 1, 1) AS vpd
+                    FROM video_daily
+                    WHERE series IS NOT NULL
+                    GROUP BY series, video_id
+                )
+                SELECT series,
+                       percentile_cont(0.5) WITHIN GROUP (ORDER BY vpd) AS median_vpd,
+                       count(*) AS n
+                FROM per_video
+                GROUP BY series
+                """
+            ).fetchall()
+        scores = {s: {"vpd": float(v), "n": int(n)} for s, v, n in rows if v is not None}
+        if not scores:
+            return _RANK_CACHE["scores"], _RANK_CACHE["channel"]
+        medians = sorted(x["vpd"] for x in scores.values())
+        channel = medians[len(medians) // 2]
+    except Exception:
+        # DB down: serve whatever we had (possibly None on a cold start).
+        return _RANK_CACHE["scores"], _RANK_CACHE["channel"]
+    _RANK_CACHE.update(at=time.time(), scores=scores, channel=channel)
+    return scores, channel
+
+
+def _export_durations(max_age: float = 60.0) -> dict[str, float]:
+    """key -> duration_sec from the latest render's metadata.json."""
+    import time
+    if time.time() - _DUR_CACHE["at"] < max_age:
+        return _DUR_CACHE["data"]
+    latest: dict[str, Path] = {}
+    out = resolve_path(load_settings(), "output")
+    for p in sorted(out.glob("*/*/metadata.json")):  # date order, later wins
+        latest[p.parent.name] = p
+    data: dict[str, float] = {}
+    for key, path in latest.items():
+        try:
+            dur = json.loads(path.read_text(encoding="utf-8")).get("duration_sec")
+            if dur:
+                data[key] = float(dur)
+        except Exception:
+            pass
+    _DUR_CACHE.update(at=time.time(), data=data)
+    return data
+
+
+# --------------------------------------------------------------------------- #
 # Report
 # --------------------------------------------------------------------------- #
 def next_up(by_series: dict[str, list[dict[str, Any]]], count: int = 10) -> list[dict[str, Any]]:
-    """The recommended upload order: curated picks first, then anything else ready."""
+    """The recommended upload order, ranked live from the analytics warehouse.
+
+    Series momentum (median views/day of its live videos) carries the ranking;
+    30s+ videos are demoted hard; a series never takes more than two consecutive
+    slots; and episodes within a series always post in order.
+    """
     everything = {e["key"]: e for items in by_series.values() for e in items}
     ready = {
         k: e for k, e in everything.items()
         if not e["uploaded"] and e["exported"] and not e.get("discarded")
     }
+    if not ready:
+        return []
 
+    scores, channel_median = _series_scores()
+    if not scores:
+        return _next_up_fallback(ready, count)
+
+    durations = _export_durations()
+
+    # Group by the series each entry actually came from — re-deriving it from
+    # the key alone loses explicit `series:` fields (rank_inflation is money,
+    # not world_in_data).
+    per_series: dict[str, list[dict[str, Any]]] = {}
+    for series, items in by_series.items():
+        for entry in items:
+            if entry["key"] in ready:
+                per_series.setdefault(series, []).append(entry)
+    for items in per_series.values():
+        items.sort(key=lambda e: e["episode"] or 0)  # episodes post in order
+
+    def item_score(series: str, entry: dict[str, Any]) -> float:
+        base = scores.get(series, {}).get("vpd", channel_median)
+        dur = durations.get(entry["key"])
+        if dur and dur >= 30:
+            return base * 0.15
+        if dur and dur > 15:
+            return base * 0.7
+        return base
+
+    def reason_for(series: str, entry: dict[str, Any]) -> str:
+        stat = scores.get(series)
+        name, _ = playlist_of(series)
+        dur = durations.get(entry["key"])
+        if stat:
+            r = f"{name}: {stat['vpd']:.0f} views/day median across {stat['n']} live videos"
+        else:
+            r = f"{name}: new series with no uploads yet — worth exploring"
+        if dur and dur >= 30:
+            r += (f" · ⚠ {dur:.0f}s — 30s+ videos median ~52 views vs 642 for ≤10s;"
+                  " consider a re-cut")
+        elif dur:
+            r += f" · {dur:.0f}s"
+        return r
+
+    picks: list[dict[str, Any]] = []
+    recent: list[str] = []
+    while per_series and len(picks) < count:
+        # A series may not take three consecutive slots, unless it is all
+        # that's left — spacing demotes, it never blocks.
+        allowed = [s for s in per_series if recent[-2:].count(s) < 2]
+        pool = allowed or list(per_series)
+        best = max(pool, key=lambda s: item_score(s, per_series[s][0]))
+        entry = per_series[best].pop(0)
+        if not per_series[best]:
+            del per_series[best]
+        # Carry the TRUE series: re-deriving it downstream from the key alone
+        # loses explicit `series:` fields (rank_inflation is money, not world).
+        picks.append({**entry, "series": best, "reason": reason_for(best, entry)})
+        recent.append(best)
+    return picks
+
+
+def _next_up_fallback(ready: dict[str, dict[str, Any]], count: int) -> list[dict[str, Any]]:
+    """Database-down path: the last hand-curated order, then anything ready."""
     picks: list[dict[str, Any]] = []
     for key, reason in RECOMMENDED:
         entry = ready.get(key)
@@ -259,24 +391,7 @@ def next_up(by_series: dict[str, list[dict[str, Any]]], count: int = 10) -> list
     return picks
 
 
-def write_report(by_series: dict[str, list[dict[str, Any]]]) -> str:
-    today = dt.date.today().isoformat()
-    lines = [
-        "# Upload queue — Data in Motion",
-        "",
-        f"_Last refreshed {today} · `python -m graph_bot.queue status`_",
-        "",
-        "✅ uploaded  ⏳ ready to upload  🗑 discarded  🎬 rendered, not exported  ⬜ not made yet",
-        "",
-    ]
-
-    total = sum(len(v) for v in by_series.values())
-    done = sum(1 for v in by_series.values() for e in v if e["uploaded"])
-    ready = sum(1 for v in by_series.values() for e in v
-                if not e["uploaded"] and e["exported"] and not e.get("discarded"))
-    lines += [f"**{done} uploaded · {ready} ready to upload · {total} topics total**", ""]
-
-    # ---- what to upload next ----
+# ---- what to upload next ----
     picks = next_up(by_series, 10)
     if picks:
         lines += [
@@ -284,8 +399,9 @@ def write_report(by_series: dict[str, list[dict[str, Any]]]) -> str:
             "",
             "## 🎯 Upload next — recommended order",
             "",
-            "_Ranked on how the channel is actually performing: money topics and"
-            " counter-intuitive rankings first, technical topics later._",
+            "_Ranked live from the analytics warehouse: series views/day medians"
+            " carry the order, 30s+ videos are demoted. Re-syncs with every"
+            " analytics pull._",
             "",
             "| ▶ | Title | Add to playlist | Why | Folder |",
             "|---|---|---|---|---|",
@@ -342,7 +458,6 @@ def write_report(by_series: dict[str, list[dict[str, Any]]]) -> str:
 # --------------------------------------------------------------------------- #
 def cmd_status(_: argparse.Namespace) -> None:
     by_series = build_status()
-    write_report(by_series)
 
     picks = next_up(by_series, 10)
     if picks:
@@ -364,7 +479,6 @@ def cmd_status(_: argparse.Namespace) -> None:
                if not e["uploaded"] and e["exported"] and not e.get("discarded")]
         if nxt:
             print(f"   → next: {nxt[0]['key']}")
-    print(f"\n📄 Written to {QUEUE_MD.relative_to(PROJECT_ROOT)}")
 
 
 def cmd_mark(args: argparse.Namespace) -> None:
@@ -387,12 +501,9 @@ def cmd_mark(args: argparse.Namespace) -> None:
         mark_uploaded(key, args.url if (args.url and len(keys) == 1) else None, now)
         print(f"  ✅ marked uploaded: {key}")
 
-    write_report(build_status())
-
 
 def cmd_unmark(args: argparse.Namespace) -> None:
     if unmark(args.key):
-        write_report(build_status())
         print(f"  ↩️  unmarked: {args.key}")
     else:
         print(f"  (not marked): {args.key}")
@@ -402,7 +513,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Track uploaded videos and the queue.")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_status = sub.add_parser("status", help="Show the queue and refresh UPLOAD_QUEUE.md")
+    p_status = sub.add_parser("status", help="Show the queue")
     p_status.set_defaults(func=cmd_status)
 
     p_mark = sub.add_parser("mark", help="Mark topic(s) as uploaded")

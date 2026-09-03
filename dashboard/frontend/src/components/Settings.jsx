@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Retention from "./Retention.jsx";
+import YouTubeSync from "./YouTubeSync.jsx";
 import { api } from "../api.js";
 
 function ImageCard({ img, onUpload, busy }) {
@@ -131,6 +132,8 @@ export default function Settings({ onBack, toast, confirm }) {
           </button>
         </div>
       </section>
+
+      <YouTubeSync toast={toast} confirm={confirm} />
 
       <section className="panel">
         <div className="panel-title">CHANNEL</div>

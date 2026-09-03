@@ -36,6 +36,19 @@ def cmd_import(args: argparse.Namespace) -> None:
                   f"{' …' if len(r['unmapped']) > 5 else ''}")
 
 
+def cmd_sync(args: argparse.Namespace) -> None:
+    from ..publish.auth import AuthError
+    from .api_sync import sync
+
+    try:
+        r = sync(days=args.days)
+    except AuthError as exc:
+        sys.exit(f"❌ {exc}")
+    lo, hi = r["range"]
+    print(f"📡 {lo} → {hi} · {r['videos']} videos · {r['daily_rows']} daily rows"
+          f" · {r['period_rows']} period rows · {r['channel_days']} channel days")
+
+
 def cmd_status(_: argparse.Namespace) -> None:
     s = status()
     print(f"→ {safe_dsn()}\n")
@@ -64,6 +77,10 @@ def main() -> None:
     p.set_defaults(fn=cmd_import)
 
     sub.add_parser("status", help="what is in the warehouse").set_defaults(fn=cmd_status)
+
+    p = sub.add_parser("sync", help="pull from the YouTube Analytics API (no zip needed)")
+    p.add_argument("--days", type=int, default=90, help="window to fetch (default 90)")
+    p.set_defaults(fn=cmd_sync)
 
     args = ap.parse_args()
     try:

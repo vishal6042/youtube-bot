@@ -149,13 +149,26 @@ function SeriesBars({ rows }) {
   );
 }
 
-export default function Analytics({ onBack, onWatch }) {
+export default function Analytics({ onBack, onWatch, toast }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     api("/api/analytics").then(setData).catch((e) => setErr(e.message));
   }, []);
+
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const r = await api("/api/analytics/sync", { days: 90 });
+      toast?.(`✅ Synced ${r.range[0]} → ${r.range[1]}: ${r.daily_rows} daily rows across ${r.videos} videos`);
+      setData(await api("/api/analytics"));
+    } catch (e) {
+      toast?.(e.message, true);
+    }
+    setSyncing(false);
+  };
 
   if (err) return <div className="panel"><div className="empty">Could not load analytics: {err}</div></div>;
   if (!data) return <div className="panel"><div className="empty">Loading analytics…</div></div>;
@@ -200,6 +213,10 @@ export default function Analytics({ onBack, onWatch }) {
               {data.range.imported_at.slice(0, 10)}
             </div>
           </div>
+          <button className="btn save-btn" disabled={syncing} onClick={syncNow}
+                  title="YouTube Analytics API — daily views, watch time, subscribers. Impressions/CTR still need a Studio zip export.">
+            {syncing ? "⏳ SYNCING…" : "📡 SYNC FROM YOUTUBE"}
+          </button>
         </div>
       </section>
 

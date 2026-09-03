@@ -57,7 +57,7 @@ branding:
 # produces faster than it can post, so age alone does not mean abandoned.
 retention:
   output_days_after_export: 7    # delete output/<date>/<key>/ this long after export
-  export_days_after_upload: 30   # delete export/<date>/<series>/<NN_key>/ after upload
+  export_days_after_upload: 15   # delete export/<date>/<series>/<NN_key>/ after upload
   stale_warn_days: 60            # warn about anything staged this long without posting
 
 # YouTube upload target. The Google account also owns a personal channel, and the

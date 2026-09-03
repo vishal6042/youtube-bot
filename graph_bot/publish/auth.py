@@ -11,9 +11,11 @@ token:
     python -m graph_bot.publish.auth --status # who am I, which scopes, still valid?
 
 Scopes requested, and why each is needed:
-    youtube.upload    videos.insert + thumbnails.set
-    youtube.force-ssl playlists.list + playlistItems.insert (playlist auto-add)
-Nothing broader is requested; force-ssl is already the widest of the two because
+    youtube.upload         videos.insert + thumbnails.set
+    youtube.force-ssl      playlists.list + playlistItems.insert (playlist auto-add)
+    yt-analytics.readonly  YouTube Analytics API — daily views/watch time straight
+                           into the warehouse, replacing most manual zip exports
+Nothing broader is requested; force-ssl is already the widest of the three because
 it implies delete rights on the channel.
 """
 from __future__ import annotations
@@ -28,6 +30,7 @@ from ..config import CONFIG_DIR, load_settings
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/yt-analytics.readonly",
 ]
 CLIENT_SECRET = CONFIG_DIR / "client_secret.json"
 TOKEN_FILE = CONFIG_DIR / "youtube_token.json"

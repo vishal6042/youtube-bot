@@ -476,6 +476,161 @@ def batch_update(key: str, **fields: Any) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Brand: channel copy + playlist descriptions (moved off data/brand.json)
+# --------------------------------------------------------------------------- #
+LEGACY_BRAND = DATA_DIR / "brand.json"
+
+
+def brand_load() -> dict[str, Any]:
+    """Same shape data/brand.json had, so callers didn't have to change."""
+    with connect() as conn:
+        ch = conn.execute(
+            "SELECT tagline, description, yt_synced_at, updated_at,"
+            " updated_at > COALESCE(yt_synced_at, 'epoch') FROM brand_channel WHERE id = 1"
+        ).fetchone()
+        rows = conn.execute(
+            "SELECT series, name, description, created, yt_playlist_id, yt_synced_at,"
+            " updated_at, updated_at > COALESCE(yt_synced_at, 'epoch')"
+            " FROM brand_playlist"
+        ).fetchall()
+    out: dict[str, Any] = {
+        "channel": {"tagline": ch[0] if ch else "", "description": ch[1] if ch else "",
+                    "yt_synced_at": _iso(ch[2]) if ch else None,
+                    "edited_since_sync": bool(ch[4]) if ch else False},
+        "playlists": {},
+    }
+    for series, name, desc, created, pid, synced, _updated, edited in rows:
+        out["playlists"][series] = {
+            "name": name, "description": desc, "created": created,
+            "yt_playlist_id": pid, "yt_synced_at": _iso(synced),
+            "edited_since_sync": bool(edited),
+        }
+    return out
+
+
+def brand_save_channel(tagline: str | None = None, description: str | None = None,
+                       synced: bool = False) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO brand_channel (id, tagline, description)
+            VALUES (1, COALESCE(%(t)s, ''), COALESCE(%(d)s, ''))
+            ON CONFLICT (id) DO UPDATE SET
+                tagline      = COALESCE(%(t)s, brand_channel.tagline),
+                description  = COALESCE(%(d)s, brand_channel.description),
+                updated_at   = now(),
+                yt_synced_at = CASE WHEN %(s)s THEN now() ELSE brand_channel.yt_synced_at END
+            """,
+            {"t": tagline, "d": description, "s": synced},
+        )
+
+
+def brand_save_playlist(series: str, name: str | None = None,
+                        description: str | None = None, created: bool | None = None,
+                        yt_playlist_id: str | None = None, synced: bool = False) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO brand_playlist (series, name, description, created, yt_playlist_id)
+            VALUES (%(k)s, COALESCE(%(n)s, %(k)s), COALESCE(%(d)s, ''),
+                    COALESCE(%(c)s, false), %(p)s)
+            ON CONFLICT (series) DO UPDATE SET
+                name           = COALESCE(%(n)s, brand_playlist.name),
+                description    = COALESCE(%(d)s, brand_playlist.description),
+                created        = COALESCE(%(c)s, brand_playlist.created),
+                yt_playlist_id = COALESCE(%(p)s, brand_playlist.yt_playlist_id),
+                updated_at     = now(),
+                yt_synced_at   = CASE WHEN %(s)s THEN now() ELSE brand_playlist.yt_synced_at END
+            """,
+            {"k": series, "n": name, "d": description, "c": created,
+             "p": yt_playlist_id, "s": synced},
+        )
+
+
+def brand_migrate_from_json() -> int:
+    """Load data/brand.json into the tables. Safe to re-run: everything upserts."""
+    data = _read_json(LEGACY_BRAND) or {}
+    n = 0
+    ch = data.get("channel") or {}
+    if ch:
+        brand_save_channel(ch.get("tagline"), ch.get("description"))
+        n += 1
+    for series, entry in (data.get("playlists") or {}).items():
+        brand_save_playlist(series, entry.get("name"), entry.get("description"),
+                            entry.get("created"))
+        n += 1
+    return n
+
+
+# --------------------------------------------------------------------------- #
+# Live YouTube counts (snapshots — history is cheap and shows growth)
+# --------------------------------------------------------------------------- #
+def save_channel_stats(subscribers: int | None, views: int | None,
+                       video_count: int | None) -> None:
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO channel_stats_live (subscribers, views, video_count)"
+            " VALUES (%s, %s, %s)",
+            (subscribers, views, video_count),
+        )
+
+
+def save_video_stats(rows: list[dict[str, Any]]) -> int:
+    """rows: [{video_id, views, likes, comments, privacy_status}]"""
+    if not rows:
+        return 0
+    with connect() as conn:
+        conn.cursor().executemany(
+            "INSERT INTO video_stats_live (video_id, views, likes, comments, privacy_status)"
+            " VALUES (%s, %s, %s, %s, %s)",
+            [(r["video_id"], r.get("views"), r.get("likes"), r.get("comments"),
+              r.get("privacy_status")) for r in rows],
+        )
+    return len(rows)
+
+
+def latest_channel_stats() -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT fetched_at, subscribers, views, video_count FROM channel_stats_live"
+            " ORDER BY fetched_at DESC LIMIT 1"
+        ).fetchone()
+    if row is None:
+        return None
+    at, subs, views, count = row
+    return {"fetched_at": _iso(at), "subscribers": subs, "views": views,
+            "video_count": count}
+
+
+def latest_video_stats() -> dict[str, dict[str, Any]]:
+    """video_id -> latest snapshot."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT ON (video_id) video_id, fetched_at, views, likes,"
+            " comments, privacy_status FROM video_stats_live"
+            " ORDER BY video_id, fetched_at DESC"
+        ).fetchall()
+    return {
+        vid: {"fetched_at": _iso(at), "views": views, "likes": likes,
+              "comments": comments, "privacy_status": privacy}
+        for vid, at, views, likes, comments, privacy in rows
+    }
+
+
+def record_api_units(units: int) -> None:
+    """Bill read/update calls against today's quota without counting an upload."""
+    if units <= 0:
+        return
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO api_quota (day, units, uploads) VALUES (%s, %s, 0)"
+            " ON CONFLICT (day) DO UPDATE SET units = api_quota.units + EXCLUDED.units,"
+            " updated_at = now()",
+            (pacific_day(), units),
+        )
+
+
+# --------------------------------------------------------------------------- #
 # Migration in / out
 # --------------------------------------------------------------------------- #
 def _read_json(path: Path) -> Any:
@@ -513,6 +668,7 @@ def migrate_from_json() -> dict[str, int]:
             save_job(d)
             counts["jobs"] += 1
 
+    counts["brand"] = brand_migrate_from_json()
     return counts
 
 
@@ -526,6 +682,7 @@ def export_to_json(dest: Path | None = None) -> dict[str, str]:
         ("discarded.json", load_discarded()),
         ("queue_order.json", load_order()),
         ("dashboard_jobs.json", load_jobs(1000)),
+        ("brand.json", brand_load()),
     ):
         p = dest / name
         p.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),

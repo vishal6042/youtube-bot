@@ -41,7 +41,33 @@ export default function App() {
   const [termLines, setTermLines] = useState(["agent idle. waiting for orders…"]);
   const [toasts, setToasts] = useState([]);
   const [modal, setModal] = useState(null);
-  const [view, setView] = useState(null); // null = home, else a series key
+  const [view, setViewRaw] = useState(null); // null = home, else a series key
+  // Views ride on the browser history stack, so ◂ BACK (and the browser's own
+  // back button) return to where you actually came from — Playlists → detail →
+  // back lands on Playlists, not Mission.
+  const navDepth = useRef(0);
+  const setView = useCallback((v) => {
+    setViewRaw((prev) => {
+      if (v !== prev) {
+        navDepth.current += 1;
+        window.history.pushState({ view: v, depth: navDepth.current }, "");
+      }
+      return v;
+    });
+  }, []);
+  const goBack = useCallback(() => {
+    if (navDepth.current > 0) window.history.back();
+    else setViewRaw(null);
+  }, []);
+  useEffect(() => {
+    window.history.replaceState({ view: null, depth: 0 }, "");
+    const onPop = (e) => {
+      navDepth.current = e.state?.depth ?? 0;
+      setViewRaw(e.state?.view ?? null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const [pending, setPending] = useState(0); // in-flight mutations (drives progress UI)
   const [video, setVideo] = useState(null);  // topic being previewed in the player
   const [confirmState, setConfirmState] = useState(null);
@@ -425,7 +451,7 @@ export default function App() {
 
             {view === "__topics" && (
               <TopicCatalog
-                onBack={() => setView(null)}
+                onBack={goBack}
                 workingKey={workingKey}
                 onRender={(key, title) => renderTopics([key], title)}
                 onOpen={openFolder}
@@ -439,7 +465,7 @@ export default function App() {
               <>
                 <section className="panel">
                   <div className="detail-head">
-                    <button className="btn back-btn" onClick={() => setView(null)}>◂ BACK</button>
+                    <button className="btn back-btn" onClick={goBack}>◂ BACK</button>
                     <div>
                       <div className="pl-name">PLAYLISTS</div>
                       <div className="pl-series">
@@ -463,7 +489,7 @@ export default function App() {
                 )}
                 <section className="panel">
                   <div className="detail-head">
-                    <button className="btn back-btn" onClick={() => setView(null)}>◂ BACK</button>
+                    <button className="btn back-btn" onClick={goBack}>◂ BACK</button>
                     <div>
                       <div className="pl-name">JOB HISTORY</div>
                       <div className="pl-series">
@@ -485,7 +511,7 @@ export default function App() {
 
             {view === "__uploads" && (
               <UploadHistory
-                onBack={() => setView(null)}
+                onBack={goBack}
                 onOpen={openFolder}
                 onUnmark={unmark}
                 onWatch={rowHandlers.onWatch}
@@ -495,11 +521,11 @@ export default function App() {
             )}
 
             {view === "__music" && (
-              <MusicLibrary onBack={() => setView(null)} toast={toast} confirm={confirm} />
+              <MusicLibrary onBack={goBack} toast={toast} confirm={confirm} />
             )}
 
             {view === "__ideas" && (
-              <TopicIdeas onBack={() => setView(null)} toast={toast} refresh={poll} />
+              <TopicIdeas onBack={goBack} toast={toast} refresh={poll} />
             )}
 
             {view === "__launch" && (
@@ -507,7 +533,7 @@ export default function App() {
                 series={state.series}
                 onRenderBatch={renderBatch}
                 onRevertTopic={revertTopic}
-                onBack={() => setView(null)}
+                onBack={goBack}
                 onStarted={() => setView(null)}
                 confirm={confirm}
                 busy={!!state.job}
@@ -520,7 +546,7 @@ export default function App() {
             {view === "__upload" && (
               <>
                 <UploadControl
-                  onBack={() => setView(null)}
+                  onBack={goBack}
                   onStarted={() => setView(null)}
                   toast={toast}
                   confirm={confirm}
@@ -547,11 +573,11 @@ export default function App() {
             )}
 
             {view === "__analytics" && (
-              <Analytics onBack={() => setView(null)} onWatch={rowHandlers.onWatch} />
+              <Analytics onBack={goBack} onWatch={rowHandlers.onWatch} toast={toast} />
             )}
 
             {view === "__settings" && (
-              <Settings onBack={() => setView(null)} toast={toast} confirm={confirm} />
+              <Settings onBack={goBack} toast={toast} confirm={confirm} />
             )}
 
             {detailSeries && (
@@ -559,7 +585,7 @@ export default function App() {
                 s={detailSeries}
                 nextUp={state.next_up}
                 workingKey={workingKey}
-                onBack={() => setView(null)}
+                onBack={goBack}
                 onPlaylistCreated={setPlaylistCreated}
                 {...rowHandlers}
               />

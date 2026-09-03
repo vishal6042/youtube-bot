@@ -1730,3 +1730,29 @@ input[type="number"] { color-scheme: dark; }
   .ul-row { grid-template-columns: 10px minmax(0, 1fr) 110px; }
   .ul-size { display: none; }
 }
+
+/* ---------------- YouTube sync panel (Settings) ---------------- */
+.yt-stats { display: flex; gap: 22px; flex-wrap: wrap; margin: 10px 0 14px; }
+.yt-stat b { display: block; font-family: "Share Tech Mono", monospace; font-size: 22px; color: var(--fg); }
+.yt-stat span { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.yt-stat.muted-stat b { font-size: 14px; color: var(--muted); }
+.yt-actions { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.yt-private { border: 1px solid var(--warn); border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px; font-size: 13px; }
+.yt-private ul { margin: 6px 0 0 18px; padding: 0; }
+.yt-private a { color: var(--warn); }
+.yt-diff { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.yt-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: 6px; font-size: 13px; }
+.yt-row.differs { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.yt-row.differs .yt-row-name { color: var(--warn); }
+.yt-top { border-top: 1px solid var(--grid, #2a3350); padding-top: 8px; }
+.yt-vrow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0; }
+.yt-vtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------- AI review panel (upload queue) ---------------- */
+.uq-ai { margin-left: auto; }
+.uq-ai-panel { border: 1px solid var(--s-active, #7aa7ff); border-radius: 8px; padding: 10px 12px; margin: 10px 0 4px; font-size: 13px; }
+.uq-ai-head { display: flex; gap: 10px; align-items: center; letter-spacing: 0.08em; }
+.uq-ai-head .muted { flex: 1; font-size: 11px; }
+.uq-ai-summary { margin: 8px 0; line-height: 1.5; }
+.uq-ai-note { padding: 3px 0; }
+.uq-ai-panel .btn-primary { margin-top: 8px; }

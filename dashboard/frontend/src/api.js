@@ -28,6 +28,7 @@ export const STATE_CHIP = {
   ready: ["chip-ready", "⏳ READY"],
   rendered: ["chip-rendered", "🎬 RENDERED"],
   missing: ["chip-missing", "⬜ NOT MADE"],
+  discarded: ["chip-missing", "🗑 DISCARDED"],
 };
 
 // The orchestrator's sub-agents, in pipeline order. Keys match the

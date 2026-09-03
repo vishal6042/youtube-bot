@@ -40,6 +40,8 @@ export default function UploadQueue({ items, discarded = [], staged = {}, custom
   const [tab, setTab] = useState("recommended");
   const [selected, setSelected] = useState(null);
   const [order, setOrder] = useState(null); // local override while dragging
+  const [aiReview, setAiReview] = useState(null);
+  const [aiBusy, setAiBusy] = useState(false);
   const dragKey = useRef(null);
 
   const list = order
@@ -95,6 +97,28 @@ export default function UploadQueue({ items, discarded = [], staged = {}, custom
     }
   };
 
+  // One Claude call over the formula-ranked top picks — judgment the ranking
+  // can't encode (timeliness, titles, sequencing). Only ever on this click.
+  const runAiReview = async () => {
+    setAiBusy(true);
+    try {
+      setAiReview(await api("/api/queue/ai-review", {}));
+    } catch (e) {
+      toast(e.message, true);
+    }
+    setAiBusy(false);
+  };
+
+  const applyAiOrder = async () => {
+    const rest = list.map((i) => i.key).filter((k) => !aiReview.suggested_order.includes(k));
+    const keys = [...aiReview.suggested_order, ...rest];
+    setOrder(keys);
+    await persist(keys);
+    setAiReview(null);
+  };
+
+  const titleOf = (key) => items.find((i) => i.key === key)?.title || key;
+
   return (
     <div className={"uq-wrap" + (sel ? " with-detail" : "")}>
       <section className="panel uq-panel">
@@ -133,7 +157,42 @@ export default function UploadQueue({ items, discarded = [], staged = {}, custom
           {customOrder && (
             <button className="btn btn-mini uq-reset" onClick={resetOrder}>↩ RESET ORDER</button>
           )}
+          {tab === "recommended" && (
+            <button className="btn btn-mini uq-ai" disabled={aiBusy} onClick={runAiReview}
+                    title="Rule checks + local Ollama judgment over the top picks. Free, runs entirely on this machine — a 27B model may take a minute.">
+              {aiBusy ? "⏳ REVIEWING…" : "🔍 QUEUE REVIEW"}
+            </button>
+          )}
         </div>
+
+        {tab === "recommended" && aiReview && (
+          <div className="uq-ai-panel">
+            <div className="uq-ai-head">
+              <span>🔍 QUEUE REVIEW</span>
+              <span className="muted">
+                {aiReview.model === "rules"
+                  ? "rule-based · free · runs locally"
+                  : `${aiReview.model} · ${aiReview.usage.input_tokens}→${aiReview.usage.output_tokens} tokens`}
+              </span>
+              <button className="btn btn-mini" onClick={() => setAiReview(null)}>✕</button>
+            </div>
+            <p className="uq-ai-summary">{aiReview.summary}</p>
+            {aiReview.items.filter((n) => n.verdict !== "keep").map((n) => (
+              <div className="uq-ai-note" key={n.key}>
+                <b>{{ move_up: "▲", move_down: "▼", hold: "⏸" }[n.verdict] || "•"} {titleOf(n.key)}</b>
+                <span> — {n.note}</span>
+              </div>
+            ))}
+            {aiReview.items.every((n) => n.verdict === "keep") && (
+              <div className="uq-ai-note muted">All picks endorsed as ordered.</div>
+            )}
+            {aiReview.changed && (
+              <button className="btn btn-mini btn-primary" onClick={applyAiOrder}>
+                ✔ APPLY SUGGESTED ORDER
+              </button>
+            )}
+          </div>
+        )}
 
         {/* ---- rows ---- */}
         <div className="uq-rows">

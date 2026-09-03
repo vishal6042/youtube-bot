@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from manim import (
     BOLD,
+    DOWN,
     DashedLine,
     FadeIn,
     FadeOut,
     GrowFromEdge,
     Rectangle,
-    UP,
     VGroup,
     Write,
 )
@@ -72,7 +72,7 @@ class MeanVsMedian(VoiceBrandScene):
         with self.voiceover(
             text="Nine people in a bar. Salaries between thirty and fifty thousand."
         ) as t:
-            self.play(GrowFromEdge(bars, UP if False else [0, -1, 0],
+            self.play(GrowFromEdge(bars, DOWN,
                                    lag_ratio=0.12), run_time=t.duration * 0.7)
             self.play(FadeIn(floor), run_time=t.duration * 0.3)
 
@@ -97,7 +97,7 @@ class MeanVsMedian(VoiceBrandScene):
         with self.voiceover(
             text="Then a billionaire walks in. Straight off the chart."
         ) as t:
-            self.play(FadeIn(rich, shift=[0, -0.6, 0]), run_time=t.duration * 0.55)
+            self.play(FadeIn(rich, shift=DOWN * 0.6), run_time=t.duration * 0.55)
             self.play(FadeIn(rich_lbl), run_time=t.duration * 0.45)
 
         everyone = SALARIES + [BILLIONAIRE]

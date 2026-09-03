@@ -113,7 +113,6 @@ topics:
     subtitle: "Estimated developer population"
     fetcher: curated_csv
     file: developers.csv
-    flags: false
     mode: bar_race
     source: "SlashData / GitHub Octoverse (curated estimates)"
     unit: "developers"
@@ -930,3 +929,115 @@ topics:
     source: "Concept explainer"
     mood: "reflective"
     hashtags: ["data", "statistics", "dataliteracy"]
+
+  # added via dashboard 2026-09-03
+  - key: "internet_users"
+    title: "Who Is Actually Online?"
+    subtitle: "Share of people using the internet"
+    fetcher: "worldbank"
+    code: "IT.NET.USER.ZS"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "World Bank / ITU"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "lofi"
+    hashtags: ["internet", "tech", "worldstats"]
+
+  # added via dashboard 2026-09-03
+  - key: "electricity_access"
+    title: "The World Got Electricity"
+    subtitle: "Share of people with access, India"
+    fetcher: "worldbank"
+    code: "EG.ELC.ACCS.ZS"
+    mode: "waffle_grow"
+    entity_filter: "India"
+    series: "world_in_data"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 0
+    mood: "hopeful"
+    hashtags: ["energy", "electricity", "progress"]
+
+  # added via dashboard 2026-09-03
+  - key: "money_real_income"
+    title: "Who's Actually Richest?"
+    subtitle: "GDP per person, adjusted for what money buys"
+    fetcher: "worldbank"
+    code: "NY.GDP.PCAP.PP.CD"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank"
+    unit: "USD"
+    mood: "majestic"
+    hashtags: ["money", "economy", "percapita"]
+
+  # added via dashboard 2026-09-03
+  - key: "money_tax_revenue"
+    title: "Which Countries Tax the Most?"
+    subtitle: "Tax revenue as a share of GDP"
+    fetcher: "worldbank"
+    code: "GC.TAX.TOTL.GD.ZS"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank / IMF"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "reflective"
+    hashtags: ["tax", "economy", "money"]
+
+  # added via dashboard 2026-09-03
+  - key: "lie_mean_median"
+    title: "A Billionaire Walks Into a Bar"
+    subtitle: "Charts Lie #9"
+    mode: "manim"
+    scene: "lie_mean_median"
+    series: "charts_lie"
+    source: "Concept explainer"
+    mood: "reflective"
+    hashtags: ["data", "statistics", "dataliteracy"]
+
+  # added 2026-09-03 — chart-mode mix-up (re-cuts per docs/CHART_MODES.md; new keys, existing videos untouched)
+  - key: "rank_economies"
+    title: "India's Climb Up the GDP Table"
+    subtitle: "Economy rankings, year by year"
+    fetcher: "worldbank"
+    code: "NY.GDP.MKTP.CD"
+    mode: "bump_race"
+    top_n: 10
+    series: "world_in_data"
+    source: "World Bank"
+    value_scale: 1000000000000
+    unit_suffix: "T"
+    value_decimals: 1
+    mood: "majestic"
+    hashtags: ["gdp", "economy", "india"]
+
+  - key: "rank_inflation"
+    title: "The Inflation Crown Keeps Moving"
+    subtitle: "Highest inflation, year by year"
+    fetcher: "worldbank"
+    code: "FP.CPI.TOTL.ZG"
+    mode: "bump_race"
+    top_n: 10
+    series: "money"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "reflective"
+    hashtags: ["inflation", "money", "economy"]
+
+  - key: "india_online_100"
+    title: "How Many Indians Are Online?"
+    subtitle: "Out of every 100 people, India"
+    fetcher: "worldbank"
+    code: "IT.NET.USER.ZS"
+    mode: "waffle_grow"
+    entity_filter: "India"
+    years_window: 35
+    series: "india_in_data"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 0
+    mood: "hopeful"
+    hashtags: ["india", "internet", "technology"]
