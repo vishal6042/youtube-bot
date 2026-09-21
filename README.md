@@ -15,6 +15,12 @@ py -3 -m venv .venv
 
 `ffmpeg` comes from the pip package `imageio-ffmpeg` — no system install needed.
 
+**Desktop shortcut:** `.\scripts\make_shortcut.ps1` puts *Data in Motion* on the desktop.
+Double-clicking it runs `scripts\launch_app.ps1`, which rebuilds the frontend bundle if
+`dashboard/frontend` is newer than `dashboard/static`, starts the backend and opens the
+browser. Add `-Dev` for a Vite dev server with hot reload on 5173, or `-Stop` to kill an
+app left running in the background.
+
 ---
 
 ## How it fits together
