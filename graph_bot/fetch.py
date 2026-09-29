@@ -227,6 +227,11 @@ def _fetch_csv_url(topic: dict[str, Any]) -> pd.DataFrame:
             lambda v: _clean_entity(v, topic.get("entity_clean"))
         )
         df.loc[raw[topic["entity_col"]].isna(), "entity"] = None
+        # Raw source labels are often unreadable on screen ("Yes"/"No" for a
+        # flag column). `entity_map: {old: new}` renames them before
+        # aggregation, exactly as it does for renamed cricket franchises.
+        if topic.get("entity_map"):
+            df["entity"] = df["entity"].replace(topic["entity_map"])
     else:
         df["entity"] = topic.get("entity_label", "All")
 

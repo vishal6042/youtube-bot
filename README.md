@@ -339,6 +339,6 @@ dashboard/
   frontend/           React + Vite source
   static/             the built bundle (committed — no Node at runtime)
 config/               topics.yaml, settings.yaml
-docs/                 setup guides and series plans
+docs/                 setup guides, series plans, CONTENT_STRATEGY.md (analytics playbook)
 scripts/              curation and scheduled-task helpers
 ```

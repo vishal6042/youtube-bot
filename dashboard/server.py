@@ -1814,8 +1814,9 @@ IDEAS: list[dict[str, Any]] = [
     },
     {
         "id": "cricket_women_t20",
-        "reason": "England, Australia and India are genuinely close here — the "
-                  "lead changes hands, which is what makes a race worth watching.",
+        "reason": "England leads Australia 132-121 with India third — but the "
+                  "order has only changed hands once since 2009, so cut it as a "
+                  "chase, not a see-saw.",
         "topic": {
             "key": "cricket_women_t20_wins", "title": "Who Wins the Most Women's T20s?",
             "subtitle": "Cumulative T20 international wins", "fetcher": "cricsheet",
@@ -2083,6 +2084,214 @@ IDEAS: list[dict[str, Any]] = [
             "hashtags": ["india", "electricity", "progress"],
         },
     },
+    # ===================== AI & COMPUTE =====================
+    # The channel's biggest pillar (18 published videos) had no Build Next
+    # entries at all, and it owns the best short-form retention on the channel:
+    # the sub-10s AI topics run 32-61% where the 26s default runs ~24%
+    # (docs/CONTENT_STRATEGY.md, findings 3-4). These are paced to ~9s with a
+    # per-topic `seconds_per_year` instead of inheriting the 24s default.
+    {
+        "id": "ai_gpu_count",
+        "reason": "200,000 GPUs trained Grok 4. The number IS the hook — which is "
+                  "what every high-CTR title on this channel has in common.",
+        "topic": {
+            "key": "ai_gpu_count", "title": "How Many GPUs to Train One AI?",
+            "subtitle": "Most GPUs used for a single training run",
+            "fetcher": "csv_url", "url": "https://epoch.ai/data/notable_ai_models.csv",
+            "date_col": "Publication date", "value_col": "Hardware quantity",
+            "entity_label": "Most GPUs", "agg": "cummax",
+            "year_min": 2016, "year_max": 2026, "years_window": 20,
+            "seconds_per_year": 0.9, "mode": "line_grow", "log_scale": True,
+            "value_fmt": "integer", "series": "ai_trends",
+            "source": "Epoch AI (CC BY)", "mood": "hopeful",
+            "hashtags": ["ai", "gpu", "nvidia"],
+        },
+    },
+    {
+        "id": "ai_cluster_cost",
+        "reason": "The priciest AI cluster on record cost $7.1 BILLION in hardware. "
+                  "Money plus a superlative is the channel's best-performing shape.",
+        "topic": {
+            "key": "ai_cluster_cost", "title": "The Most Expensive Computer Ever Built",
+            "subtitle": "Priciest AI cluster hardware",
+            "fetcher": "csv_url", "url": "https://epoch.ai/data/gpu_clusters.csv",
+            "date_col": "First Operational Date", "value_col": "Hardware Cost",
+            "entity_label": "Most expensive", "agg": "cummax",
+            "year_min": 2016, "year_max": 2025, "years_window": 15,
+            "seconds_per_year": 0.9, "mode": "line_grow", "log_scale": True,
+            "value_scale": 1000000000, "unit_suffix": "B", "series": "ai_trends",
+            "source": "Epoch AI (CC BY)", "mood": "reflective",
+            "hashtags": ["ai", "datacenter", "money"],
+        },
+    },
+    {
+        "id": "ai_cluster_chips",
+        "reason": "xAI's Colossus runs 230,000 chips in one building. Same size-shock "
+                  "shape as 'How BIG Are AI Models?' (3.44% CTR, 34.9% retention).",
+        "topic": {
+            "key": "ai_cluster_chips", "title": "The Biggest AI Supercomputer",
+            "subtitle": "Most AI chips in a single cluster",
+            "fetcher": "csv_url", "url": "https://epoch.ai/data/gpu_clusters.csv",
+            "date_col": "First Operational Date", "value_col": "Total number of AI chips",
+            "entity_label": "Biggest cluster", "agg": "cummax",
+            "year_min": 2015, "year_max": 2025, "years_window": 15,
+            "seconds_per_year": 0.9, "mode": "line_grow",
+            "value_fmt": "integer", "series": "ai_trends",
+            "source": "Epoch AI (CC BY)", "mood": "hopeful",
+            "hashtags": ["ai", "supercomputer", "nvidia"],
+        },
+    },
+    {
+        "id": "ai_open_vs_closed",
+        "reason": "A real two-sided race: 455 closed models vs 338 open-weight ones, "
+                  "and the gap is closing. Rivalry titles are the channel's top CTR "
+                  "pattern (India vs China, 4.72%) — this is the AI version.",
+        "topic": {
+            "key": "ai_open_vs_closed", "title": "Open vs Closed: Who's Winning AI?",
+            "subtitle": "Notable models released, cumulative",
+            "fetcher": "csv_url", "url": "https://epoch.ai/data/notable_ai_models.csv",
+            "date_col": "Publication date", "entity_col": "Open model weights?",
+            "entity_map": {"Yes": "Open weights", "No": "Closed"},
+            "entities": ["Open weights", "Closed"], "agg": "cumcount",
+            "year_min": 2015, "year_max": 2026, "years_window": 15,
+            "seconds_per_year": 0.9, "mode": "line_multi",
+            "value_fmt": "integer", "series": "ai_trends",
+            "source": "Epoch AI (CC BY)", "mood": "lofi",
+            "hashtags": ["ai", "opensource", "technology"],
+        },
+    },
+    {
+        "id": "ai_training_time",
+        "reason": "The longest single training run on record is 7,104 hours — 296 "
+                  "days of nonstop compute for one model.",
+        "topic": {
+            "key": "ai_training_time", "title": "How Long Does Training an AI Take?",
+            "subtitle": "Longest single training run (hours)",
+            "fetcher": "csv_url", "url": "https://epoch.ai/data/notable_ai_models.csv",
+            "date_col": "Publication date", "value_col": "Training time (hours)",
+            "entity_label": "Longest run", "agg": "cummax",
+            "year_min": 2016, "year_max": 2026, "years_window": 20,
+            "seconds_per_year": 0.9, "mode": "line_grow",
+            "value_fmt": "integer", "unit_suffix": "h", "series": "ai_trends",
+            "source": "Epoch AI (CC BY)", "mood": "reflective",
+            "hashtags": ["ai", "compute", "technology"],
+        },
+    },
+
+    # ===================== MONEY & POWER =====================
+    # Money is the unit in four of the channel's five best-CTR titles. These
+    # stay at the default pace: the short-video evidence is strong within
+    # line_grow but untested for bar_race, so they are not the place to bet.
+    {
+        "id": "stock_market_cap",
+        "reason": "US listed companies are worth $68.9 TRILLION against China's "
+                  "$15.5T. Biggest-number-wins, the same shape as the channel's "
+                  "top video (The World's Biggest Economies, 4.65% CTR).",
+        "topic": {
+            "key": "money_stock_markets", "title": "The World's Biggest Stock Markets",
+            "subtitle": "Listed company value", "fetcher": "worldbank",
+            "code": "CM.MKT.LCAP.CD", "mode": "bar_race", "series": "money",
+            "source": "World Bank", "unit": "USD",
+            "value_scale": 1000000000000, "unit_suffix": "T", "value_decimals": 1,
+            "mood": "majestic", "hashtags": ["money", "stocks", "economy"],
+        },
+    },
+    {
+        "id": "money_reserves",
+        "reason": "China sits on $3.7 trillion in reserves and gold. 'Who has the "
+                  "biggest pile of money' is the most literal version of the "
+                  "channel's best-performing subject.",
+        "topic": {
+            "key": "money_reserves", "title": "Who Has the Biggest Piggy Bank?",
+            "subtitle": "Total reserves, including gold", "fetcher": "worldbank",
+            "code": "FI.RES.TOTL.CD", "mode": "bar_race", "series": "money",
+            "source": "World Bank", "unit": "USD",
+            "value_scale": 1000000000, "unit_suffix": "B",
+            "mood": "majestic", "hashtags": ["money", "economy", "gold"],
+        },
+    },
+    {
+        "id": "hightech_exports",
+        "reason": "China ships $857B of high-tech exports, double Hong Kong and "
+                  "triple Germany. Pairs the AI audience with the money pillar.",
+        "topic": {
+            "key": "money_hightech_exports", "title": "Who Exports the Most Technology?",
+            "subtitle": "High-technology exports", "fetcher": "worldbank",
+            "code": "TX.VAL.TECH.CD", "mode": "bar_race", "series": "money",
+            "source": "World Bank", "unit": "USD",
+            "value_scale": 1000000000, "unit_suffix": "B",
+            "mood": "hopeful", "hashtags": ["technology", "exports", "economy"],
+        },
+    },
+    {
+        "id": "fdi_inflows",
+        "reason": "Where the world actually puts its money: $400B into the US in a "
+                  "single year, with Singapore second on a fraction of the population.",
+        "topic": {
+            "key": "money_fdi", "title": "Where the World's Money Goes",
+            "subtitle": "Foreign direct investment, net inflows", "fetcher": "worldbank",
+            "code": "BX.KLT.DINV.CD.WD", "mode": "bar_race", "series": "money",
+            "source": "World Bank", "unit": "USD",
+            "value_scale": 1000000000, "unit_suffix": "B",
+            "mood": "majestic", "hashtags": ["money", "investment", "economy"],
+        },
+    },
+    {
+        "id": "military_personnel",
+        "reason": "India fields the largest armed forces on record at 3.07M, ahead "
+                  "of China. Companion to the military spending video, with people "
+                  "instead of dollars. Note: the series ends in 2020.",
+        "topic": {
+            "key": "military_personnel", "title": "The World's Biggest Armies",
+            "subtitle": "Armed forces personnel", "fetcher": "worldbank",
+            "code": "MS.MIL.TOTL.P1", "mode": "bar_race", "series": "world_in_data",
+            "source": "World Bank", "unit": "people",
+            "value_scale": 1000000, "unit_suffix": "M", "value_decimals": 2,
+            "mood": "majestic", "hashtags": ["military", "worldstats", "army"],
+        },
+    },
+
+    # ===================== ML BASICS =====================
+    # Worst reach on the channel (52 median views) and by far the best
+    # conversion: 4.10 subs per 1k views against AI's 0.40. These three scenes
+    # are already written and registered, and are retitled as paradoxes — the
+    # one packaging that ever worked for the series ("99% Accurate and Totally
+    # Useless": 1,492 views where its siblings average 52).
+    {
+        "id": "simpsons_paradox",
+        "reason": "Every group went down while the total went up — a visual "
+                  "impossibility on screen. Paradox titles are the only ML Basics "
+                  "packaging that has ever broken out.",
+        "topic": {
+            "key": "simpsons_paradox", "title": "Every Group Went Down. The Total Went Up.",
+            "subtitle": "Simpson's paradox", "mode": "manim", "scene": "simpsons_paradox",
+            "series": "ml_concept", "source": "Concept explainer", "mood": "reflective",
+            "hashtags": ["statistics", "data", "machinelearning"],
+        },
+    },
+    {
+        "id": "gradient_descent",
+        "reason": "How a model actually learns, as a ball rolling downhill. The "
+                  "scene is written and registered — it just has never been built.",
+        "topic": {
+            "key": "gradient_descent", "title": "AI Learns by Falling Downhill",
+            "subtitle": "Gradient descent", "mode": "manim", "scene": "gradient_descent",
+            "series": "ml_concept", "source": "Concept explainer", "mood": "hopeful",
+            "hashtags": ["machinelearning", "ai", "datascience"],
+        },
+    },
+    {
+        "id": "kmeans",
+        "reason": "The computer sorts the data into groups nobody labelled. Same "
+                  "'wait, how?' hook, and the scene is ready to render.",
+        "topic": {
+            "key": "kmeans", "title": "Nobody Told It These Were Groups",
+            "subtitle": "K-means clustering", "mode": "manim", "scene": "kmeans",
+            "series": "ml_concept", "source": "Concept explainer", "mood": "lofi",
+            "hashtags": ["machinelearning", "ai", "clustering"],
+        },
+    },
+
     # ===================== HOW CHARTS LIE =====================
     # Narrated Manim episodes. The scenes for these three are written and
     # registered, so they build like any other topic; the rest of the

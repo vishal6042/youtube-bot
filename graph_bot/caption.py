@@ -36,6 +36,7 @@ YT_TITLES: dict[str, str] = {
     "electricity": "Who Generates the Most Electricity? ⚡ ({range})",
     "meat": "The World's Biggest Meat Producers 🍖 ({range})",
     "co2_per_capita": "The REAL Biggest Polluters (Per Person) 🏭 Surprising!",
+    "military_personnel": "The World's Biggest Armies 🪖 ({range})",
     # AI / tech pillar
     "ai_compute": "How Much Compute Does AI Training Use? 🤖 ({range})",
     "ai_orgs": "Who Builds the Most AI Models? 🤖 ({range})",
@@ -47,6 +48,11 @@ YT_TITLES: dict[str, str] = {
     "ai_cluster_owners": "Who Actually Owns the AI Compute? 🖥️ ({range})",
     "ai_datacenter_power": "How Much Power Does AI Use? ⚡ ({range})",
     "ai_chip_speed": "How Fast Have AI Chips Gotten? 🚀 ({range})",
+    "ai_gpu_count": "It Takes 200,000+ GPUs to Train One AI 🤯 ({range})",
+    "ai_cluster_cost": "The Most Expensive Computer Ever Built 💰 ({range})",
+    "ai_cluster_chips": "The Biggest AI Supercomputer on Earth 🖥️ ({range})",
+    "ai_open_vs_closed": "Open vs Closed: Who's Winning AI? 🤖 ({range})",
+    "ai_training_time": "How Long Does It Take to Train an AI? ⏳ ({range})",
     # India in Data pillar
     "india_vs_china_population": "India Just Overtook China 🇮🇳🇨🇳 ({range})",
     "india_vs_china_gdp": "India vs China: The Economy 🇮🇳🇨🇳 ({range})",
@@ -66,10 +72,14 @@ YT_TITLES: dict[str, str] = {
     "money_remittances": "Who Sends the Most Money Home? 💸 ({range})",
     "money_poverty": "Extreme Poverty Is Falling 📉 ({range})",
     "money_spending": "Who Spends the Most? 🛒 ({range})",
+    "money_stock_markets": "The World's Biggest Stock Markets 📈 ({range})",
+    "money_reserves": "Who Has the Biggest Piggy Bank? 💰 ({range})",
+    "money_hightech_exports": "Who Exports the Most Technology? 💻 ({range})",
+    "money_fdi": "Where Does the World's Money Go? 💸 ({range})",
     # Concepts pillar
-    "gradient_descent": "How Does AI Actually Learn? 🤖 Explained in 30s",
-    "simpsons_paradox": "This Statistic Reverses When You Split It 🤯",
-    "kmeans": "How Computers Find Patterns (K-Means) 🎯",
+    "gradient_descent": "AI Learns by Falling Downhill ⛰️ | ML Basics",
+    "simpsons_paradox": "Every Group Went Down. The Total Went Up. 📊",
+    "kmeans": "Nobody Told It These Were Groups 🤖 | ML Basics",
     # ML Basics series
     "ml_what_is": "What Is Machine Learning? | ML Basics #1 🤖",
     "ml_overfitting": "Why Smart Models Fail | Overfitting | ML Basics #2 📉",
