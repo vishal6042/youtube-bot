@@ -899,6 +899,7 @@ topics:
     fetcher: "cricsheet"
     url: "https://cricsheet.org/downloads/tests_male_csv2.zip"
     mode: "bar_race"
+    agg: "cumcount"
     series: "sports"
     source: "Cricsheet (ODC-BY)"
     top_n: 10
@@ -912,6 +913,7 @@ topics:
     fetcher: "cricsheet"
     url: "https://cricsheet.org/downloads/odis_female_csv2.zip"
     mode: "bar_race"
+    agg: "cumcount"
     series: "sports"
     source: "Cricsheet (ODC-BY)"
     top_n: 10
@@ -951,6 +953,7 @@ topics:
     fetcher: "worldbank"
     code: "EG.ELC.ACCS.ZS"
     mode: "waffle_grow"
+    flags: false
     entity_filter: "India"
     series: "world_in_data"
     source: "World Bank"
@@ -966,6 +969,7 @@ topics:
     fetcher: "worldbank"
     code: "NY.GDP.PCAP.PP.CD"
     mode: "bar_race"
+    value_fmt: "integer"
     series: "money"
     source: "World Bank"
     unit: "USD"
@@ -1041,3 +1045,159 @@ topics:
     value_decimals: 0
     mood: "hopeful"
     hashtags: ["india", "internet", "technology"]
+
+  # added via dashboard 2026-09-09
+  - key: "cricket_bbl_wins"
+    title: "Big Bash: Who Actually Dominates?"
+    subtitle: "Cumulative BBL wins"
+    fetcher: "cricsheet"
+    url: "https://cricsheet.org/downloads/bbl_male_csv2.zip"
+    mode: "bar_race"
+    agg: "cumcount"
+    flags: false
+    series: "sports"
+    source: "Cricsheet (ODC-BY)"
+    top_n: 8
+    mood: "majestic"
+    hashtags: ["cricket", "bigbash", "sports"]
+
+  # added via dashboard 2026-09-09
+  - key: "cricket_women_t20_wins"
+    title: "Who Wins the Most Women's T20s?"
+    subtitle: "Cumulative T20 international wins"
+    fetcher: "cricsheet"
+    url: "https://cricsheet.org/downloads/t20s_female_csv2.zip"
+    mode: "bump_race"
+    agg: "cumcount"
+    series: "sports"
+    source: "Cricsheet (ODC-BY)"
+    top_n: 8
+    mood: "majestic"
+    hashtags: ["cricket", "womenscricket", "sports"]
+
+  # added via dashboard 2026-09-09
+  - key: "lie_area_radius"
+    title: "This Circle Is 4x Too Big"
+    subtitle: "Charts Lie #14"
+    mode: "manim"
+    scene: "lie_area_radius"
+    series: "charts_lie"
+    source: "Concept explainer"
+    mood: "reflective"
+    hashtags: ["data", "statistics", "dataliteracy"]
+
+  # added via dashboard 2026-09-09
+  - key: "money_government_debt"
+    title: "Who Owes the Most?"
+    subtitle: "Government debt as a share of GDP"
+    fetcher: "worldbank"
+    code: "GC.DOD.TOTL.GD.ZS"
+    mode: "bump_race"
+    series: "money"
+    source: "World Bank / IMF"
+    unit_suffix: "%"
+    value_decimals: 1
+    top_n: 10
+    mood: "reflective"
+    hashtags: ["debt", "economy", "money"]
+
+  # added via dashboard 2026-09-09
+  - key: "money_trade_dependence"
+    title: "Which Economies Live on Trade?"
+    subtitle: "Exports as a share of GDP"
+    fetcher: "worldbank"
+    code: "NE.EXP.GNFS.ZS"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "majestic"
+    hashtags: ["trade", "exports", "economy"]
+
+  # added via dashboard 2026-09-09
+  - key: "india_electricity_access"
+    title: "How India Got Power"
+    subtitle: "Share of Indians with electricity"
+    fetcher: "worldbank"
+    code: "EG.ELC.ACCS.ZS"
+    mode: "waffle_grow"
+    entity_filter: "India"
+    flags: false
+    series: "india_in_data"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 0
+    mood: "hopeful"
+    hashtags: ["india", "electricity", "progress"]
+
+  # added via dashboard 2026-09-09
+  - key: "india_vs_china_urban"
+    title: "India vs China: Moving to the Cities"
+    subtitle: "Share of people living in cities"
+    fetcher: "worldbank"
+    code: "SP.URB.TOTL.IN.ZS"
+    mode: "line_multi"
+    entities: ["India", "China"]
+    years_window: 50
+    series: "india_in_data"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "reflective"
+    hashtags: ["india", "china", "cities"]
+
+  # added via dashboard 2026-09-16
+  - key: "renewable_electricity"
+    title: "Who Runs on Renewables?"
+    subtitle: "Renewable share of electricity"
+    fetcher: "worldbank"
+    code: "EG.ELC.RNEW.ZS"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "hopeful"
+    hashtags: ["renewables", "energy", "climate"]
+
+  # added via dashboard 2026-09-16
+  - key: "energy_per_capita"
+    title: "Who Uses the Most Energy?"
+    subtitle: "Energy use per person"
+    fetcher: "worldbank"
+    code: "EG.USE.PCAP.KG.OE"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "World Bank"
+    unit: "kg oil equivalent"
+    mood: "reflective"
+    hashtags: ["energy", "percapita", "worldstats"]
+
+  # added via dashboard 2026-09-16
+  - key: "rail_network"
+    title: "The World's Biggest Rail Networks"
+    subtitle: "Total rail lines"
+    fetcher: "worldbank"
+    code: "IS.RRS.TOTL.KM"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "World Bank"
+    unit: "km"
+    value_fmt: "integer"
+    mood: "majestic"
+    hashtags: ["rail", "infrastructure", "worldstats"]
+
+  # added via dashboard 2026-09-16
+  - key: "money_health_spending"
+    title: "Who Spends Most on Health?"
+    subtitle: "Health spending as a share of GDP"
+    fetcher: "worldbank"
+    code: "SH.XPD.CHEX.GD.ZS"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank"
+    unit_suffix: "%"
+    value_decimals: 1
+    mood: "reflective"
+    hashtags: ["health", "spending", "economy"]

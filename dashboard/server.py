@@ -1696,11 +1696,24 @@ REQUIRED_BY_FETCHER = {
 }
 
 # Order fields are written in, so generated blocks read like the hand-written ones.
+# Only an ordering — fields not listed here are still written, after these.
 _FIELD_ORDER = [
     "key", "title", "subtitle", "fetcher", "code", "slug", "url", "file",
-    "mode", "series", "source", "unit", "unit_suffix", "value_scale",
-    "value_decimals", "top_n", "mood",
+    "agg", "mode", "scene", "entities", "entity_filter", "years_window",
+    "series", "source", "unit", "unit_suffix", "value_scale",
+    "value_decimals", "value_fmt", "top_n", "flags", "mood",
 ]
+
+
+def _check_mode_fields(topic: dict[str, Any]) -> None:
+    """Reject topics the renderer would fail on, before they reach topics.yaml."""
+    from graph_bot.scenes import SCENES
+
+    mode, key = topic.get("mode"), topic.get("key")
+    if mode == "manim" and topic.get("scene") not in SCENES:
+        raise HTTPException(400, f"'{key}': mode 'manim' needs a `scene:` from {', '.join(SCENES)}")
+    if mode == "line_multi" and not topic.get("entities"):
+        raise HTTPException(400, f"'{key}': mode 'line_multi' needs an `entities:` list")
 
 
 def _append_topic_block(topic: dict[str, Any]) -> int:
@@ -1709,24 +1722,39 @@ def _append_topic_block(topic: dict[str, Any]) -> int:
         if isinstance(v, bool):
             return "true" if v else "false"
         if isinstance(v, (int, float)):
-            return str(int(v) if float(v).is_integer() else v)
+            if float(v).is_integer():
+                return str(int(v))
+            # PyYAML only reads exponent floats with a dot ("1.0e-06", not "1e-06").
+            mant, _, exp = repr(float(v)).partition("e")
+            return f"{mant if '.' in mant else mant + '.0'}{'e' + exp if exp else ''}"
+        if isinstance(v, (list, dict)):
+            return json.dumps(v, ensure_ascii=False)  # JSON is valid YAML flow style
         return '"' + str(v).replace('"', '\\"') + '"'
 
-    ordered = [(k, topic[k]) for k in _FIELD_ORDER if topic.get(k) not in (None, "")]
+    _check_mode_fields(topic)
+    tags = [str(t).strip().lstrip("#") for t in (topic.get("hashtags") or []) if str(t).strip()]
+    fields = {k: v for k, v in topic.items() if k != "hashtags" and v not in (None, "", [], {})}
+    rank = {k: i for i, k in enumerate(_FIELD_ORDER)}
+    ordered = sorted(fields.items(), key=lambda kv: rank.get(kv[0], len(rank)))
     lines = [f"\n  # added via dashboard {dt.date.today().isoformat()}"]
     lines.append(f"  - {ordered[0][0]}: {fmt(ordered[0][1])}")
     lines += [f"    {k}: {fmt(v)}" for k, v in ordered[1:]]
-    tags = [str(t).strip().lstrip("#") for t in (topic.get("hashtags") or []) if str(t).strip()]
     if tags:
-        lines.append("    hashtags: [" + ", ".join(f'"{t}"' for t in tags) + "]")
+        lines.append("    hashtags: " + fmt(tags))
 
     path = CONFIG_DIR / "topics.yaml"
     updated = path.read_text(encoding="utf-8").rstrip("\n") + "\n" + "\n".join(lines) + "\n"
     try:
         parsed = yaml.safe_load(updated)
         keys = [t.get("key") for t in parsed.get("topics", [])]
-        if topic["key"] not in keys:
+        written = next((t for t in parsed["topics"] if t.get("key") == topic["key"]), None)
+        if written is None:
             raise ValueError("new topic did not parse into the catalog")
+        # A field that silently fails to round-trip yields a topic that renders
+        # wrong (or not at all), so compare every field, not just the key.
+        expected = {**fields, **({"hashtags": tags} if tags else {})}
+        if written != expected:
+            raise ValueError(f"topic did not round-trip: wrote {written}, expected {expected}")
     except Exception as exc:
         raise HTTPException(500, f"Refusing to write invalid YAML: {exc}")
     path.write_text(updated, encoding="utf-8")

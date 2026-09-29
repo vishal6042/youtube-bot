@@ -22,6 +22,10 @@ function Log($msg) {
 }
 
 Set-Location $root
+# Pipeline output contains Unicode (e.g. the music note); without UTF-8 mode
+# Python's cp1252 pipe encoding raises UnicodeEncodeError mid-render.
+$env:PYTHONUTF8 = "1"
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 Log "weekly batch starting (count=$Count series='$Series')"
 
 # 1. Render + auto-approve
