@@ -5,6 +5,7 @@ import IdeasPage from "./components/IdeasPage.jsx";
 import TopicsPage from "./components/TopicsPage.jsx";
 import RenderPage from "./components/RenderPage.jsx";
 import JobsPage from "./components/JobsPage.jsx";
+import LongformPage from "./components/LongformPage.jsx";
 import UploadPage from "./components/UploadPage.jsx";
 import PublishedPage from "./components/PublishedPage.jsx";
 import PlaylistsPage from "./components/PlaylistsPage.jsx";
@@ -452,6 +453,10 @@ export default function App() {
               `${state.job?.current_key || "idle"}:${state.queue.length}:${state.history.length}`
             }
           />
+        )}
+
+        {state && view === "__longform" && (
+          <LongformPage toast={toast} confirm={confirm} promptText={promptText} onOpen={openFolder} />
         )}
 
         {state && view === "__history" && (

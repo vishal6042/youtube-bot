@@ -1,0 +1,214 @@
+# Long-form episode: India's Climb.  DRAFT SCRIPT — not yet reviewed, nothing rendered.
+#
+# Every number in the narration comes from the World Bank API as fetched on
+# 2026-10-09 (NY.GDP.MKTP.CD, NY.GDP.MKTP.PP.CD, NY.GDP.PCAP.CD,
+# NY.GDP.MKTP.KD.ZG). 2025 figures are the Bank's first estimates and get
+# revised. Lines marked `check:` state history that is NOT in that data and
+# should be confirmed by a person before recording.
+#
+# Note on the title: India was 5th from 2022 to 2024. The 2025 estimate puts
+# the UK back ahead by a hair ($4.00T vs $3.96T), so India is 6th in the latest
+# year. The script says so rather than claiming a settled 5th place.
+
+key: india_climb
+title: 'India''s Climb: From 18th to the World''s Top 5'
+yt_title: How India Went From 18th to the World's Top 5 Economies
+series: india_in_data
+voice: en-IN-NeerjaNeural
+voice_rate: +10%
+music_mood: majestic
+target_minutes: 5
+reviewed: false
+chapters:
+- id: cold_open
+  heading: India's Climb
+  chart:
+    mode: bump_race
+    code: NY.GDP.MKTP.CD
+    highlight: India
+    year_min: 1976
+    year_max: 2025
+    top_n: 12
+  narration: 'In 1991, India was the eighteenth largest economy in the world. It was smaller
+    than Spain. Smaller than the Netherlands. Its entire output was worth two hundred and
+    seventy billion dollars, for more than eight hundred million people. Thirty-one years
+    later, it passed Britain. This is how that happened, and what the ranking does not tell
+    you.
+
+    '
+  check: Population of India in 1991 (about 890 million) is not from the GDP data.
+- id: big_country_small_economy
+  heading: A big country with a small economy
+  chart:
+    mode: bar_race
+    code: NY.GDP.MKTP.CD
+    year_min: 1976
+    year_max: 1990
+    top_n: 12
+  narration: 'Start in 1976. The United States is a 1.9 trillion dollar economy. Japan and
+    Germany follow. India is thirteenth, at 103 billion dollars, with Italy more than twice
+    its size. For the next fifteen years India grows at under five percent a year, and its
+    rank goes nowhere in particular: as high as ninth in the mid-eighties, back to twelfth
+    by 1990. It is a huge country with an economy the size of a mid-sized European one.
+
+    '
+- id: the_bottom
+  heading: '1991: the bottom'
+  chart:
+    mode: line_grow
+    code: NY.GDP.MKTP.CD
+    entity: India
+    year_min: 1980
+    year_max: 1995
+  narration: 'Then comes 1991. Measured in dollars, India''s economy shrinks from 321 billion
+    to 270 billion in a single year, and it drops to eighteenth. Growth that year is barely
+    one percent. The country is close to running out of foreign currency to pay for imports,
+    and the rupee is devalued. It is the low point of the whole story. It is also the turning
+    point, because the response is to open the economy up.
+
+    '
+  check: Balance-of-payments crisis, rupee devaluation and the 1991 reforms are history, not
+    chart data.
+- id: slow_build
+  heading: The slow build
+  chart:
+    mode: line_grow
+    code: NY.GDP.MKTP.CD
+    entity: India
+    year_min: 1991
+    year_max: 2010
+  narration: 'What follows is not a miracle. It is a slow, steady build. Through the nineties
+    the economy grows at just under six percent a year. From 2003 to 2012 that rises to seven.
+    By 2000 India is back to thirteenth, at 468 billion dollars. In 2007 it crosses one trillion.
+    It took almost sixty years after independence to reach the first trillion. The second
+    took seven.
+
+    '
+  check: India's GDP first passed $2T in 2014 in this data ($2.04T); confirm 'seven years'
+    reads correctly against 2007.
+- id: passing_the_old_powers
+  heading: Passing the old powers
+  chart:
+    mode: bump_race
+    code: NY.GDP.MKTP.CD
+    highlight: India
+    year_min: 2005
+    year_max: 2025
+    top_n: 12
+  narration: 'From here the names India passes get more famous. Canada, for good, in 2013.
+    Italy in 2015, along with Brazil and Russia. France in 2019. By then India is the sixth
+    largest economy on Earth, and there is one country directly ahead of it with a particular
+    history.
+
+    '
+- id: india_vs_uk
+  heading: India and Britain
+  chart:
+    mode: line_multi
+    code: NY.GDP.MKTP.CD
+    entities:
+    - India
+    - United Kingdom
+    year_min: 1976
+    year_max: 2025
+  narration: 'In 1976 Britain''s economy was more than twice India''s. In 2022, India passes
+    it, and becomes the world''s fifth largest economy. It holds that place for three years.
+    Then look at the latest figures. In 2025 Britain is back in front, four trillion dollars
+    to 3.96. That is not India shrinking. These rankings are measured in US dollars, so a
+    move in the exchange rate can swap two countries that are this close. The honest description
+    is that they are level.
+
+    '
+- id: the_gap_to_china
+  heading: The gap that did not close
+  chart:
+    mode: line_multi
+    code: NY.GDP.MKTP.CD
+    entities:
+    - India
+    - China
+    year_min: 1976
+    year_max: 2025
+  narration: 'Now the comparison that matters most. In 1980 China''s economy was almost exactly
+    the size of India''s. In 1990 it was still only thirteen percent bigger. Then China pulls
+    away: two and a half times India''s size by 2000, nearly four times by 2010, more than
+    five and a half times by 2020. Since then India has grown faster, and the gap has narrowed
+    a little, to just under five times. India climbed past Europe. It did not keep up with
+    China.
+
+    '
+- id: next_in_line
+  heading: Who is next
+  chart:
+    mode: line_multi
+    code: NY.GDP.MKTP.CD
+    entities:
+    - India
+    - Japan
+    - Germany
+    year_min: 2000
+    year_max: 2025
+  narration: 'Ahead of India now are Japan, at 4.4 trillion dollars, and Germany, at just
+    over five. India is at 3.96. The difference is in the direction. Over the last five years
+    India has grown at close to eight percent a year. Germany has averaged under one. Japan
+    a little over one. Nobody can promise the future, but the distance to third place is the
+    smallest it has ever been.
+
+    '
+- id: the_catch
+  heading: The catch
+  chart:
+    mode: bar_race
+    code: NY.GDP.PCAP.CD
+    year_min: 2000
+    year_max: 2025
+    highlight: India
+    entities:
+    - India
+    - China
+    - United Kingdom
+    - Japan
+    - Germany
+    - United States
+    - Brazil
+    - Indonesia
+    - Viet Nam
+    - Bangladesh
+  narration: 'Here is what the ranking hides. India''s economy is enormous because India is
+    enormous. Divide it by the people who live there and the picture changes completely. Income
+    per person is about 2,700 dollars a year. That is one hundred and forty-fourth out of
+    186 countries. China is at almost 14,000. Britain is above 57,000. Bangladesh, next door,
+    is level with India. A top-five economy and a top-five standard of living are very different
+    things.
+
+    '
+- id: buying_power
+  heading: Measured another way
+  chart:
+    mode: bar_race
+    code: NY.GDP.MKTP.PP.CD
+    year_min: 1990
+    year_max: 2025
+    top_n: 10
+  narration: 'There is one more way to count. A dollar buys far more in India than it does
+    in America, so economists also compare countries by what their money can actually buy.
+    On that measure India is not fifth or sixth. It has been the third largest economy in
+    the world since 2009, behind only China and the United States, and it passed Germany on
+    this measure back in 2003.
+
+    '
+- id: outro
+  heading: Where that leaves India
+  chart:
+    mode: bump_race
+    code: NY.GDP.MKTP.CD
+    highlight: India
+    year_min: 1991
+    year_max: 2025
+    top_n: 12
+  narration: 'So, from eighteenth in 1991 to the top five. An economy almost fifteen times
+    larger in dollar terms. Level with Britain, closing on Japan and Germany, still far behind
+    China, and with an income per person that has a very long way to go. Which country should
+    we follow next? Tell us in the comments.
+
+    '

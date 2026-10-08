@@ -1,6 +1,8 @@
-"""Video renderers: turn prepared data into a vertical MP4.
+"""Video renderers: turn prepared data into an MP4.
 
-All modes output 1080x1920 (portrait) MP4 via ffmpeg:
+Shorts are 1080x1920 (portrait). Long-form chapters reuse the same renderers at
+1920x1080: when ``video.width > video.height`` each mode switches to its wide
+layout (see ``_wide``). All modes output MP4 via ffmpeg:
   * bar_race    -> top-N horizontal bars that race/overtake over the years
   * line_grow   -> a single line that grows across the timeline
   * line_multi  -> a few named entities compared head-to-head
@@ -27,6 +29,7 @@ from matplotlib import animation  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
+from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 FG = "#f2f5fa"
 MUTED = "#9aa4b2"
@@ -43,6 +46,16 @@ PALETTE = [
     "#fdffb6", "#caffbf",
 ]
 MEDALS = {0: "#ffd60a", 1: "#c9d1d9", 2: "#e8994e"}  # gold / silver / bronze rim
+# Long-form chapters follow one protagonist: `highlight: <entity>` paints it in
+# this colour and mutes everything else, so the eye stays on it.
+HIGHLIGHT = "#ffb347"
+DIMMED = "#3d4a66"
+
+
+def _wide(settings: dict[str, Any]) -> bool:
+    """True for landscape output (long-form chapters), False for Shorts."""
+    vconf = settings.get("video", {})
+    return vconf.get("width", 1080) > vconf.get("height", 1920)
 
 
 # --------------------------------------------------------------------------- #
@@ -76,6 +89,11 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
 
     entities = list(wide.columns)
     colors = _color_map(entities)
+    hero = topic.get("highlight")
+    if hero in entities:
+        colors = {e: (HIGHLIGHT if e == hero else DIMMED) for e in entities}
+    wide_fmt = _wide(settings)
+    fs = 18 if wide_fmt else 14
 
     # Rank of every entity in every year (0 = bottom bar). Bars are drawn at an
     # interpolated rank rather than at the current sort order, so an overtake
@@ -114,7 +132,10 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
     fig.patch.set_facecolor(BG_BOTTOM)
     # Flags sit between the label and the bar, so labels need extra room.
-    fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=0.85, bottom=0.09)
+    if wide_fmt:
+        fig.subplots_adjust(left=0.20 if flag_imgs else 0.17, right=0.93, top=0.80, bottom=0.10)
+    else:
+        fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=0.85, bottom=0.09)
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -139,10 +160,15 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
 
         for p, ent, val in zip(positions, order, values):
             ax.text(val + vmax * 0.015, p, _fmt(val, topic), va="center", ha="left",
-                    color=FG, fontsize=14, fontweight="bold", zorder=4)
+                    color=FG, fontsize=fs, fontweight="bold", zorder=4)
 
         ax.set_yticks(positions)
-        ax.set_yticklabels(order, color=FG, fontsize=14)
+        ax.set_yticklabels(order, color=FG, fontsize=fs)
+        if hero in entities:
+            for lbl in ax.get_yticklabels():
+                if lbl.get_text() == hero:
+                    lbl.set_color(HIGHLIGHT)
+                    lbl.set_fontweight("bold")
 
         # Flags sit just left of the bar, inside the plot area.
         if flag_imgs:
@@ -171,7 +197,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
         # Big year, bottom-right.
         ax.text(0.98, 0.05, str(int(round(yr))), transform=ax.transAxes,
                 ha="right", va="bottom", color=ACCENT, alpha=0.30,
-                fontsize=70, fontweight="bold", zorder=2)
+                fontsize=110 if wide_fmt else 70, fontweight="bold", zorder=2)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -208,7 +234,11 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
     fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
     fig.patch.set_facecolor(BG_BOTTOM)
-    fig.subplots_adjust(left=0.16, right=0.92, top=0.82, bottom=0.11)
+    wide_fmt = _wide(settings)
+    if wide_fmt:
+        fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
+    else:
+        fig.subplots_adjust(left=0.16, right=0.92, top=0.82, bottom=0.11)
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -233,14 +263,17 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
         else:
             ax.set_ylim(0, ymax * 1.15)
         ax.grid(True, color=GRID, alpha=0.35)
-        ax.tick_params(colors=MUTED, labelsize=13)
+        ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
+        if wide_fmt and not topic.get("log_scale"):
+            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _p: _axis_fmt(v, topic)))
         for spine in ax.spines.values():
             spine.set_visible(False)
 
         ax.text(0.04, 0.95, _fmt(cy, topic), transform=ax.transAxes, ha="left", va="top",
-                color=FG, fontsize=40, fontweight="bold")
+                color=FG, fontsize=58 if wide_fmt else 40, fontweight="bold")
         ax.text(0.98, 0.05, str(int(round(cx))), transform=ax.transAxes, ha="right",
-                va="bottom", color=ACCENT, alpha=0.30, fontsize=64, fontweight="bold")
+                va="bottom", color=ACCENT, alpha=0.30, fontsize=110 if wide_fmt else 64,
+                fontweight="bold")
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -285,7 +318,11 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
 
     fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
     fig.patch.set_facecolor(BG_BOTTOM)
-    fig.subplots_adjust(left=0.16, right=0.80, top=0.82, bottom=0.11)
+    wide_fmt = _wide(settings)
+    if wide_fmt:
+        fig.subplots_adjust(left=0.08, right=0.74, top=0.80, bottom=0.12)
+    else:
+        fig.subplots_adjust(left=0.16, right=0.80, top=0.82, bottom=0.11)
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -320,7 +357,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         for n in ordered:
             col = line_colors[n]
             ax.text(cx, label_y[n], f"{n}  {_fmt(cvals[n], topic)}",
-                    color=col, fontsize=17, fontweight="bold",
+                    color=col, fontsize=24 if wide_fmt else 17, fontweight="bold",
                     va="center", ha="left", zorder=7,
                     transform=ax.transData, clip_on=False)
             img = flag_imgs.get(n)
@@ -336,12 +373,15 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         ax.set_xlim(xs[0], xs[-1])
         ax.set_ylim(0, ymax * 1.15)
         ax.grid(True, color=GRID, alpha=0.35)
-        ax.tick_params(colors=MUTED, labelsize=13)
+        ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
+        if wide_fmt and not topic.get("log_scale"):
+            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _p: _axis_fmt(v, topic)))
         for spine in ax.spines.values():
             spine.set_visible(False)
 
         ax.text(0.98, 0.05, str(int(round(cx))), transform=ax.transAxes, ha="right",
-                va="bottom", color=ACCENT, alpha=0.30, fontsize=64, fontweight="bold")
+                va="bottom", color=ACCENT, alpha=0.30, fontsize=110 if wide_fmt else 64,
+                fontweight="bold")
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -377,8 +417,18 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     wide = wide[list(wide.iloc[-1].sort_values(ascending=False).index[:top_n])]
     entities = list(wide.columns)
     colors = _color_map(entities)
+    hero = topic.get("highlight")
+    wide_fmt = _wide(settings)
 
     ranks = wide.rank(axis=1, ascending=False, method="first")  # rank 1 = best
+    # Ranking only the lines on screen misstates anyone who was ever outside
+    # that set: India was 18th in 1991, but 12th of the twelve shown. A caller
+    # that knows the full field passes its ranks in, and the axis grows to fit.
+    true_ranks = topic.get("_ranks")
+    rank_max = top_n
+    if true_ranks is not None:
+        ranks = true_ranks.reindex(index=wide.index, columns=entities)
+        rank_max = int(topic.get("rank_max") or max(top_n, float(ranks.max().max())))
     steps = max(1, int(round(fps * _seconds_per_year(topic, settings, len(years)))))
     curves: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for e in entities:
@@ -389,7 +439,10 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
     fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
     fig.patch.set_facecolor(BG_BOTTOM)
-    fig.subplots_adjust(left=0.16, right=0.72, top=0.85, bottom=0.10)
+    if wide_fmt:
+        fig.subplots_adjust(left=0.07, right=0.82, top=0.80, bottom=0.11)
+    else:
+        fig.subplots_adjust(left=0.16, right=0.72, top=0.85, bottom=0.10)
     _add_gradient_bg(fig)
 
     flag_imgs: dict[str, Any] = {}
@@ -403,9 +456,10 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
         ax.clear()
         ax.set_facecolor("none")
         ax.set_xlim(years[0], years[-1])
-        ax.set_ylim(top_n + 0.6, 0.4)  # rank 1 at the top
-        ax.set_yticks(range(1, top_n + 1))
-        ax.set_yticklabels([f"#{r}" for r in range(1, top_n + 1)], color=MUTED, fontsize=18)
+        ax.set_ylim(rank_max + 0.6, 0.4)  # rank 1 at the top
+        ax.set_yticks(range(1, rank_max + 1))
+        ax.set_yticklabels([f"#{r}" for r in range(1, rank_max + 1)], color=MUTED,
+                           fontsize=14 if rank_max > 14 else 18)
         ax.tick_params(axis="x", colors=MUTED, labelsize=16)
         for side in ("top", "right", "left", "bottom"):
             ax.spines[side].set_visible(False)
@@ -413,17 +467,22 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
         for e in entities:
             cx, cy = curves[e]
-            ax.plot(cx[:n], cy[:n], color=colors[e], linewidth=5,
-                    solid_capstyle="round", alpha=0.95, zorder=3)
+            is_hero = e == hero
+            faded = hero in entities and not is_hero
+            ax.plot(cx[:n], cy[:n], color=HIGHLIGHT if is_hero else colors[e],
+                    linewidth=8 if is_hero else 3 if faded else 5,
+                    solid_capstyle="round", alpha=0.45 if faded else 0.95,
+                    zorder=4 if is_hero else 3)
             x, y = float(cx[n - 1]), float(cy[n - 1])
-            ax.scatter([x], [y], s=200, color=colors[e], zorder=5,
+            ax.scatter([x], [y], s=200, color=HIGHLIGHT if is_hero else colors[e], zorder=5,
                        edgecolors=BG_BOTTOM, linewidths=2)
             img = flag_imgs.get(e)
             if img is not None:
                 ax.add_artist(AnnotationBbox(
                     OffsetImage(img, zoom=0.40), (x, y), frameon=False,
                     box_alignment=(0.5, 0.5), zorder=6, clip_on=False))
-            ax.annotate(f"  {e}", (x, y), color=colors[e], fontsize=20,
+            ax.annotate(f"  {e}", (x, y), color=HIGHLIGHT if is_hero else colors[e],
+                        fontsize=24 if is_hero else 20,
                         fontweight="bold", va="center", ha="left",
                         annotation_clip=False, zorder=6)
 
@@ -600,6 +659,21 @@ def _progress_bar(ax, frac: float) -> None:
 
 
 def _title_block(fig, topic: dict[str, Any], settings: dict[str, Any]) -> None:
+    if _wide(settings):
+        # Landscape: the heading sits top-left like a slide title, leaving the
+        # full width for the chart.
+        fig.text(0.05, 0.955, topic.get("title", ""), ha="left", va="top",
+                 color=FG, fontsize=44, fontweight="bold")
+        fig.add_artist(plt.Line2D([0.05, 0.13], [0.872, 0.872], color=ACCENT, linewidth=4))
+        if topic.get("subtitle"):
+            fig.text(0.145, 0.872, topic["subtitle"], ha="left", va="center", color=MUTED, fontsize=22)
+        fig.text(0.95, 0.03, f"Source: {topic.get('source', 'unknown')}", ha="right", va="bottom",
+                 color=MUTED, fontsize=15)
+        footer = settings.get("branding", {}).get("footer")
+        if footer:
+            fig.text(0.05, 0.03, footer.split("•")[0].strip(), ha="left", va="bottom",
+                     color=GRID, fontsize=15, fontweight="bold")
+        return
     fig.text(0.5, 0.962, topic.get("title", ""), ha="center", va="top",
              color=FG, fontsize=33, fontweight="bold")
     # Accent underline under the title.
@@ -636,6 +710,13 @@ def _fmt(val: float, topic: dict[str, Any]) -> str:
     if abs(val) >= 1000:
         return f"{val:,.0f}{suffix}"
     return f"{val:,.{decimals}f}{suffix}"
+
+
+def _axis_fmt(val: float, topic: dict[str, Any]) -> str:
+    """Axis tick label: the value's own format, without needless decimals."""
+    if val == 0:
+        return "0"
+    return _fmt(val, {**topic, "value_decimals": 1 if topic.get("value_scale") else 0})
 
 
 def _seconds_per_year(topic: dict[str, Any], settings: dict[str, Any], n_years: int) -> float:

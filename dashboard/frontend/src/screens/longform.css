@@ -1,0 +1,44 @@
+/* Long-form: episode list and the episode editor. */
+.lf-steps { display: flex; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+.lf-steps li { flex: 1 1 120px; position: relative; padding-top: 22px; font-size: 13px; color: var(--muted); }
+.lf-steps li::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 3px; background: var(--line); }
+.lf-steps li::after { content: ""; position: absolute; left: 0; top: 0; width: 15px; height: 15px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line-2); }
+.lf-steps li.done::before { background: var(--go); }
+.lf-steps li.done::after { background: var(--go); border-color: var(--go); }
+.lf-steps li.now::after { border-color: var(--go); box-shadow: 0 0 0 4px rgba(200, 245, 96, .18); }
+.lf-steps li.now, .lf-steps li.done { color: var(--text); }
+.lf-steps li b { display: block; }
+
+.lf-wide { aspect-ratio: 16 / 9; width: 100%; border-radius: 12px; border: 1px solid var(--line-2); background: linear-gradient(160deg, #141b29, var(--bg));
+  display: grid; place-items: center; color: var(--faint); overflow: hidden; text-align: center; padding: 0; }
+.lf-wide video, .lf-wide img { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+button.lf-wide { cursor: pointer; font: inherit; transition: border-color .2s var(--ease), transform .2s var(--ease); }
+button.lf-wide:hover { border-color: var(--go); transform: translateY(-2px); color: var(--text); }
+
+.lf-editor { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.lf-chapters { flex: 1 1 280px; max-width: 340px; padding: 14px; }
+.lf-chapter { flex: 999 1 460px; min-width: 0; }
+.lf-side { flex: 1 1 280px; max-width: 360px; display: flex; flex-direction: column; gap: 18px; }
+@media (max-width: 1100px) { .lf-chapters, .lf-side { max-width: none; } }
+
+.ch { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 6px 10px; border: 1px solid transparent; border-radius: 10px;
+  background: none; color: var(--muted); font: inherit; text-align: left; cursor: pointer; transition: background .18s var(--ease), color .18s var(--ease); }
+.ch:hover { background: var(--raised); color: var(--text); }
+.ch.on { background: var(--raised); border-color: rgba(200, 245, 96, .4); color: var(--text); }
+.ch .n { font-family: var(--mono); font-size: 12px; color: var(--faint); width: 18px; flex: none; }
+.ch .t { flex: 1; min-width: 0; font-weight: 550; overflow-wrap: anywhere; }
+.ch .d { font-family: var(--mono); font-size: 12px; flex: none; }
+.ch .flag { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.ch .ok { width: 8px; height: 8px; border-radius: 50%; background: var(--go); flex: none; }
+
+.lf-narration { font-size: 15px; line-height: 1.6; min-height: 190px; }
+.lf-log { margin: 10px 0 0; padding: 10px 12px; background: var(--bg); border-radius: 10px; font-family: var(--mono); font-size: 12px; color: var(--muted);
+  max-height: 150px; overflow: auto; white-space: pre-wrap; }
+.lf-player { width: min(1100px, 100%); padding: 16px; }
+.lf-player video { width: 100%; border-radius: 12px; background: #000; display: block; aspect-ratio: 16 / 9; }
+
+/* one pip per chapter in the shared "rendering" card */
+.lf-pips { display: flex; gap: 4px; }
+.lf-pips i { flex: 1 1 0; max-width: 44px; height: 6px; border-radius: 3px; background: var(--line-2); }
+.lf-pips i.done { background: var(--go); }
+.lf-pips i.now { background: var(--info); animation: pulse 1.6s ease-out infinite; }

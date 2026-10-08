@@ -5,6 +5,7 @@ import {
   fmtCompact, fmtDuration, fmtNum, fmtWhen,
 } from "../ui.jsx";
 import LiveRun from "./LiveRun.jsx";
+import LongformLive from "./LongformLive.jsx";
 
 const median = (xs) => {
   if (!xs.length) return null;
@@ -20,6 +21,7 @@ export default function Overview({
 }) {
   const [yt, setYt] = useState(null);
   const [uploads, setUploads] = useState(null);
+  const [longform, setLongform] = useState(null);
 
   // Stored snapshots only: neither call spends YouTube quota.
   useEffect(() => {
@@ -28,6 +30,19 @@ export default function Overview({
   useEffect(() => {
     api("/api/uploads").then((r) => setUploads(r.uploads || [])).catch(() => setUploads([]));
   }, [state.counts.uploaded]);
+
+  // Long-form builds run outside the Shorts job queue, so they are polled on
+  // their own: quickly while one is rendering, slowly otherwise.
+  const lfLive = longform?.find((e) => e.build?.live);
+  useEffect(() => {
+    let alive = true;
+    const load = () => api("/api/longform")
+      .then((r) => alive && setLongform(r.episodes || []))
+      .catch(() => {});
+    load();
+    const t = setInterval(load, lfLive ? 4000 : 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, [!!lfLive]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const { counts, next_up: nextUp, upload_quota: quota, job, queue, history } = state;
   const rendering = (job ? 1 : 0) + queue.length;
@@ -106,7 +121,7 @@ export default function Overview({
       <PageHeader
         title="Overview"
         sub={`${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} · ${
-          job ? "rendering now" : "pipeline idle"}`}
+          job || lfLive ? "rendering now" : "pipeline idle"}`}
       >
         <button type="button" className="search" onClick={onOpenSearch} style={{ cursor: "pointer", font: "inherit" }}>
           <Icon name="search" />
@@ -129,7 +144,8 @@ export default function Overview({
         ))}
       </section>
 
-      <LiveRun job={job} queue={queue} lines={lines} onCancel={onCancel} onCancelQueued={onCancelQueued} titles={titles} compact />
+      <LiveRun job={job} queue={queue} lines={lines} onCancel={onCancel} onCancelQueued={onCancelQueued} titles={titles} />
+      <LongformLive ep={lfLive} onOpen={() => setView("__longform")} />
 
       <section className="card" aria-label="Pipeline">
         <div className="card-head">

@@ -9,6 +9,7 @@ export const NAV = [
   ] },
   { group: "Produce", items: [
     { id: "__launch", icon: "play", label: "Render", count: "missing" },
+    { id: "__longform", icon: "screen", label: "Long-form" },
     { id: "__history", icon: "jobs", label: "Jobs", count: "failures", alert: true },
   ] },
   { group: "Publish", items: [

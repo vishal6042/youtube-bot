@@ -97,7 +97,7 @@ function Stage({ title, mode, running }) {
   );
 }
 
-function Dial({ pct, running, size }) {
+export function Dial({ pct, running, size }) {
   return (
     <div className={"st-dial" + (running ? " run" : "") + (size === "sm" ? " sm" : "")}
          style={{ "--p": pct + "%" }} role="progressbar" aria-label="Overall progress"

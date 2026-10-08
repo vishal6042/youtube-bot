@@ -2860,6 +2860,11 @@ def api_video(key: str, request: Request) -> Response:
                              })
 
 
+from dashboard import longform_api  # noqa: E402
+
+app.include_router(longform_api.router)
+
+
 @app.get("/api/thumb/{key}")
 def api_thumb(key: str) -> FileResponse:
     """The exported thumbnail.jpg for a topic, if one exists."""
