@@ -129,6 +129,8 @@ def read_state(key: str) -> dict[str, Any]:
 
 def summary(key: str) -> dict[str, Any]:
     """Everything the dashboard shows for an episode, measured where possible."""
+    from .build import _chapter_hash  # here, not at the top: build imports this module
+
     ep = load(key)
     state = read_state(key)
     built = state.get("chapters", {})
@@ -137,13 +139,14 @@ def summary(key: str) -> dict[str, Any]:
     for ch in ep["chapters"]:
         n = words(ch.get("narration"))
         done = built.get(ch["id"], {})
-        # A measured length only counts while the words it was measured on are
-        # still the words in the script.
-        fresh = done.get("words") == n and done.get("secs")
+        # A render only counts while what produced it (words, chart, voice,
+        # pace) is still what the script says.
+        fresh = done.get("hash") == _chapter_hash(ep, ch) and done.get("secs")
         secs = float(done["secs"]) if fresh else n / WORDS_PER_MINUTE * 60
         total_secs += secs
         chapters.append({**ch, "words": n, "secs": round(secs, 1), "measured": bool(fresh),
-                         "rendered": bool(fresh and done.get("video"))})
+                         "rendered": bool(fresh and done.get("video")),
+                         "took": done.get("took") if fresh else None})
     video = out_dir(key) / "episode.mp4"
     return {
         **ep,

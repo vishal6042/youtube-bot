@@ -145,7 +145,7 @@ export default function Overview({
       </section>
 
       <LiveRun job={job} queue={queue} lines={lines} onCancel={onCancel} onCancelQueued={onCancelQueued} titles={titles} />
-      <LongformLive ep={lfLive} onOpen={() => setView("__longform")} />
+      <LongformLive ep={lfLive} onOpen={() => setView("__longform")} compact />
 
       <section className="card" aria-label="Pipeline">
         <div className="card-head">

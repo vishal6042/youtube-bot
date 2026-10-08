@@ -4,7 +4,8 @@ import {
   Banner, Bar, Btn, Chip, Empty, Icon, PageHeader, Pager, PlaylistChip, Select, SkeletonRows, Stat,
   usePaged,
 } from "../ui.jsx";
-import LongformLive from "./LongformLive.jsx";
+import LongformLive, { buildDoing, buildPct } from "./LongformLive.jsx";
+import { Dial } from "./LiveRun.jsx";
 import "../screens/longform.css";
 
 const WPM = 150;
@@ -37,18 +38,29 @@ function statusOf(ep) {
 
 function Steps({ ep }) {
   const n = ep.chapters.length;
+  const live = !!ep.build?.live;
   const assembled = ep.has_video && !ep.video_stale;
+  const joining = live && ep.build.stage !== "chapter";
+  // Each step: [name, done, note, share of its track that is filled].
   const steps = [
-    ["Script", ep.reviewed, ep.reviewed ? "reviewed" : n ? "draft, needs review" : "not started"],
-    ["Voice and charts", n > 0 && ep.rendered === n, `${ep.rendered} of ${n} chapters rendered`],
-    ["Assembled", assembled, assembled ? clock(ep.build?.secs || ep.secs) : ep.has_video ? "out of date" : "not yet"],
-    ["Published", false, "not yet"],
+    ["Script", !!ep.reviewed, ep.reviewed ? "reviewed" : n ? "draft, needs review" : "not started",
+      ep.reviewed || live ? 1 : 0],
+    ["Voice and charts", n > 0 && ep.rendered === n, `${ep.rendered} of ${n} chapters rendered`,
+      n ? ep.rendered / n : 0],
+    ["Assembled", assembled, assembled ? clock(ep.build?.secs || ep.secs)
+      : joining ? "joining and mixing" : ep.has_video ? "out of date" : "not yet", assembled ? 1 : joining ? 0.5 : 0],
+    ["Published", false, "not yet", 0],
   ];
-  const now = steps.findIndex(([, done]) => !done);
+  // While a render runs, the step doing the work is the current one, whether
+  // or not the script has been ticked as reviewed.
+  const now = live ? (joining ? 2 : 1) : steps.findIndex(([, done]) => !done);
   return (
-    <ol className="lf-steps" aria-label="Progress">
-      {steps.map(([name, done, note], i) => (
-        <li key={name} className={done ? "done" : i === now ? "now" : ""}><b>{name}</b>{note}</li>
+    <ol className={"lf-steps" + (live ? " live" : "")} aria-label="Progress">
+      {steps.map(([name, done, note, fill], i) => (
+        <li key={name} className={done ? "done" : i === now ? "now" : ""}
+            style={{ "--fill": `${Math.round(Math.max(0, Math.min(1, fill)) * 100)}%` }}>
+          <b>{name}</b>{note}
+        </li>
       ))}
     </ol>
   );
@@ -101,10 +113,6 @@ function EpisodeList({ data, onOpen, onCreate, onWatch }) {
         </div>
       )}
 
-      {data.episodes.filter((e) => e.build?.live).map((e) => (
-        <LongformLive key={e.key} ep={e} onOpen={() => onOpen(e.key)} />
-      ))}
-
       {data.episodes.map((ep) => {
         const [label, tone] = statusOf(ep);
         return (
@@ -117,6 +125,13 @@ function EpisodeList({ data, onOpen, onCreate, onWatch }) {
                           aria-label={`Watch ${ep.title}`}>
                     <Icon name="play" size={34} />
                   </button>
+                ) : ep.build?.live ? (
+                  <div className="lf-wide lf-wide-live">
+                    <div className="stack" style={{ alignItems: "center", gap: 10 }}>
+                      <Dial pct={buildPct(ep.build)} running size="sm" />
+                      <span style={{ fontSize: 13, color: "var(--text)", padding: "0 12px" }}>{buildDoing(ep.build)}</span>
+                    </div>
+                  </div>
                 ) : (
                   <div className="lf-wide"><span style={{ fontSize: 13 }}>Not rendered yet</span></div>
                 )}

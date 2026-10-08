@@ -99,12 +99,12 @@ function Stage({ title, mode, running }) {
 
 export function Dial({ pct, running, size }) {
   return (
-    <div className={"st-dial" + (running ? " run" : "") + (size === "sm" ? " sm" : "")}
+    <div className={"st-dial" + (running ? " run" : "") + (size === "sm" ? " sm" : size === "md" ? " md" : "")}
          style={{ "--p": pct + "%" }} role="progressbar" aria-label="Overall progress"
          aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
       <div className="st-dial-in">
         <div className="num st-pct">{pct}%</div>
-        {size !== "sm" && <div className="muted" style={{ fontSize: 12.5 }}>overall</div>}
+        {size !== "sm" && <div className="muted" style={{ fontSize: 12 }}>overall</div>}
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import datetime as dt
 import hashlib
 import json
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -138,13 +139,18 @@ def chapter_topic(ep: dict[str, Any], ch: dict[str, Any], settings: dict[str, An
 
 def _chapter_hash(ep: dict[str, Any], ch: dict[str, Any]) -> str:
     blob = json.dumps({"n": " ".join((ch.get("narration") or "").split()), "c": ch.get("chart"),
-                       "h": ch.get("heading"), "v": ep.get("voice"), "r": ep.get("voice_rate"), "fmt": 4}, sort_keys=True)
+                       "h": ch.get("heading"), "v": ep.get("voice"), "r": ep.get("voice_rate"), "fmt": 5}, sort_keys=True)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
 
 def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
-                    settings: dict[str, Any]) -> dict[str, Any]:
+                    settings: dict[str, Any],
+                    on_sub: Callable[..., None] | None = None) -> dict[str, Any]:
+    """Voice, then chart, then combine. ``on_sub(sub, **detail)`` reports each."""
     cid = ch["id"]
+    began = time.time()
+    tell = on_sub or (lambda *a, **k: None)
+    tell("voice")
     voice_mp3 = work / f"{cid}.mp3"
     chart_mp4 = work / f"{cid}.chart.mp4"
     final_mp4 = work / f"{cid}.mp4"
@@ -152,9 +158,20 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
     voice_secs, cues = speak(ch.get("narration", ""), ep.get("voice") or DEFAULT_VOICE, voice_mp3,
                              settings, rate=ep.get("voice_rate") or "+0%")
     total = LEAD_IN + voice_secs + LEAD_OUT
+    tell("chart", voice_secs=round(voice_secs, 1), frame=0, frames=0)
 
     topic, df = chapter_topic(ep, ch, settings)
     rs = copy.deepcopy(settings)
+    last = [0.0]
+
+    def on_frame(i: int, n: int) -> None:
+        # Hundreds of frames a minute: writing state for each would be the
+        # slowest part of the render.
+        if time.time() - last[0] >= 1.0 or i + 1 >= (n or 0):
+            last[0] = time.time()
+            tell("chart", voice_secs=round(voice_secs, 1), frame=i + 1, frames=n or 0)
+
+    rs["_progress"] = on_frame
     rs.setdefault("video", {}).update(
         width=WIDTH, height=HEIGHT,
         # The renderer adds a 1s end hold; aim the motion at the rest.
@@ -166,6 +183,7 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
     # the last frame if short; if long, the voice simply finishes first.
     total = max(total, chart_secs)
     pad = max(0.0, total - chart_secs)
+    tell("combine", voice_secs=round(voice_secs, 1))
     _run([
         ffmpeg_exe(settings), "-y", "-loglevel", "error",
         "-i", str(chart_mp4), "-i", str(voice_mp3),
@@ -179,6 +197,7 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
     chart_mp4.unlink(missing_ok=True)
     return {"hash": _chapter_hash(ep, ch), "secs": round(total, 3), "voice_secs": round(voice_secs, 3),
             "words": words(ch.get("narration")), "video": final_mp4.name,
+            "took": round(time.time() - began, 1),
             "cues": [{**c, "start": c["start"] + LEAD_IN, "end": c["end"] + LEAD_IN} for c in cues]}
 
 
@@ -255,9 +274,13 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
                      and (work / cached.get("video", "")).exists())
             wanted = (only is None or cid in only) and (force or not fresh)
             if wanted or not fresh:
-                report(stage="chapter", index=i, chapter=cid, heading=ch.get("heading"))
+                base = {"stage": "chapter", "index": i, "chapter": cid, "heading": ch.get("heading"),
+                        "chapter_started_at": dt.datetime.now().isoformat(timespec="seconds")}
+                report(**base, sub="voice")
                 print(f"  [{i + 1}/{len(chapters)}] {cid}: narrating and rendering ...", flush=True)
-                done_map[cid] = _render_chapter(ep, ch, work, settings)
+                done_map[cid] = _render_chapter(
+                    ep, ch, work, settings,
+                    on_sub=lambda sub, _b=base, **kw: report(**_b, sub=sub, **kw))
             else:
                 print(f"  [{i + 1}/{len(chapters)}] {cid}: unchanged, reusing", flush=True)
             built.append((ch, done_map[cid]))
@@ -277,11 +300,17 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
 
         video = out / "episode.mp4"
         conf = settings.get("audio", {}) or {}
-        track = audio_mod.select_track(
-            settings, {"key": f"lf_{key}", "mood": ep.get("music_mood")}, total)
+        # The folder tracks are 30-second Shorts beds; looped ten times under
+        # five minutes of talking they are very audibly a loop. The synthesised
+        # theme is generated to the episode's full length instead.
+        track = None
+        if conf.get("enabled", False):
+            mood = ep.get("music_mood") or audio_mod.infer_mood({"key": f"lf_{key}"})
+            track = audio_mod._generated_track(f"lf_{key}", total, mood)
         lufs = conf.get("loudness_lufs") or -14
         peak = conf.get("true_peak_db") or -1.5
-        norm = f"loudnorm=I={lufs}:TP={peak}:LRA=11"
+        # loudnorm upsamples internally; bring the result back to 48 kHz.
+        norm = f"loudnorm=I={lufs}:TP={peak}:LRA=11,aresample=48000"
         if track is not None:
             vol = float(conf.get("volume_under_voice", 0.15))
             _run([

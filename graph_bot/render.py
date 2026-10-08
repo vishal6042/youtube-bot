@@ -29,7 +29,7 @@ from matplotlib import animation  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
-from matplotlib.ticker import FuncFormatter  # noqa: E402
+from matplotlib.ticker import FuncFormatter, MaxNLocator  # noqa: E402
 
 FG = "#f2f5fa"
 MUTED = "#9aa4b2"
@@ -257,6 +257,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
                    edgecolors=ACCENT, linewidths=2)
 
         ax.set_xlim(xs[0], xs[-1])
+        _year_axis(ax)
         if log_scale:
             ax.set_yscale("log")
             ax.set_ylim(ybase, ymax * 4)
@@ -320,7 +321,10 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
     fig.patch.set_facecolor(BG_BOTTOM)
     wide_fmt = _wide(settings)
     if wide_fmt:
-        fig.subplots_adjust(left=0.08, right=0.74, top=0.80, bottom=0.12)
+        # Same left and right edges as every other landscape chart, so
+        # chapters do not change width from one to the next. The room for the
+        # end-of-line labels is made inside the axes (see set_xlim below).
+        fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
         fig.subplots_adjust(left=0.16, right=0.80, top=0.82, bottom=0.11)
     _add_gradient_bg(fig)
@@ -354,23 +358,28 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
                 y = min(y, label_y[ordered[rank - 1]] - gap)
             label_y[n] = y
 
+        lx = cx + ((xs[-1] - xs[0]) * 0.055 if wide_fmt else 0.0)
         for n in ordered:
             col = line_colors[n]
-            ax.text(cx, label_y[n], f"{n}  {_fmt(cvals[n], topic)}",
+            ax.text(lx, label_y[n], f"{n}  {_fmt(cvals[n], topic)}",
                     color=col, fontsize=24 if wide_fmt else 17, fontweight="bold",
                     va="center", ha="left", zorder=7,
                     transform=ax.transData, clip_on=False)
             img = flag_imgs.get(n)
             if img is not None:
                 ab = AnnotationBbox(
-                    OffsetImage(img, zoom=0.34), (cx, label_y[n]),
+                    OffsetImage(img, zoom=0.34), (lx, label_y[n]),
                     xybox=(-6, 0), xycoords="data", boxcoords="offset points",
                     frameon=False, box_alignment=(1.0, 0.5),
                     annotation_clip=False, zorder=7,
                 )
                 ax.add_artist(ab)
 
-        ax.set_xlim(xs[0], xs[-1])
+        label_room = (xs[-1] - xs[0]) * 0.30 if wide_fmt else 0.0
+        ax.set_xlim(xs[0], xs[-1] + label_room)
+        _year_axis(ax)
+        if label_room:
+            ax.set_xticks([t for t in ax.get_xticks() if xs[0] <= t <= xs[-1]])
         ax.set_ylim(0, ymax * 1.15)
         ax.grid(True, color=GRID, alpha=0.35)
         ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
@@ -379,7 +388,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         for spine in ax.spines.values():
             spine.set_visible(False)
 
-        ax.text(0.98, 0.05, str(int(round(cx))), transform=ax.transAxes, ha="right",
+        ax.text(0.75 if wide_fmt else 0.98, 0.05, str(int(round(cx))), transform=ax.transAxes, ha="right",
                 va="bottom", color=ACCENT, alpha=0.30, fontsize=110 if wide_fmt else 64,
                 fontweight="bold")
         _progress_bar(ax, idx / max(1, n_frames - 1))
@@ -440,7 +449,7 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     fig, ax = plt.subplots(figsize=(width / dpi, height / dpi), dpi=dpi)
     fig.patch.set_facecolor(BG_BOTTOM)
     if wide_fmt:
-        fig.subplots_adjust(left=0.07, right=0.82, top=0.80, bottom=0.11)
+        fig.subplots_adjust(left=0.07, right=0.95, top=0.80, bottom=0.11)
     else:
         fig.subplots_adjust(left=0.16, right=0.72, top=0.85, bottom=0.10)
     _add_gradient_bg(fig)
@@ -455,7 +464,11 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
         n = frames[idx]
         ax.clear()
         ax.set_facecolor("none")
-        ax.set_xlim(years[0], years[-1])
+        label_room = (years[-1] - years[0]) * 0.20 if wide_fmt else 0.0
+        ax.set_xlim(years[0], years[-1] + label_room)
+        _year_axis(ax)
+        if label_room:
+            ax.set_xticks([t for t in ax.get_xticks() if years[0] <= t <= years[-1]])
         ax.set_ylim(rank_max + 0.6, 0.4)  # rank 1 at the top
         ax.set_yticks(range(1, rank_max + 1))
         ax.set_yticklabels([f"#{r}" for r in range(1, rank_max + 1)], color=MUTED,
@@ -481,7 +494,8 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
                 ax.add_artist(AnnotationBbox(
                     OffsetImage(img, zoom=0.40), (x, y), frameon=False,
                     box_alignment=(0.5, 0.5), zorder=6, clip_on=False))
-            ax.annotate(f"  {e}", (x, y), color=HIGHLIGHT if is_hero else colors[e],
+            ax.annotate(f"     {e}" if wide_fmt else f"  {e}", (x, y),
+                        color=HIGHLIGHT if is_hero else colors[e],
                         fontsize=24 if is_hero else 20,
                         fontweight="bold", va="center", ha="left",
                         annotation_clip=False, zorder=6)
@@ -489,8 +503,8 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
         yr = int(round(float(curves[entities[0]][0][n - 1])))
         # Ghosted watermark year inside the plot, matching line_grow/line_multi;
         # above the axes it collides with the subtitle (axes stop at right=0.72).
-        ax.text(0.98, 0.05, str(yr), transform=ax.transAxes, ha="right",
-                va="bottom", color=ACCENT, alpha=0.30, fontsize=64,
+        ax.text(0.81 if wide_fmt else 0.98, 0.05, str(yr), transform=ax.transAxes, ha="right",
+                va="bottom", color=ACCENT, alpha=0.30, fontsize=96 if wide_fmt else 64,
                 fontweight="bold", zorder=1)
         _progress_bar(ax, n / n_pts)
 
@@ -712,6 +726,13 @@ def _fmt(val: float, topic: dict[str, Any]) -> str:
     return f"{val:,.{decimals}f}{suffix}"
 
 
+def _year_axis(ax) -> None:
+    """Whole years on the x axis. Left alone, matplotlib picks steps like 2.5
+    on a short span and prints "2022.5"."""
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True, nbins=8))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _p: f"{int(round(v))}"))
+
+
 def _axis_fmt(val: float, topic: dict[str, Any]) -> str:
     """Axis tick label: the value's own format, without needless decimals."""
     if val == 0:
@@ -770,4 +791,6 @@ def _ensure_ffmpeg(settings: dict[str, Any]) -> None:
 def _save(anim, out_path: Path, fps: int, dpi: int, settings: dict[str, Any]) -> None:
     writer = animation.FFMpegWriter(fps=fps, bitrate=6000, codec="libx264",
                                     extra_args=["-pix_fmt", "yuv420p"])
-    anim.save(str(out_path), writer=writer, dpi=dpi)
+    # Optional hook `settings["_progress"](frame, total)`: long-form builds use
+    # it to show how far through a chart the renderer is.
+    anim.save(str(out_path), writer=writer, dpi=dpi, progress_callback=settings.get("_progress"))
