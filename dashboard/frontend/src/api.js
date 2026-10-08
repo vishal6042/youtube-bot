@@ -19,39 +19,26 @@ export async function api(path, body) {
   return res.json();
 }
 
-/* Each playlist gets its own identity colour, matching its cover art. The name
-   is always in the chip too, so colour is never the only signal. */
-export const seriesChip = (series) => `chip-pl pl-${series}`;
-
-export const STATE_CHIP = {
-  uploaded: ["chip-uploaded", "✅ UPLOADED"],
-  ready: ["chip-ready", "⏳ READY"],
-  rendered: ["chip-rendered", "🎬 RENDERED"],
-  missing: ["chip-missing", "⬜ NOT MADE"],
-  discarded: ["chip-missing", "🗑 DISCARDED"],
+/* Each playlist gets its own identity colour. The name is always shown beside
+   it, so colour is never the only signal. */
+export const PLAYLIST_COLORS = {
+  world_in_data: "#38e1ff",
+  india_in_data: "#ff9d5c",
+  money: "#f0c14b",
+  ai_trends: "#ff4fd8",
+  sports: "#3ddc97",
+  ml_concept: "#a78bfa",
+  charts_lie: "#ff7a90",
+  country_vs_country: "#6f9bff",
 };
 
-// The orchestrator's sub-agents, in pipeline order. Keys match the
-// ::stage:: markers emitted by dashboard/worker.py.
-export const AGENTS = [
-  { key: "video", icon: "🎬", label: "VIDEO CREATION" },
-  { key: "music", icon: "🎵", label: "MUSIC GEN" },
-  { key: "mixing", icon: "🎚️", label: "MIX & SYNC" },
-  { key: "subtitle", icon: "📝", label: "TITLES & DESC" },
-  { key: "exporting", icon: "📦", label: "EXPORT" },
-  { key: "thumbnail", icon: "🖼️", label: "THUMBNAIL" },
+// The render pipeline's steps, in order. Keys match the ::agent:: markers
+// emitted by dashboard/worker.py; `hint` says what each step is waiting on.
+export const STEPS = [
+  { key: "video", label: "Video", doing: "Drawing the video", hint: "fetch, transform, render" },
+  { key: "music", label: "Music", doing: "Picking music", hint: "track for the topic's mood" },
+  { key: "subtitle", label: "Titles", doing: "Writing title and description", hint: "title and description" },
+  { key: "mixing", label: "Mix", doing: "Mixing sound", hint: "needs the video" },
+  { key: "exporting", label: "Export", doing: "Exporting", hint: "after the mix" },
+  { key: "thumbnail", label: "Thumbnail", doing: "Making the thumbnail", hint: "after export" },
 ];
-
-export const AGENT_TEXT = {
-  idle: "STANDING BY",
-  queued: "QUEUED",
-  starting: "SPOOLING UP",
-  video: "CREATING VIDEO",
-  music: "GENERATING MUSIC",
-  mixing: "MIXING & SYNCING",
-  subtitle: "WRITING TITLES & CAPTIONS",
-  exporting: "EXPORTING",
-  thumbnail: "BUILDING THUMBNAIL",
-  exported: "TOPIC COMPLETE",
-  error: "JOB FAILED",
-};

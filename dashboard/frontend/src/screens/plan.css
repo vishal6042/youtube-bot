@@ -1,0 +1,35 @@
+/* Ideas and Topics: the few rules ui.css does not already cover. */
+
+/* Topic key outside a table (ui.css only styles .k inside .tbl). */
+.idea .k { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.idea h2 { font-size: 18px; }
+.idea-meta { font-size: 12.5px; }
+.idea-foot { margin-top: auto; padding-top: 4px; }
+.idea-grid { align-items: stretch; }
+
+/* Inline result of "Check source". */
+.idea-check { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; font-size: 13px;
+  color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 32%, transparent); background: color-mix(in srgb, var(--c) 8%, transparent); overflow-wrap: anywhere; }
+.idea-check.ok { --c: var(--go); } .idea-check.bad { --c: var(--bad); }
+.idea-check .i { width: 16px; height: 16px; margin-top: 1px; }
+
+.plan-doc { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+
+/* Topics table */
+.topic-cell { min-width: 220px; max-width: 420px; }
+.topic-note { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.topic-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; white-space: nowrap; }
+.tbl .check:disabled { opacity: .3; cursor: not-allowed; }
+
+/* Row "more" menu. Fixed, not absolute: the table scrolls sideways inside
+   .scroll, which would clip an absolutely positioned menu on the last rows. */
+.row-menu { position: fixed; z-index: 40; min-width: 200px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--raised); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 16px 48px rgba(0, 0, 0, .55);
+  animation: fade .14s var(--ease) both; }
+.row-menu button, .row-menu a { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: none; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; text-decoration: none; cursor: pointer;
+  transition: background .15s var(--ease); }
+.row-menu button:hover, .row-menu a:hover, .row-menu button:focus-visible, .row-menu a:focus-visible { background: var(--surface); }
+.row-menu .danger { color: var(--bad); }
+.row-menu .i { width: 16px; height: 16px; color: var(--muted); }
+.row-menu .danger .i { color: inherit; }

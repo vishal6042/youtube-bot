@@ -25,8 +25,8 @@ export default function ConfirmModal({ state, onResolve }) {
     message,
     detail,
     items,
-    confirmLabel = "CONFIRM",
-    cancelLabel = "CANCEL",
+    confirmLabel = "Confirm",
+    cancelLabel = "Cancel",
     tone = "primary",   // primary | danger
     input,              // { label, placeholder, initial } -> resolves to a string
   } = state;
@@ -39,18 +39,18 @@ export default function ConfirmModal({ state, onResolve }) {
       className="modal-back"
       onClick={(e) => e.target === e.currentTarget && onResolve(null)}
     >
-      <div className={"modal confirm-modal " + tone}>
-        <div className="confirm-title">{title}</div>
-        {message && <p className="confirm-msg">{message}</p>}
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <h2>{title}</h2>
+        {message && <p>{message}</p>}
 
         {items?.length > 0 && (
-          <ol className="confirm-items">
+          <ol>
             {items.map((it, i) => (
               <li key={i}>
-                <span className="confirm-num">{String(i + 1).padStart(2, "0")}</span>
-                <span className="confirm-item-main">
+                <span className="num faint">{i + 1}</span>
+                <span>
                   <b>{it.title}</b>
-                  {it.meta && <span className="confirm-item-meta">{it.meta}</span>}
+                  {it.meta && <span className="muted" style={{ fontSize: 13 }}> · {it.meta}</span>}
                 </span>
               </li>
             ))}
@@ -58,29 +58,30 @@ export default function ConfirmModal({ state, onResolve }) {
         )}
 
         {input && (
-          <label className="modal-label confirm-input">
+          <label className="field" style={{ marginBottom: 12 }}>
             {input.label}
             <input
               ref={inputRef}
+              className="input"
               type="text"
               placeholder={input.placeholder || ""}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") accept();
-                if (e.key === "Escape") onResolve(null);
               }}
             />
           </label>
         )}
 
-        {detail && <p className="confirm-detail">{detail}</p>}
+        {detail && <p className="faint" style={{ fontSize: 13 }}>{detail}</p>}
 
         <div className="modal-actions">
-          <button className="btn" onClick={() => onResolve(null)}>{cancelLabel}</button>
+          <button type="button" className="btn ghost" onClick={() => onResolve(null)}>{cancelLabel}</button>
           <button
             ref={okRef}
-            className={"btn " + (tone === "danger" ? "btn-danger" : "btn-primary")}
+            type="button"
+            className={"btn " + (tone === "danger" ? "danger" : "primary")}
             onClick={accept}
           >
             {confirmLabel}

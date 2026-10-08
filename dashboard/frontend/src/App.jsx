@@ -1,50 +1,38 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
-import AgentNetwork from "./components/AgentNetwork.jsx";
-import StatsRow from "./components/StatsRow.jsx";
-import LaunchControl from "./components/LaunchControl.jsx";
-import Analytics from "./components/Analytics.jsx";
-import UploadControl from "./components/UploadControl.jsx";
-import UploadLive from "./components/UploadLive.jsx";
-import UploadQueue from "./components/UploadQueue.jsx";
-import PlaylistCards from "./components/PlaylistCards.jsx";
-import PlaylistList from "./components/PlaylistList.jsx";
-import PlaylistDetail from "./components/PlaylistDetail.jsx";
-import History from "./components/History.jsx";
-import TopicCatalog from "./components/TopicCatalog.jsx";
+import Overview from "./components/Overview.jsx";
+import IdeasPage from "./components/IdeasPage.jsx";
+import TopicsPage from "./components/TopicsPage.jsx";
+import RenderPage from "./components/RenderPage.jsx";
+import JobsPage from "./components/JobsPage.jsx";
+import UploadPage from "./components/UploadPage.jsx";
+import PublishedPage from "./components/PublishedPage.jsx";
+import PlaylistsPage from "./components/PlaylistsPage.jsx";
+import AnalyticsPage from "./components/AnalyticsPage.jsx";
+import MusicPage from "./components/MusicPage.jsx";
+import SettingsPage from "./components/SettingsPage.jsx";
 import Sidebar from "./components/Sidebar.jsx";
-import Jobs from "./components/Jobs.jsx";
-import Telemetry from "./components/Telemetry.jsx";
-import FailureCenter from "./components/FailureCenter.jsx";
-import Settings from "./components/Settings.jsx";
-import UploadHistory from "./components/UploadHistory.jsx";
-import MusicLibrary from "./components/MusicLibrary.jsx";
-import TopicIdeas from "./components/TopicIdeas.jsx";
+import CommandPalette from "./components/CommandPalette.jsx";
 import MarkModal from "./components/MarkModal.jsx";
 import VideoModal from "./components/VideoModal.jsx";
 import ConfirmModal from "./components/ConfirmModal.jsx";
+import { SkeletonRows } from "./ui.jsx";
 
 const MAX_TERM_LINES = 400;
-
-function Clock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return <div className="clock">{now.toLocaleTimeString("en-GB")}</div>;
-}
 
 export default function App() {
   const [state, setState] = useState(null);
   const [online, setOnline] = useState(null);
-  const [termLines, setTermLines] = useState(["agent idle. waiting for orders…"]);
+  const [termLines, setTermLines] = useState([]);
   const [toasts, setToasts] = useState([]);
   const [modal, setModal] = useState(null);
-  const [view, setViewRaw] = useState(null); // null = home, else a series key
-  // Views ride on the browser history stack, so ◂ BACK (and the browser's own
-  // back button) return to where you actually came from — Playlists → detail →
-  // back lands on Playlists, not Mission.
+  const [view, setViewRaw] = useState(null); // null = Overview, else a "__screen" id
+  const [plSel, setPlSel] = useState(null);       // playlist open on the Playlists screen
+  const [topicQuery, setTopicQuery] = useState(""); // handed to Topics by global search
+  const [palette, setPalette] = useState(false);
+  const [ideasCount, setIdeasCount] = useState(null);
+  // Views ride on the browser history stack, so the browser's back button
+  // returns to the screen you actually came from.
   const navDepth = useRef(0);
   const setView = useCallback((v) => {
     setViewRaw((prev) => {
@@ -55,10 +43,6 @@ export default function App() {
       return v;
     });
   }, []);
-  const goBack = useCallback(() => {
-    if (navDepth.current > 0) window.history.back();
-    else setViewRaw(null);
-  }, []);
   useEffect(() => {
     window.history.replaceState({ view: null, depth: 0 }, "");
     const onPop = (e) => {
@@ -67,6 +51,16 @@ export default function App() {
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPalette((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
   const [pending, setPending] = useState(0); // in-flight mutations (drives progress UI)
   const [video, setVideo] = useState(null);  // topic being previewed in the player
@@ -86,7 +80,7 @@ export default function App() {
   // Same dialog, but resolves the typed string instead of a boolean.
   const promptText = useCallback((opts) => new Promise((resolve) => {
     confirmResolver.current = resolve;
-    setConfirmState({ confirmLabel: "SAVE", ...opts, input: opts.input || {} });
+    setConfirmState({ confirmLabel: "Save", ...opts, input: opts.input || {} });
   }), []);
 
   const resolveConfirm = useCallback((ok) => {
@@ -134,7 +128,6 @@ export default function App() {
         const last = s.history[0];
         if (last?.log?.length) {
           setTermLines([
-            `─── last job · ${last.label} · ${last.status.toUpperCase()} ───`,
             ...last.log.slice(-30),
           ]);
         }
@@ -155,7 +148,7 @@ export default function App() {
   const renderTopics = async (keys, title) => {
     try {
       await api("/api/render", { keys });
-      toast(`▶ Queued render: ${title || keys.join(", ")}`);
+      toast(`Render queued: ${title || keys.join(", ")}`);
       poll();
     } catch (e) {
       toast(e.message, true);
@@ -167,7 +160,7 @@ export default function App() {
   const renderBatch = async ({ keys, refresh, label }) => {
     try {
       await api("/api/render", { keys, refresh });
-      toast(`▶ Queued ${keys.length} render${keys.length === 1 ? "" : "s"} (${label})`);
+      toast(`${keys.length} render${keys.length === 1 ? "" : "s"} queued (${label})`);
       poll();
     } catch (e) {
       toast(e.message, true);
@@ -178,7 +171,7 @@ export default function App() {
     if (!queued && !await confirm({
       title: "Abort the running job?",
       message: "The current render stops immediately. Anything already exported is kept.",
-      confirmLabel: "✕ ABORT JOB", tone: "danger",
+      confirmLabel: "Abort job", cancelLabel: "Keep running", tone: "danger",
     })) return;
     try {
       await api(`/api/jobs/${jobId}/cancel`, {});
@@ -196,7 +189,7 @@ export default function App() {
     try {
       await api("/api/mark", { key, url });
       setModal(null);
-      toast("✅ Marked uploaded — queue updated");
+      toast("Marked as uploaded");
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -209,7 +202,7 @@ export default function App() {
     setPending((n) => n + 1);
     try {
       await api("/api/unmark", { key });
-      toast(`↩ Unmarked ${title}`);
+      toast(`${title} is back in the upload queue`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -223,8 +216,8 @@ export default function App() {
     try {
       await api("/api/playlist-created", { series, created });
       toast(created
-        ? `✅ ${name} marked as created on YouTube`
-        : `↩ ${name} marked as not created`);
+        ? `${name} marked as created on YouTube`
+        : `${name} marked as not created`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -238,12 +231,12 @@ export default function App() {
       title: "Remove this topic?",
       message: `"${title}" goes back out of config/topics.yaml.`,
       detail: "It has never been rendered, so no video is lost.",
-      confirmLabel: "✕ REMOVE", tone: "danger",
+      confirmLabel: "Remove topic", tone: "danger",
     })) return;
     setPending((n) => n + 1);
     try {
       await api("/api/topics/remove", { key });
-      toast(`✕ Reverted ${title}`);
+      toast(`Removed ${title}`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -256,16 +249,15 @@ export default function App() {
     const reason = await promptText({
       title: "Discard this video?",
       message: `"${title}" leaves the upload queue without being recorded as uploaded.`,
-      detail: "Its files move to export/_discarded/ — you can restore it from the "
-            + "Discarded tab.",
-      input: { label: "REASON (optional)", placeholder: "e.g. data was wrong" },
-      confirmLabel: "🗑 DISCARD", tone: "danger",
+      detail: "Its files are kept. You can restore it from the Discarded tab.",
+      input: { label: "Reason (optional)", placeholder: "e.g. data was wrong" },
+      confirmLabel: "Discard", tone: "danger",
     });
     if (reason === null) return;
     setPending((n) => n + 1);
     try {
       await api("/api/discard", { key, reason: reason.trim() });
-      toast(`🗑 Discarded ${title}`);
+      toast(`Discarded ${title}`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -278,7 +270,7 @@ export default function App() {
     setPending((n) => n + 1);
     try {
       await api("/api/discard/restore", { key });
-      toast(`↩ Restored ${title}`);
+      toast(`Restored ${title}`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -293,7 +285,7 @@ export default function App() {
   const uploadVideo = async (item) => {
     try {
       await api("/api/upload/batch/add", { key: item.key });
-      toast(`⬆ ${item.title} staged for upload`);
+      toast(`${item.title} added to today's batch`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -303,7 +295,7 @@ export default function App() {
   const unstageVideo = async (item) => {
     try {
       await api("/api/upload/batch/remove", { key: item.key });
-      toast(`Removed ${item.title} from the upload batch`);
+      toast(`${item.title} removed from today's batch`);
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -329,22 +321,47 @@ export default function App() {
     }
   };
 
+  // Several topics from the Topics screen: one job each, as /api/render does.
+  const renderMany = async (keys) => {
+    try {
+      await api("/api/render", { keys });
+      toast(`${keys.length} render${keys.length === 1 ? "" : "s"} queued`);
+      setView("__launch");
+      poll();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+
+  const openPlaylist = (series) => {
+    setPlSel(series);
+    setView("__playlists");
+  };
+
+  // Build Next's count for the sidebar; refreshed when the catalogue changes.
+  const topicTotal = state?.counts?.total;
+  useEffect(() => {
+    if (topicTotal == null) return;
+    api("/api/ideas")
+      .then((r) => setIdeasCount(r.ideas.filter((i) => i.state === "ready").length))
+      .catch(() => {});
+  }, [topicTotal]);
+
   const workingKey = state?.job?.current_key || null;
   const failures = state?.failures || [];
-  const detailSeries = view && state ? state.series.find((s) => s.series === view) : null;
   const retryKeys = (keys) => renderTopics(keys, `retry ${keys.join(", ")}`);
   const addLink = async (key, title) => {
     const url = await promptText({
       title: "YouTube link",
       message: `Paste the link for "${title}".`,
-      input: { label: "VIDEO URL", placeholder: "https://youtu.be/…" },
-      confirmLabel: "SAVE LINK",
+      input: { label: "Video link", placeholder: "https://youtu.be/…" },
+      confirmLabel: "Save link",
     });
     if (url === null) return;
     setPending((n) => n + 1);
     try {
       await api("/api/upload-link", { key, url: url.trim() });
-      toast(url.trim() ? "✅ Link saved" : "↩ Link removed");
+      toast(url.trim() ? "Link saved" : "Link removed");
       await poll();
     } catch (e) {
       toast(e.message, true);
@@ -361,238 +378,163 @@ export default function App() {
     onWatch: (item) => setVideo(item),
   };
 
+  const abortJob = () => state.job && cancelJob(state.job.id);
+  // Jobs only carry topic keys; this lets the job views show real titles.
+  const titles = {};
+  for (const sr of state?.series || []) for (const it of sr.items) titles[it.key] = it.title;
+  const cancelQueued = (id) => cancelJob(id, true);
+  const navCounts = state
+    ? { ...state.counts, ideas: ideasCount, failures: failures.length }
+    : {};
+
   return (
-    <>
-      <div className="bg-grid" aria-hidden="true" />
+    <div className="app">
       {pending > 0 && <div className="top-progress" role="progressbar" aria-label="Working" />}
 
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden="true">◈</div>
-          <div>
-            <h1 onClick={() => setView(null)} style={{ cursor: "pointer" }}>DATA IN MOTION</h1>
-            <div className="sub">MISSION CONTROL · UPLOAD PIPELINE</div>
-          </div>
-        </div>
-        <div className="topbar-right">
-          {state?.job && (
-            <div className="topbar-job">
-              ◉ {(state.job.stage || "starting").toUpperCase()} · {state.job.current_key || state.job.label}
-            </div>
-          )}
-          <div className={"conn " + (online == null ? "" : online ? "on" : "off")}>
-            <span className="dot" />
-            <span>{online == null ? "CONNECTING" : online ? "LINK ACTIVE" : "LINK LOST"}</span>
-          </div>
-          <Clock />
-        </div>
-      </header>
+      <Sidebar
+        view={view}
+        setView={setView}
+        counts={navCounts}
+        online={online}
+        running={!!state?.job}
+      />
 
-      {state && (
-        <div className="shell">
-          <Sidebar
-            view={view}
+      {/* Keyed by view so each screen plays its enter animation once. */}
+      <main className="main rise" key={view ?? "home"}>
+        {!state && <SkeletonRows rows={8} />}
+
+        {state && !view && (
+          <Overview
+            state={state}
+            ideasCount={ideasCount}
+            lines={termLines}
+            titles={titles}
             setView={setView}
-            failureCount={failures.length}
-            counts={state.counts}
+            onOpenSearch={() => setPalette(true)}
+            onCancel={abortJob}
+            onCancelQueued={cancelQueued}
           />
+        )}
 
-          <main className="layout-col">
-            {!view && (
-              <>
-                <StatsRow counts={state.counts} />
+        {state && view === "__ideas" && (
+          <IdeasPage toast={toast} refresh={poll} onOpenTopics={() => setView("__topics")} />
+        )}
 
-                <AgentNetwork
-                  job={state.job}
-                  queue={state.queue}
-                  history={state.history}
-                  onCancel={() => state.job && cancelJob(state.job.id)}
-                />
+        {state && view === "__topics" && (
+          <TopicsPage
+            workingKey={workingKey}
+            onRender={(key, title) => renderTopics([key], title)}
+            onRenderMany={renderMany}
+            onOpen={openFolder}
+            onWatch={rowHandlers.onWatch}
+            onRemove={revertTopic}
+            onBrowseIdeas={() => setView("__ideas")}
+            promptText={promptText}
+            confirm={confirm}
+            toast={toast}
+            initialQuery={topicQuery}
+          />
+        )}
 
-                <UploadLive
-                  batch={state.upload_batch || []}
-                  run={state.upload_run || {}}
-                  onOpen={() => setView("__upload")}
-                  onClear={clearUploadBatch}
-                />
+        {state && view === "__launch" && (
+          <RenderPage
+            series={state.series}
+            job={state.job}
+            queue={state.queue}
+            lines={termLines}
+            onRenderBatch={renderBatch}
+            onRevertTopic={revertTopic}
+            onCancel={abortJob}
+            onCancelQueued={cancelQueued}
+            confirm={confirm}
+            busy={!!state.job}
+            pipelineVersion={
+              `${state.job?.current_key || "idle"}:${state.queue.length}:${state.history.length}`
+            }
+          />
+        )}
 
-                <div className="ops-grid">
-                  <Jobs
-                    job={state.job}
-                    queue={state.queue}
-                    history={state.history}
-                    onAbort={() => state.job && cancelJob(state.job.id)}
-                    onCancelQueued={(id) => cancelJob(id, true)}
-                    onRetry={retryKeys}
-                    onViewAll={() => setView("__history")}
-                  />
-                  <Telemetry
-                    online={online}
-                    job={state.job}
-                    failures={failures}
-                    history={state.history}
-                    lines={termLines}
-                  />
-                </div>
+        {state && view === "__history" && (
+          <JobsPage
+            job={state.job}
+            queue={state.queue}
+            history={state.history}
+            failures={failures}
+            lines={termLines}
+            titles={titles}
+            onRetry={retryKeys}
+            onCancel={abortJob}
+            onCancelQueued={cancelQueued}
+            onNewRender={() => setView("__launch")}
+          />
+        )}
 
-                {failures.length > 0 && (
-                  <FailureCenter failures={failures} onRetry={retryKeys} />
-                )}
+        {state && view === "__upload" && (
+          <UploadPage
+            items={state.next_up}
+            discarded={state.discarded || []}
+            customOrder={state.custom_order}
+            staged={(state.upload_batch || []).reduce((a, b) => ({ ...a, [b.key]: b }), {})}
+            batch={state.upload_batch || []}
+            run={state.upload_run || {}}
+            quota={state.upload_quota}
+            onMark={rowHandlers.onMark}
+            onOpen={openFolder}
+            onRender={rowHandlers.onRender}
+            onWatch={rowHandlers.onWatch}
+            onDiscard={discardVideo}
+            onRestore={restoreVideo}
+            onUpload={uploadVideo}
+            onUnstage={unstageVideo}
+            onClearBatch={clearUploadBatch}
+            onPlaylistCreated={setPlaylistCreated}
+            confirm={confirm}
+            toast={toast}
+            refresh={poll}
+          />
+        )}
 
-                <PlaylistList
-                  series={state.series}
-                  nextUp={state.next_up}
-                  onOpenPlaylist={setView}
-                  onViewAll={() => setView("__playlists")}
-                  onPlaylistCreated={setPlaylistCreated}
-                />
-              </>
-            )}
+        {state && view === "__uploads" && (
+          <PublishedPage
+            onOpen={openFolder}
+            onUnmark={unmark}
+            onWatch={rowHandlers.onWatch}
+            onLink={addLink}
+            confirm={confirm}
+            toast={toast}
+          />
+        )}
 
-            {view === "__topics" && (
-              <TopicCatalog
-                onBack={goBack}
-                workingKey={workingKey}
-                onRender={(key, title) => renderTopics([key], title)}
-                onOpen={openFolder}
-                onWatch={rowHandlers.onWatch}
-                promptText={promptText}
-                toast={toast}
-              />
-            )}
+        {state && view === "__playlists" && (
+          <PlaylistsPage
+            series={state.series}
+            nextUp={state.next_up}
+            workingKey={workingKey}
+            selected={plSel}
+            onSelect={setPlSel}
+            onPlaylistCreated={setPlaylistCreated}
+            {...rowHandlers}
+          />
+        )}
 
-            {view === "__playlists" && (
-              <>
-                <section className="panel">
-                  <div className="detail-head">
-                    <button className="btn back-btn" onClick={goBack}>◂ BACK</button>
-                    <div>
-                      <div className="pl-name">PLAYLISTS</div>
-                      <div className="pl-series">
-                        every series · tap a card to see its videos
-                      </div>
-                    </div>
-                  </div>
-                </section>
-                <PlaylistCards
-                  series={state.series}
-                  nextUp={state.next_up}
-                  onOpenPlaylist={setView}
-                />
-              </>
-            )}
+        {state && view === "__analytics" && (
+          <AnalyticsPage onWatch={rowHandlers.onWatch} toast={toast} />
+        )}
 
-            {view === "__history" && (
-              <>
-                {failures.length > 0 && (
-                  <FailureCenter failures={failures} onRetry={retryKeys} />
-                )}
-                <section className="panel">
-                  <div className="detail-head">
-                    <button className="btn back-btn" onClick={goBack}>◂ BACK</button>
-                    <div>
-                      <div className="pl-name">JOB HISTORY</div>
-                      <div className="pl-series">
-                        queued · running · finished jobs — click a row for its pipeline steps
-                      </div>
-                    </div>
-                  </div>
-                  <History
-                    job={state.job}
-                    queue={state.queue}
-                    history={state.history}
-                    limit={40}
-                    expandable
-                    onRetry={retryKeys}
-                  />
-                </section>
-              </>
-            )}
+        {state && view === "__music" && <MusicPage toast={toast} confirm={confirm} />}
 
-            {view === "__uploads" && (
-              <UploadHistory
-                onBack={goBack}
-                onOpen={openFolder}
-                onUnmark={unmark}
-                onWatch={rowHandlers.onWatch}
-                confirm={confirm}
-                toast={toast}
-              />
-            )}
+        {state && view === "__settings" && <SettingsPage toast={toast} confirm={confirm} />}
+      </main>
 
-            {view === "__music" && (
-              <MusicLibrary onBack={goBack} toast={toast} confirm={confirm} />
-            )}
-
-            {view === "__ideas" && (
-              <TopicIdeas onBack={goBack} toast={toast} refresh={poll} />
-            )}
-
-            {view === "__launch" && (
-              <LaunchControl
-                series={state.series}
-                onRenderBatch={renderBatch}
-                onRevertTopic={revertTopic}
-                onBack={goBack}
-                onStarted={() => setView(null)}
-                confirm={confirm}
-                busy={!!state.job}
-                pipelineVersion={
-                  `${state.job?.current_key || "idle"}:${state.queue.length}:${state.history.length}`
-                }
-              />
-            )}
-
-            {view === "__upload" && (
-              <>
-                <UploadControl
-                  onBack={goBack}
-                  onStarted={() => setView(null)}
-                  toast={toast}
-                  confirm={confirm}
-                />
-                  <UploadQueue
-                    items={state.next_up}
-                    discarded={state.discarded || []}
-                    customOrder={state.custom_order}
-                    onMark={rowHandlers.onMark}
-                    onOpen={openFolder}
-                    onRender={rowHandlers.onRender}
-                    onWatch={rowHandlers.onWatch}
-                    onDiscard={discardVideo}
-                    onRestore={restoreVideo}
-                    onUpload={uploadVideo}
-                    onUnstage={unstageVideo}
-                    staged={(state.upload_batch || []).reduce(
-                      (a, b) => ({ ...a, [b.key]: b }), {})}
-                      onPlaylistCreated={setPlaylistCreated}
-                    toast={toast}
-                    refresh={poll}
-                  />
-              </>
-            )}
-
-            {view === "__analytics" && (
-              <Analytics onBack={goBack} onWatch={rowHandlers.onWatch} toast={toast} />
-            )}
-
-            {view === "__settings" && (
-              <Settings onBack={goBack} toast={toast} confirm={confirm} />
-            )}
-
-            {detailSeries && (
-              <PlaylistDetail
-                s={detailSeries}
-                nextUp={state.next_up}
-                workingKey={workingKey}
-                onBack={goBack}
-                onPlaylistCreated={setPlaylistCreated}
-                {...rowHandlers}
-              />
-            )}
-          </main>
-        </div>
-      )}
+      <CommandPalette
+        open={palette}
+        onClose={() => setPalette(false)}
+        onGo={setView}
+        onTopic={(t) => {
+          setTopicQuery(t.title);
+          setView("__topics");
+        }}
+      />
 
       <ConfirmModal state={confirmState} onResolve={resolveConfirm} />
 
@@ -609,11 +551,11 @@ export default function App() {
         busy={pending > 0}
       />
 
-      <div className="toasts">
+      <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div className={"toast" + (t.isErr ? " err" : "")} key={t.id}>{t.msg}</div>
         ))}
       </div>
-    </>
+    </div>
   );
 }

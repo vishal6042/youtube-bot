@@ -9,6 +9,13 @@ export default function MarkModal({ modal, onClose, onConfirm, busy }) {
     if (modal) inputRef.current?.focus();
   }, [modal]);
 
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e) => e.key === "Escape" && !busy && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal, busy, onClose]);
+
   if (!modal) return null;
 
   const confirm = () => !busy && onConfirm(modal.key, url.trim() || null);
@@ -18,13 +25,16 @@ export default function MarkModal({ modal, onClose, onConfirm, busy }) {
       className="modal-back"
       onClick={(e) => e.target === e.currentTarget && !busy && onClose()}
     >
-      <div className={"modal" + (busy ? " busy" : "")}>
-        <div className="panel-title">MARK AS UPLOADED</div>
-        <p className="modal-topic">{modal.title}  ({modal.key})</p>
-        <label className="modal-label">
-          YouTube URL <span className="muted">(optional)</span>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Mark as uploaded">
+        <h2>Mark as uploaded</h2>
+        <p>
+          {modal.title} <span className="num faint" style={{ fontSize: 12 }}>{modal.key}</span>
+        </p>
+        <label className="field">
+          YouTube link (optional)
           <input
             ref={inputRef}
+            className="input"
             type="url"
             placeholder="https://youtu.be/…"
             value={url}
@@ -34,19 +44,10 @@ export default function MarkModal({ modal, onClose, onConfirm, busy }) {
           />
         </label>
 
-        {busy && (
-          <div className="modal-progress">
-            <div className="mp-bar"><span /></div>
-            <div className="mp-steps">
-              Saving upload log · refreshing queue · rewriting UPLOAD_QUEUE.md
-            </div>
-          </div>
-        )}
-
         <div className="modal-actions">
-          <button className="btn" onClick={onClose} disabled={busy}>CANCEL</button>
-          <button className="btn btn-primary" onClick={confirm} disabled={busy}>
-            {busy ? <><span className="spinner" /> MARKING…</> : "✅ MARK UPLOADED"}
+          <button type="button" className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="button" className="btn primary" onClick={confirm} disabled={busy}>
+            {busy ? <><span className="spin" /> Saving</> : "Mark as uploaded"}
           </button>
         </div>
       </div>

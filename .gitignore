@@ -1,4 +1,4 @@
-# ─────────────────────────────────────────────────────────────────────────────
+﻿# ─────────────────────────────────────────────────────────────────────────────
 # graph_bot — what never leaves this machine
 #
 # Three rules behind everything below:
@@ -43,7 +43,7 @@ npm-debug.log*
 # ── generated video + media ──────────────────────────────────────────────────
 output/
 export/
-upload/
+/upload/
 logs/
 *.mp4
 *.mov
