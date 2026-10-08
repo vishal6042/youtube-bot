@@ -185,6 +185,21 @@ function Sports() {
   );
 }
 
+function Versus() {
+  return (
+    <Base id="cv-vs" from="#0a1430" to="#14235a">
+      {/* two lines that cross — the overtake is the whole series */}
+      <path d="M52 90 C120 84 170 70 288 28" fill="none" stroke="#6f9bff" strokeWidth="3" />
+      <path d="M52 44 C130 48 190 58 288 74" fill="none" stroke="#ffc857" strokeWidth="3" />
+      <circle cx="288" cy="28" r="5" fill="#6f9bff" />
+      <circle cx="288" cy="74" r="5" fill="#ffc857" />
+      <circle cx="178" cy="60" r="9" fill="none" stroke="#e8f2ff" strokeWidth="2" />
+      <text x="62" y="30" fill="#e8f2ff" fontFamily="sans-serif" fontSize="20"
+            fontWeight="800" letterSpacing="2">VS</text>
+    </Base>
+  );
+}
+
 function Reel() {
   return (
     <Base id="cv-any" from="#0b1526" to="#12203a">
@@ -208,6 +223,7 @@ const COVERS = {
   money: Coins,
   charts_lie: LieChart,
   sports: Sports,
+  country_vs_country: Versus,
 };
 
 export default function PlaylistCover({ series }) {

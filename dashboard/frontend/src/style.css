@@ -313,6 +313,7 @@ select:focus, input:focus { outline: 2px solid var(--cyan); outline-offset: 1px;
 .pl-india_in_data { --pl: #ff9d5c; --plb: rgba(255, 157, 92, 0.55); --plbg: rgba(255, 157, 92, 0.09); }
 .pl-charts_lie    { --pl: #ff7a90; --plb: rgba(255, 122, 144, 0.55); --plbg: rgba(255, 122, 144, 0.09); }
 .pl-sports        { --pl: #3ddc97; --plb: rgba(61, 220, 151, 0.55); --plbg: rgba(61, 220, 151, 0.09); }
+.pl-country_vs_country { --pl: #6f9bff; --plb: rgba(111, 155, 255, 0.55); --plbg: rgba(111, 155, 255, 0.09); }
 .chip-pl.blocked { box-shadow: inset 3px 0 0 var(--warn); }
 .chip-uploaded { color: var(--ok); border-color: rgba(53, 224, 161, 0.5); }
 .chip-ready    { color: var(--warn); border-color: rgba(255, 200, 87, 0.5); }

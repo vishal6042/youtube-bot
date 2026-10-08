@@ -20,6 +20,7 @@ can be mixed in any order without fighting.
 from __future__ import annotations
 
 import datetime as dt
+import time
 from typing import Any
 
 from ..config import load_topics
@@ -41,6 +42,27 @@ def service():
 
 def _rows(resp: dict[str, Any]) -> list[list[Any]]:
     return resp.get("rows") or []
+
+
+# The Analytics API intermittently answers a valid token with 401 "Invalid
+# Credentials" (measured 2026-10-08: ~1 in 10 per-video queries, a different
+# video each run, same token succeeding on the next attempt). A sync makes
+# ~85 requests, so without a retry one of them almost always kills the run.
+RETRY_STATUSES = {401, 429, 500, 502, 503, 504}
+RETRY_ATTEMPTS = 5
+
+
+def _query(yta: Any, **params: Any) -> list[list[Any]]:
+    from googleapiclient.errors import HttpError
+
+    for attempt in range(RETRY_ATTEMPTS):
+        try:
+            return _rows(yta.reports().query(**params).execute())
+        except HttpError as exc:
+            if exc.resp.status not in RETRY_STATUSES or attempt == RETRY_ATTEMPTS - 1:
+                raise
+            time.sleep(0.5 * 2 ** attempt)
+    return []
 
 
 def sync(days: int = 90) -> dict[str, Any]:
@@ -78,28 +100,27 @@ def _sync(yta: Any, ids: str, days: int) -> dict[str, Any]:
     vids = list(mapping)
 
     # ---- fetch ----
-    ch_daily = _rows(yta.reports().query(
-        ids=ids, startDate=s, endDate=e, dimensions="day",
-        metrics="views").execute())
+    ch_daily = _query(
+        yta, ids=ids, startDate=s, endDate=e, dimensions="day", metrics="views")
     # subscribersGained alone overstates: Studio's "Subscribers" column (which
     # the zip importer fills this table from) is NET gained-lost, so fetch both.
-    ch_period = _rows(yta.reports().query(
-        ids=ids, startDate=s, endDate=e,
+    ch_period = _query(
+        yta, ids=ids, startDate=s, endDate=e,
         metrics="views,estimatedMinutesWatched,subscribersGained,subscribersLost,"
-                "averageViewDuration,averageViewPercentage").execute())
+                "averageViewDuration,averageViewPercentage")
     vid_period: list[list[Any]] = []
     for i in range(0, len(vids), 50):
         chunk = vids[i:i + 50]
-        vid_period += _rows(yta.reports().query(
-            ids=ids, startDate=s, endDate=e, dimensions="video",
+        vid_period += _query(
+            yta, ids=ids, startDate=s, endDate=e, dimensions="video",
             filters="video==" + ",".join(chunk), maxResults=200,
             metrics="views,estimatedMinutesWatched,subscribersGained,subscribersLost,"
-                    "averageViewDuration,averageViewPercentage").execute())
+                    "averageViewDuration,averageViewPercentage")
     vid_daily: list[tuple[str, str, int]] = []
     for vid in vids:
-        for day, views in _rows(yta.reports().query(
-                ids=ids, startDate=s, endDate=e, dimensions="day",
-                filters=f"video=={vid}", metrics="views").execute()):
+        for day, views in _query(
+                yta, ids=ids, startDate=s, endDate=e, dimensions="day",
+                filters=f"video=={vid}", metrics="views"):
             if views:
                 vid_daily.append((vid, day, int(views)))
 

@@ -1201,3 +1201,402 @@ topics:
     value_decimals: 1
     mood: "reflective"
     hashtags: ["health", "spending", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "military_personnel"
+    title: "The World's Biggest Armies"
+    subtitle: "Armed forces personnel"
+    fetcher: "worldbank"
+    code: "MS.MIL.TOTL.P1"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "World Bank"
+    unit: "people"
+    unit_suffix: "M"
+    value_scale: 1000000
+    value_decimals: 2
+    mood: "majestic"
+    hashtags: ["military", "worldstats", "army"]
+
+  # added via dashboard 2026-10-08
+  - key: "money_stock_markets"
+    title: "The World's Biggest Stock Markets"
+    subtitle: "Listed company value"
+    fetcher: "worldbank"
+    code: "CM.MKT.LCAP.CD"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank"
+    unit: "USD"
+    unit_suffix: "T"
+    value_scale: 1000000000000
+    value_decimals: 1
+    mood: "majestic"
+    hashtags: ["money", "stocks", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "money_hightech_exports"
+    title: "Who Exports the Most Technology?"
+    subtitle: "High-technology exports"
+    fetcher: "worldbank"
+    code: "TX.VAL.TECH.CD"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank"
+    unit: "USD"
+    unit_suffix: "B"
+    value_scale: 1000000000
+    mood: "hopeful"
+    hashtags: ["technology", "exports", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "money_reserves"
+    title: "Who Has the Biggest Piggy Bank?"
+    subtitle: "Total reserves, including gold"
+    fetcher: "worldbank"
+    code: "FI.RES.TOTL.CD"
+    mode: "bar_race"
+    series: "money"
+    source: "World Bank"
+    unit: "USD"
+    unit_suffix: "B"
+    value_scale: 1000000000
+    mood: "majestic"
+    hashtags: ["money", "economy", "gold"]
+
+  # added via dashboard 2026-10-08
+  - key: "india_vs_china_child_mortality"
+    title: "India vs China: Child Survival"
+    subtitle: "Deaths per 1,000 children under 5"
+    fetcher: "worldbank"
+    code: "SH.DYN.MORT"
+    mode: "line_multi"
+    entities: ["India", "China"]
+    years_window: 50
+    series: "india_in_data"
+    source: "World Bank / UN IGME"
+    value_decimals: 1
+    mood: "hopeful"
+    hashtags: ["india", "china", "health"]
+
+  # added via dashboard 2026-10-08
+  - key: "ai_open_vs_closed"
+    title: "Open vs Closed: Who's Winning AI?"
+    subtitle: "Notable models released, cumulative"
+    fetcher: "csv_url"
+    url: "https://epoch.ai/data/notable_ai_models.csv"
+    agg: "cumcount"
+    mode: "line_multi"
+    entities: ["Open weights", "Closed"]
+    years_window: 15
+    series: "ai_trends"
+    source: "Epoch AI (CC BY)"
+    value_fmt: "integer"
+    mood: "lofi"
+    date_col: "Publication date"
+    entity_col: "Open model weights?"
+    entity_map: {"Yes": "Open weights", "No": "Closed"}
+    year_min: 2015
+    year_max: 2026
+    seconds_per_year: 0.9
+    hashtags: ["ai", "opensource", "technology"]
+
+  # added via dashboard 2026-10-08
+  - key: "oil_production"
+    title: "Who Pumps the Most Oil?"
+    subtitle: "Oil production, terawatt-hours"
+    fetcher: "owid"
+    slug: "oil-production-by-country"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / Energy Institute"
+    unit_suffix: " TWh"
+    mood: "majestic"
+    year_min: 1985
+    year_max: 2024
+    hashtags: ["oil", "energy", "worldstats"]
+
+  # added via dashboard 2026-10-08
+  - key: "coal_production"
+    title: "Who Digs the Most Coal?"
+    subtitle: "Coal production, terawatt-hours"
+    fetcher: "owid"
+    slug: "coal-production-by-country"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / Energy Institute"
+    unit_suffix: " TWh"
+    mood: "majestic"
+    year_min: 1985
+    year_max: 2024
+    hashtags: ["coal", "energy", "worldstats"]
+
+  # added via dashboard 2026-10-08
+  - key: "solar_capacity"
+    title: "Who Has the Most Solar Power?"
+    subtitle: "Installed solar capacity, gigawatts"
+    fetcher: "owid"
+    slug: "installed-solar-pv-capacity"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / IRENA"
+    unit_suffix: " GW"
+    mood: "hopeful"
+    year_min: 2005
+    hashtags: ["solar", "energy", "renewables"]
+
+  # added via dashboard 2026-10-08
+  - key: "wind_power"
+    title: "Who Makes the Most Wind Power?"
+    subtitle: "Electricity from wind, terawatt-hours"
+    fetcher: "owid"
+    slug: "wind-generation"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / Ember"
+    unit_suffix: " TWh"
+    mood: "hopeful"
+    year_min: 2000
+    year_max: 2024
+    hashtags: ["wind", "energy", "renewables"]
+
+  # added via dashboard 2026-10-08
+  - key: "nuclear_power"
+    title: "Who Makes the Most Nuclear Energy?"
+    subtitle: "Electricity from nuclear, terawatt-hours"
+    fetcher: "owid"
+    slug: "nuclear-energy-generation"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / Ember"
+    unit_suffix: " TWh"
+    mood: "majestic"
+    year_min: 1985
+    year_max: 2022
+    hashtags: ["nuclear", "energy", "worldstats"]
+
+  # added via dashboard 2026-10-08
+  - key: "ev_sales"
+    title: "Who Buys the Most Electric Cars?"
+    subtitle: "Electric cars sold per year"
+    fetcher: "owid"
+    slug: "electric-car-sales"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / IEA"
+    unit_suffix: "M"
+    value_scale: 1000000
+    value_decimals: 2
+    top_n: 10
+    mood: "hopeful"
+    year_min: 2012
+    hashtags: ["electriccars", "ev", "worldstats"]
+
+  # added via dashboard 2026-10-08
+  - key: "rice_production"
+    title: "Who Grows the Most Rice?"
+    subtitle: "Rice production, million tonnes"
+    fetcher: "owid"
+    slug: "rice-production"
+    mode: "bar_race"
+    years_window: 64
+    series: "world_in_data"
+    source: "Our World in Data / FAO"
+    unit_suffix: " Mt"
+    value_scale: 1000000
+    mood: "hopeful"
+    year_min: 1961
+    hashtags: ["rice", "food", "agriculture"]
+
+  # added via dashboard 2026-10-08
+  - key: "milk_production"
+    title: "Who Produces the Most Milk?"
+    subtitle: "Milk production, million tonnes"
+    fetcher: "owid"
+    slug: "milk-production-tonnes"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / FAO"
+    unit_suffix: " Mt"
+    value_scale: 1000000
+    mood: "hopeful"
+    year_min: 1992
+    hashtags: ["milk", "food", "agriculture"]
+
+  # added via dashboard 2026-10-08
+  - key: "gas_production"
+    title: "Who Produces the Most Natural Gas?"
+    subtitle: "Gas production, terawatt-hours"
+    fetcher: "owid"
+    slug: "gas-production-by-country"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "Our World in Data / Energy Institute"
+    unit_suffix: " TWh"
+    mood: "majestic"
+    year_min: 1985
+    year_max: 2024
+    hashtags: ["naturalgas", "energy", "worldstats"]
+
+  # added via dashboard 2026-10-08
+  - key: "manufacturing_output"
+    title: "Who Makes the World's Stuff?"
+    subtitle: "Manufacturing value added (US$)"
+    fetcher: "worldbank"
+    code: "NV.IND.MANF.CD"
+    mode: "bar_race"
+    series: "world_in_data"
+    source: "World Bank"
+    unit: "USD"
+    unit_suffix: "T"
+    value_scale: 1000000000000
+    value_decimals: 2
+    mood: "majestic"
+    year_min: 2004
+    year_max: 2021
+    hashtags: ["manufacturing", "economy", "worldstats"]
+
+  # added via dashboard 2026-10-08
+  - key: "football_world_cup_goals"
+    title: "Most World Cup Goals"
+    subtitle: "Goals scored at FIFA World Cups since 1930"
+    fetcher: "curated_csv"
+    file: "football_world_cup_goals.csv"
+    mode: "bar_race"
+    years_window: 100
+    series: "sports"
+    source: "martj42/international_results (CC0)"
+    value_fmt: "integer"
+    top_n: 10
+    mood: "majestic"
+    hashtags: ["worldcup", "football", "sports"]
+
+  # added via dashboard 2026-10-08
+  - key: "football_euro_wins"
+    title: "Who Wins the Most at the Euros?"
+    subtitle: "Match wins at the UEFA European Championship"
+    fetcher: "curated_csv"
+    file: "football_euro_wins.csv"
+    mode: "bar_race"
+    years_window: 70
+    series: "sports"
+    source: "martj42/international_results (CC0)"
+    value_fmt: "integer"
+    top_n: 10
+    mood: "majestic"
+    hashtags: ["euros", "football", "sports"]
+
+  # added via dashboard 2026-10-08
+  - key: "football_copa_wins"
+    title: "Who Rules the Copa América?"
+    subtitle: "Match wins since 1916"
+    fetcher: "curated_csv"
+    file: "football_copa_wins.csv"
+    mode: "bar_race"
+    years_window: 110
+    series: "sports"
+    source: "martj42/international_results (CC0)"
+    value_fmt: "integer"
+    top_n: 10
+    mood: "majestic"
+    hashtags: ["copaamerica", "football", "sports"]
+
+  # added via dashboard 2026-10-08
+  - key: "vs_us_china_economy"
+    title: "US vs China: The Economy"
+    subtitle: "GDP at purchasing power parity"
+    fetcher: "worldbank"
+    code: "NY.GDP.MKTP.PP.CD"
+    mode: "line_multi"
+    entities: ["United States", "China"]
+    years_window: 50
+    series: "country_vs_country"
+    source: "World Bank"
+    unit_suffix: "T"
+    value_scale: 1000000000000
+    value_decimals: 1
+    mood: "majestic"
+    hashtags: ["usa", "china", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "vs_us_china_science"
+    title: "US vs China: The Science Race"
+    subtitle: "Scientific papers published per year"
+    fetcher: "worldbank"
+    code: "IP.JRN.ARTC.SC"
+    mode: "line_multi"
+    entities: ["United States", "China"]
+    years_window: 50
+    series: "country_vs_country"
+    source: "World Bank / NSF"
+    unit_suffix: "K"
+    value_scale: 1000
+    value_decimals: 0
+    mood: "hopeful"
+    hashtags: ["usa", "china", "science"]
+
+  # added via dashboard 2026-10-08
+  - key: "vs_india_uk_gdp"
+    title: "India vs UK: The Economy"
+    subtitle: "GDP (US$), head to head"
+    fetcher: "worldbank"
+    code: "NY.GDP.MKTP.CD"
+    mode: "line_multi"
+    entities: ["India", "United Kingdom"]
+    years_window: 50
+    series: "country_vs_country"
+    source: "World Bank"
+    unit_suffix: "T"
+    value_scale: 1000000000000
+    value_decimals: 2
+    mood: "reflective"
+    hashtags: ["india", "uk", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "vs_germany_japan_gdp"
+    title: "Germany vs Japan: The Economy"
+    subtitle: "GDP (US$), head to head"
+    fetcher: "worldbank"
+    code: "NY.GDP.MKTP.CD"
+    mode: "line_multi"
+    entities: ["Germany", "Japan"]
+    years_window: 50
+    series: "country_vs_country"
+    source: "World Bank"
+    unit_suffix: "T"
+    value_scale: 1000000000000
+    value_decimals: 2
+    mood: "reflective"
+    hashtags: ["germany", "japan", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "vs_india_pakistan_income"
+    title: "India vs Pakistan: Income"
+    subtitle: "GDP per person (US$)"
+    fetcher: "worldbank"
+    code: "NY.GDP.PCAP.CD"
+    mode: "line_multi"
+    entities: ["India", "Pakistan"]
+    years_window: 50
+    series: "country_vs_country"
+    source: "World Bank"
+    value_fmt: "integer"
+    mood: "reflective"
+    hashtags: ["india", "pakistan", "economy"]
+
+  # added via dashboard 2026-10-08
+  - key: "vs_uk_france_gdp"
+    title: "UK vs France: The Economy"
+    subtitle: "GDP (US$), head to head"
+    fetcher: "worldbank"
+    code: "NY.GDP.MKTP.CD"
+    mode: "line_multi"
+    entities: ["United Kingdom", "France"]
+    years_window: 50
+    series: "country_vs_country"
+    source: "World Bank"
+    unit_suffix: "T"
+    value_scale: 1000000000000
+    value_decimals: 2
+    mood: "reflective"
+    hashtags: ["uk", "france", "economy"]

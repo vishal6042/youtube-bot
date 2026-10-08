@@ -2251,6 +2251,299 @@ IDEAS: list[dict[str, Any]] = [
         },
     },
 
+    # ===================== BIGGEST IN THE WORLD (added 2026-10-08) =====================
+    # From the 2026-08-07..10-08 export (80 videos): World in Data clears 800
+    # views 52% of the time against ~20% for every other series, and within it
+    # absolute "biggest / most" totals have a 644 median against 233 for rates
+    # and per-person metrics. Every entry below is an absolute total, fetched
+    # live on 2026-10-08. `year_min`/`year_max` keep each race inside the years
+    # every bar has a real figure: _prepare_bar back- and forward-fills gaps, so
+    # e.g. Russia (in the source from 1985 or 1992) would otherwise get an
+    # invented flat bar for the years before.
+    {
+        "id": "oil_production",
+        "reason": "The lead has changed hands six times since 1985 — Russia, "
+                  "Saudi Arabia, then the US in 2017, which now pumps a record "
+                  "10,040 TWh, 64% more than Russia in second.",
+        "topic": {
+            "key": "oil_production", "title": "Who Pumps the Most Oil?",
+            "subtitle": "Oil production, terawatt-hours", "fetcher": "owid",
+            "slug": "oil-production-by-country", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / Energy Institute",
+            "unit_suffix": " TWh", "year_min": 1985, "year_max": 2024,
+            "mood": "majestic", "hashtags": ["oil", "energy", "worldstats"],
+        },
+    },
+    {
+        "id": "coal_production",
+        "reason": "The US led in 1985. China passed it in 1989 and now digs "
+                  "25,920 TWh — more than five times India in second place.",
+        "topic": {
+            "key": "coal_production", "title": "Who Digs the Most Coal?",
+            "subtitle": "Coal production, terawatt-hours", "fetcher": "owid",
+            "slug": "coal-production-by-country", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / Energy Institute",
+            "unit_suffix": " TWh", "year_min": 1985, "year_max": 2024,
+            "mood": "majestic", "hashtags": ["coal", "energy", "worldstats"],
+        },
+    },
+    {
+        "id": "solar_capacity",
+        "reason": "Germany led solar until 2015. China now has 1,202 GW installed "
+                  "— nearly six times the US. Companion to 'Who Runs on "
+                  "Renewables?' (1,234 views).",
+        "topic": {
+            "key": "solar_capacity", "title": "Who Has the Most Solar Power?",
+            "subtitle": "Installed solar capacity, gigawatts", "fetcher": "owid",
+            "slug": "installed-solar-pv-capacity", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / IRENA",
+            "unit_suffix": " GW", "year_min": 2005,
+            "mood": "hopeful", "hashtags": ["solar", "energy", "renewables"],
+        },
+    },
+    {
+        "id": "wind_power",
+        "reason": "Three leaders in 25 years: Germany, then the US in 2008, then "
+                  "China in 2016 — which now generates 997 TWh, more than double "
+                  "the US.",
+        "topic": {
+            "key": "wind_power", "title": "Who Makes the Most Wind Power?",
+            "subtitle": "Electricity from wind, terawatt-hours", "fetcher": "owid",
+            "slug": "wind-generation", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / Ember",
+            "unit_suffix": " TWh", "year_min": 2000, "year_max": 2024,
+            "mood": "hopeful", "hashtags": ["wind", "energy", "renewables"],
+        },
+    },
+    {
+        "id": "nuclear_power",
+        "reason": "The US leads throughout, but China (418 TWh) has passed "
+                  "France (295 TWh) for second. Ends in 2022, the last year with "
+                  "a real figure for Ukraine.",
+        "topic": {
+            "key": "nuclear_power", "title": "Who Makes the Most Nuclear Energy?",
+            "subtitle": "Electricity from nuclear, terawatt-hours", "fetcher": "owid",
+            "slug": "nuclear-energy-generation", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / Ember",
+            "unit_suffix": " TWh", "year_min": 1985, "year_max": 2022,
+            "mood": "majestic", "hashtags": ["nuclear", "energy", "worldstats"],
+        },
+    },
+    {
+        "id": "ev_sales",
+        "reason": "The US sold the most electric cars until 2015. China bought "
+                  "13.3 million in 2025 against 1.5 million in the US. Only ~60 "
+                  "countries report, so the race is among the big markets.",
+        "topic": {
+            "key": "ev_sales", "title": "Who Buys the Most Electric Cars?",
+            "subtitle": "Electric cars sold per year", "fetcher": "owid",
+            "slug": "electric-car-sales", "mode": "bar_race", "top_n": 10,
+            "series": "world_in_data", "source": "Our World in Data / IEA",
+            "value_scale": 1000000, "unit_suffix": "M", "value_decimals": 2,
+            "year_min": 2012,
+            "mood": "hopeful", "hashtags": ["electriccars", "ev", "worldstats"],
+        },
+    },
+    {
+        "id": "rice_production",
+        "reason": "China out-grew India in rice every year from 1961 — until "
+                  "2023. India now leads 218 Mt to 208 Mt. 'India Just Overtook "
+                  "China' is the channel's best title pattern.",
+        "topic": {
+            "key": "rice_production", "title": "Who Grows the Most Rice?",
+            "subtitle": "Rice production, million tonnes", "fetcher": "owid",
+            "slug": "rice-production", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / FAO",
+            "value_scale": 1000000, "unit_suffix": " Mt", "year_min": 1961,
+            "years_window": 64,
+            "mood": "hopeful", "hashtags": ["rice", "food", "agriculture"],
+        },
+    },
+    {
+        "id": "milk_production",
+        "reason": "The US led until 1997. India now produces 248 Mt of milk — "
+                  "more than double the US, with Pakistan third. Starts in 1992, "
+                  "the first year the source has Russia.",
+        "topic": {
+            "key": "milk_production", "title": "Who Produces the Most Milk?",
+            "subtitle": "Milk production, million tonnes", "fetcher": "owid",
+            "slug": "milk-production-tonnes", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / FAO",
+            "value_scale": 1000000, "unit_suffix": " Mt", "year_min": 1992,
+            "mood": "hopeful", "hashtags": ["milk", "food", "agriculture"],
+        },
+    },
+    {
+        "id": "gas_production",
+        "reason": "A two-way fight: Russia led from 1986, the US took it back "
+                  "for good in 2011 and now produces 10,319 TWh to Russia's 6,299.",
+        "topic": {
+            "key": "gas_production", "title": "Who Produces the Most Natural Gas?",
+            "subtitle": "Gas production, terawatt-hours", "fetcher": "owid",
+            "slug": "gas-production-by-country", "mode": "bar_race",
+            "series": "world_in_data", "source": "Our World in Data / Energy Institute",
+            "unit_suffix": " TWh", "year_min": 1985, "year_max": 2024,
+            "mood": "majestic", "hashtags": ["naturalgas", "energy", "worldstats"],
+        },
+    },
+    {
+        "id": "manufacturing_output",
+        "reason": "The US was the world's factory until China passed it in 2010. "
+                  "The World Bank has China only from 2004 and no US figure "
+                  "after 2021, so the race runs 2004-2021.",
+        "topic": {
+            "key": "manufacturing_output", "title": "Who Makes the World's Stuff?",
+            "subtitle": "Manufacturing value added (US$)", "fetcher": "worldbank",
+            "code": "NV.IND.MANF.CD", "mode": "bar_race",
+            "series": "world_in_data", "source": "World Bank", "unit": "USD",
+            "value_scale": 1000000000000, "unit_suffix": "T", "value_decimals": 2,
+            "year_min": 2004, "year_max": 2021,
+            "mood": "majestic", "hashtags": ["manufacturing", "economy", "worldstats"],
+        },
+    },
+
+    # ===================== FOOTBALL (added 2026-10-08) =====================
+    # Both Sports videos that cleared 800 views are football (World Cup titles
+    # 1,088, international goals 870); the last four cricket posts did 57-420.
+    # Built by scripts/curate_football.py from martj42/international_results,
+    # which now runs through the 2026 World Cup. Finals tournaments only.
+    {
+        "id": "football_world_cup_goals",
+        "reason": "Brazil 247, Germany 243 — four goals apart after 96 years of "
+                  "World Cups, through 2026. Argentina is a distant third on 171.",
+        "topic": {
+            "key": "football_world_cup_goals", "title": "Most World Cup Goals",
+            "subtitle": "Goals scored at FIFA World Cups since 1930",
+            "fetcher": "curated_csv", "file": "football_world_cup_goals.csv",
+            "mode": "bar_race", "top_n": 10, "years_window": 100,
+            "value_fmt": "integer", "series": "sports",
+            "source": "martj42/international_results (CC0)", "mood": "majestic",
+            "hashtags": ["worldcup", "football", "sports"],
+        },
+    },
+    {
+        "id": "football_euro_wins",
+        "reason": "Germany 30 wins, Spain 28 — two apart, with Spain winning the "
+                  "last tournament. The source counts the Soviet Union as Russia.",
+        "topic": {
+            "key": "football_euro_wins", "title": "Who Wins the Most at the Euros?",
+            "subtitle": "Match wins at the UEFA European Championship",
+            "fetcher": "curated_csv", "file": "football_euro_wins.csv",
+            "mode": "bar_race", "top_n": 10, "years_window": 70,
+            "value_fmt": "integer", "series": "sports",
+            "source": "martj42/international_results (CC0)", "mood": "majestic",
+            "hashtags": ["euros", "football", "sports"],
+        },
+    },
+    {
+        "id": "football_copa_wins",
+        "reason": "Argentina and Uruguay swapped the lead nine times before 1955. "
+                  "Argentina now has 132 wins to Uruguay's 115 and Brazil's 109.",
+        "topic": {
+            "key": "football_copa_wins", "title": "Who Rules the Copa América?",
+            "subtitle": "Match wins since 1916",
+            "fetcher": "curated_csv", "file": "football_copa_wins.csv",
+            "mode": "bar_race", "top_n": 10, "years_window": 110,
+            "value_fmt": "integer", "series": "sports",
+            "source": "martj42/international_results (CC0)", "mood": "majestic",
+            "hashtags": ["copaamerica", "football", "sports"],
+        },
+    },
+
+    # ===================== COUNTRY VS COUNTRY (added 2026-10-08) =====================
+    # A test playlist. The five India-vs-China head-to-heads have a 571 median
+    # with one flop in five (best floor on the channel outside World in Data),
+    # and "India Just Overtook China" is the proven title shape. These extend
+    # the format to other rivalries; each pair has a real figure for every year
+    # shown. Keys start `vs_` -> series country_vs_country (config.topic_series).
+    {
+        "id": "vs_us_china_economy",
+        "reason": "Measured by what the money actually buys, China passed the US "
+                  "in 2014 and is now $41T to $31T. In plain dollars the US still "
+                  "leads — the subtitle has to say which measure this is.",
+        "topic": {
+            "key": "vs_us_china_economy", "title": "US vs China: The Economy",
+            "subtitle": "GDP at purchasing power parity", "fetcher": "worldbank",
+            "code": "NY.GDP.MKTP.PP.CD", "mode": "line_multi",
+            "entities": ["United States", "China"], "years_window": 50,
+            "series": "country_vs_country", "source": "World Bank",
+            "value_scale": 1000000000000, "unit_suffix": "T", "value_decimals": 1,
+            "mood": "majestic", "hashtags": ["usa", "china", "economy"],
+        },
+    },
+    {
+        "id": "vs_us_china_science",
+        "reason": "China passed the US in published research in 2017 and now "
+                  "puts out 933K papers a year to 431K. 'Most Scientific Papers' "
+                  "did 1,129 views as a ranking.",
+        "topic": {
+            "key": "vs_us_china_science", "title": "US vs China: The Science Race",
+            "subtitle": "Scientific papers published per year", "fetcher": "worldbank",
+            "code": "IP.JRN.ARTC.SC", "mode": "line_multi",
+            "entities": ["United States", "China"], "years_window": 50,
+            "series": "country_vs_country", "source": "World Bank / NSF",
+            "value_scale": 1000, "unit_suffix": "K", "value_decimals": 0,
+            "mood": "hopeful", "hashtags": ["usa", "china", "science"],
+        },
+    },
+    {
+        "id": "vs_india_uk_gdp",
+        "reason": "India passed the UK in 2022, and the 2025 figures have the UK "
+                  "back in front by a hair — $4.00T to $3.96T.",
+        "topic": {
+            "key": "vs_india_uk_gdp", "title": "India vs UK: The Economy",
+            "subtitle": "GDP (US$), head to head", "fetcher": "worldbank",
+            "code": "NY.GDP.MKTP.CD", "mode": "line_multi",
+            "entities": ["India", "United Kingdom"], "years_window": 50,
+            "series": "country_vs_country", "source": "World Bank",
+            "value_scale": 1000000000000, "unit_suffix": "T", "value_decimals": 2,
+            "mood": "reflective", "hashtags": ["india", "uk", "economy"],
+        },
+    },
+    {
+        "id": "vs_germany_japan_gdp",
+        "reason": "Japan was the bigger economy for 51 years. Germany took the "
+                  "place back in 2023 and now leads $5.05T to $4.44T.",
+        "topic": {
+            "key": "vs_germany_japan_gdp", "title": "Germany vs Japan: The Economy",
+            "subtitle": "GDP (US$), head to head", "fetcher": "worldbank",
+            "code": "NY.GDP.MKTP.CD", "mode": "line_multi",
+            "entities": ["Germany", "Japan"], "years_window": 50,
+            "series": "country_vs_country", "source": "World Bank",
+            "value_scale": 1000000000000, "unit_suffix": "T", "value_decimals": 2,
+            "mood": "reflective", "hashtags": ["germany", "japan", "economy"],
+        },
+    },
+    {
+        "id": "vs_india_pakistan_income",
+        "reason": "The two traded places for decades. India now earns $2,702 a "
+                  "person to Pakistan's $1,596. A per-person metric, which is "
+                  "the weaker kind on this channel — the rivalry is the bet.",
+        "topic": {
+            "key": "vs_india_pakistan_income", "title": "India vs Pakistan: Income",
+            "subtitle": "GDP per person (US$)", "fetcher": "worldbank",
+            "code": "NY.GDP.PCAP.CD", "mode": "line_multi",
+            "entities": ["India", "Pakistan"], "years_window": 50,
+            "series": "country_vs_country", "source": "World Bank",
+            "value_fmt": "integer",
+            "mood": "reflective", "hashtags": ["india", "pakistan", "economy"],
+        },
+    },
+    {
+        "id": "vs_uk_france_gdp",
+        "reason": "The lead has changed hands five times since 1997; the UK is "
+                  "ahead today, $4.00T to $3.37T.",
+        "topic": {
+            "key": "vs_uk_france_gdp", "title": "UK vs France: The Economy",
+            "subtitle": "GDP (US$), head to head", "fetcher": "worldbank",
+            "code": "NY.GDP.MKTP.CD", "mode": "line_multi",
+            "entities": ["United Kingdom", "France"], "years_window": 50,
+            "series": "country_vs_country", "source": "World Bank",
+            "value_scale": 1000000000000, "unit_suffix": "T", "value_decimals": 2,
+            "mood": "reflective", "hashtags": ["uk", "france", "economy"],
+        },
+    },
+
     # ===================== ML BASICS =====================
     # Worst reach on the channel (52 median views) and by far the best
     # conversion: 4.10 subs per 1k views against AI's 0.40. These three scenes

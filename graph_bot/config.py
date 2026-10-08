@@ -71,6 +71,7 @@ SERIES_MONEY = "money"
 SERIES_CHARTS = "charts_lie"
 SERIES_INDIA = "india_in_data"
 SERIES_SPORTS = "sports"
+SERIES_VS = "country_vs_country"
 
 
 def topic_series(topic: dict[str, Any]) -> str:
@@ -79,6 +80,7 @@ def topic_series(topic: dict[str, Any]) -> str:
     Honours an explicit ``series:`` in topics.yaml; otherwise infers it:
       * key starting ``ai_``            -> ai_trends
       * key starting ``ml_`` or a Manim scene -> ml_concept
+      * key starting ``vs_``            -> country_vs_country
       * everything else                 -> world_in_data
     """
     explicit = topic.get("series")
@@ -96,6 +98,10 @@ def topic_series(topic: dict[str, Any]) -> str:
         return SERIES_CHARTS
     if key.startswith(("cricket_", "football_")):
         return SERIES_SPORTS
+    # The older india_vs_china_* topics stay in India in Data: they are
+    # published there, and the `india_` rule above catches them first.
+    if key.startswith("vs_"):
+        return SERIES_VS
     if key.startswith("ml_") or topic.get("mode") == "manim":
         return SERIES_ML
     return SERIES_WORLD

@@ -32,7 +32,8 @@ from .config import (
 
 # Order series appear in the report.
 SERIES_ORDER = ["india_in_data", "ml_concept", "world_in_data",
-                "money", "ai_trends", "charts_lie", "sports"]
+                "money", "ai_trends", "charts_lie", "sports",
+                "country_vs_country"]
 
 # series -> (YouTube playlist name, does that playlist exist yet?)
 # Flip the flag to True once you have created the playlist on the channel.
@@ -44,6 +45,7 @@ PLAYLISTS: dict[str, tuple[str, bool]] = {
     "india_in_data": ("India in Data", True),
     "charts_lie": ("How Charts Lie", True),
     "sports": ("Sports in Data", False),
+    "country_vs_country": ("Country vs Country", False),
 }
 
 

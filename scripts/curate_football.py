@@ -8,6 +8,9 @@ what fetch._aggregate does for cricsheet:
 
     data/curated/football_wins.csv   cumulative match wins per team
     data/curated/football_goals.csv  cumulative goals scored per team
+    data/curated/football_world_cup_goals.csv  goals at FIFA World Cup finals
+    data/curated/football_euro_wins.csv        match wins at the UEFA Euro
+    data/curated/football_copa_wins.csv        match wins at the Copa América
 
 Draws count for neither team; unplayed/abandoned rows (blank scores) are
 dropped. Re-run any time to refresh the snapshot:
@@ -63,9 +66,17 @@ def main() -> None:
         "value": pd.concat([raw["home_score"], raw["away_score"]]),
     })
 
+    # Single-tournament cuts. Finals only, so qualifiers (their own tournament
+    # label in the source) are excluded. A shootout is a draw here, as above.
+    def only(df: pd.DataFrame, tournament: str) -> pd.DataFrame:
+        return df[df.index.isin(raw.index[raw["tournament"] == tournament])]
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, df, how in [("football_wins.csv", wins, "count"),
-                          ("football_goals.csv", goals, "sum")]:
+                          ("football_goals.csv", goals, "sum"),
+                          ("football_world_cup_goals.csv", only(goals, "FIFA World Cup"), "sum"),
+                          ("football_euro_wins.csv", only(wins, "UEFA Euro"), "count"),
+                          ("football_copa_wins.csv", only(wins, "Copa América"), "count")]:
         tidy = cumulate(df, how)
         tidy.to_csv(OUT_DIR / name, index=False)
         top = tidy[tidy["year"] == tidy["year"].max()].nlargest(5, "value")
