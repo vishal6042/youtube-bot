@@ -38,7 +38,6 @@ chapters:
     you.
 
     '
-  check: Population of India in 1991 (about 890 million) is not from the GDP data.
 - short:
     title: 'India in 1976: A Huge Country With a Small Economy'
     narration: 'In 1976, India''s whole economy was worth 103 billion dollars. Italy''s was
@@ -104,12 +103,10 @@ chapters:
   narration: 'What follows is not a miracle. It is a slow, steady build. Through the nineties
     the economy grows at just under six percent a year. From 2003 to 2012 that rises to seven.
     By 2000 India is back to thirteenth, at 468 billion dollars. In 2007 it crosses one trillion.
-    It took almost sixty years after independence to reach the first trillion. The second
+    It took sixty years after independence to reach the first trillion. The second
     took seven.
 
     '
-  check: India's GDP first passed $2T in 2014 in this data ($2.04T); confirm 'seven years'
-    reads correctly against 2007.
 - short:
     title: Watch India Overtake Canada, Italy, Brazil, Russia and France
     narration: 'Canada. Italy. Brazil. Russia. France. Between 2013 and 2019, India passed
