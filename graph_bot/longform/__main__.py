@@ -1,10 +1,11 @@
-"""CLI: python -m graph_bot.longform list | build <key> [--only a,b] [--force]"""
+"""CLI: python -m graph_bot.longform list | build|shorts <key> [--only a,b] [--force]"""
 from __future__ import annotations
 
 import argparse
 
 from . import list_keys, summary
 from .build import build
+from .shorts import build_shorts
 
 
 def main() -> None:
@@ -15,6 +16,10 @@ def main() -> None:
     b.add_argument("key")
     b.add_argument("--only", help="comma-separated chapter ids to rebuild")
     b.add_argument("--force", action="store_true", help="rebuild chapters even if unchanged")
+    s = sub.add_parser("shorts", help="render a vertical Short per chapter (skips short.skip)")
+    s.add_argument("key")
+    s.add_argument("--only", help="comma-separated chapter ids to rebuild")
+    s.add_argument("--force", action="store_true", help="rebuild Shorts even if unchanged")
     args = ap.parse_args()
 
     if args.cmd == "list":
@@ -26,7 +31,8 @@ def main() -> None:
                   f"{'  |  video ready' if s['has_video'] and not s['video_stale'] else ''}")
         return
 
-    build(args.key, only=args.only.split(",") if args.only else None, force=args.force)
+    run = build_shorts if args.cmd == "shorts" else build
+    run(args.key, only=args.only.split(",") if args.only else None, force=args.force)
 
 
 if __name__ == "__main__":

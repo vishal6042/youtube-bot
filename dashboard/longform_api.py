@@ -218,8 +218,11 @@ def api_save(key: str, req: SaveReq) -> dict[str, Any]:
         if f in req.episode:
             ep[f] = req.episode[f]
     if "chapters" in req.episode:
+        # Keep what the editor does not show (a chapter's `short:` block) by id.
+        before = {c.get("id"): c for c in ep["chapters"]}
         ep["chapters"] = [
-            {f: ch[f] for f in _CHAPTER_FIELDS if ch.get(f) not in (None, "")}
+            {**{k: v for k, v in before.get(ch.get("id"), {}).items() if k not in _CHAPTER_FIELDS},
+             **{f: ch[f] for f in _CHAPTER_FIELDS if ch.get(f) not in (None, "")}}
             for ch in req.episode["chapters"]
         ]
     try:

@@ -18,11 +18,12 @@ DEFAULT_VOICE = "en-IN-NeerjaNeural"
 _TICKS = 10_000_000  # edge-tts reports offsets in 100-nanosecond units
 
 
-async def _synth(text: str, voice: str, out_path: Path, rate: str) -> list[dict[str, Any]]:
+async def _synth(text: str, voice: str, out_path: Path, rate: str,
+                 boundary: str = "SentenceBoundary") -> list[dict[str, Any]]:
     import edge_tts
 
     cues: list[dict[str, Any]] = []
-    comm = edge_tts.Communicate(text, voice, rate=rate, boundary="SentenceBoundary")
+    comm = edge_tts.Communicate(text, voice, rate=rate, boundary=boundary)
     with out_path.open("wb") as fh:
         async for chunk in comm.stream():
             if chunk["type"] == "audio":
@@ -46,14 +47,19 @@ def audio_seconds(path: Path, settings: dict[str, Any]) -> float:
 
 
 def speak(text: str, voice: str, out_path: Path, settings: dict[str, Any],
-          rate: str = "+0%") -> tuple[float, list[dict[str, Any]]]:
-    """Synthesize ``text`` to ``out_path`` (mp3). Returns (seconds, sentence cues)."""
+          rate: str = "+0%", words: bool = False) -> tuple[float, list[dict[str, Any]]]:
+    """Synthesize ``text`` to ``out_path`` (mp3). Returns (seconds, cues).
+
+    Cues are whole sentences, or single words with ``words=True`` (what the
+    burned-in captions on Shorts are timed from).
+    """
     text = " ".join((text or "").split())
     if not text:
         raise ValueError("Nothing to say: the chapter has no narration")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        cues = asyncio.run(_synth(text, voice or DEFAULT_VOICE, out_path, rate or "+0%"))
+        cues = asyncio.run(_synth(text, voice or DEFAULT_VOICE, out_path, rate or "+0%",
+                                  "WordBoundary" if words else "SentenceBoundary"))
     except Exception as exc:
         out_path.unlink(missing_ok=True)
         raise RuntimeError(
