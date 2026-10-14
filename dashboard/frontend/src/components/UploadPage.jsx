@@ -6,6 +6,7 @@ import {
 import MoreMenu from "./upload/MoreMenu.jsx";
 import Transmission, { StoppedBanner, mb } from "./upload/Transmission.jsx";
 import { BatchCard, ChecksCard, LimitCard } from "./upload/BatchRail.jsx";
+import LongformList from "./upload/LongformList.jsx";
 import "../screens/publish.css";
 
 const PAGE = 8;
@@ -205,6 +206,44 @@ export default function UploadPage({
     setBusy(false);
   };
 
+  // ---- long-form episodes (their own tab; each uploads on its own) ----
+  const [episodes, setEpisodes] = useState(null);
+  const loadEpisodes = useCallback(async () => {
+    try { setEpisodes((await api("/api/longform")).episodes); } catch { /* tab shows loading */ }
+  }, []);
+  const lfUploading = (episodes || []).some((e) => e.upload?.run?.state === "running");
+  useEffect(() => { loadEpisodes(); }, [loadEpisodes]);
+  useEffect(() => {
+    const t = setInterval(loadEpisodes, lfUploading ? 1500 : 15000);
+    return () => clearInterval(t);
+  }, [lfUploading, loadEpisodes]);
+  const lfWasUploading = useRef(false);
+  useEffect(() => {
+    if (lfWasUploading.current && !lfUploading) refresh(); // quota and Published changed
+    lfWasUploading.current = lfUploading;
+  }, [lfUploading, refresh]);
+
+  const uploadEpisode = async (ep) => {
+    const ok = await confirm({
+      title: "Upload this episode to YouTube?",
+      message: "It goes to Data in Motion as Private, with its thumbnail, chapters, English subtitles "
+             + "and playlist set automatically. You switch it to Public in YouTube Studio.",
+      items: [{ title: ep.yt_title || ep.title,
+                meta: [ep.playlist, fmtDuration(ep.build?.secs || ep.secs)].filter(Boolean).join(" · ") }],
+      detail: `This uses ${fmtNum(ep.upload?.units || 2102)} of your ${fmtNum(liveQuota.units_left)} `
+            + "remaining API units today.",
+      confirmLabel: "Upload as Private",
+    });
+    if (!ok) return;
+    try {
+      await api(`/api/longform/${ep.key}/upload`, {});
+      toast("Upload started");
+      await loadEpisodes();
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+
   // ---- queue ----
   const [tab, setTab] = useState("recommended");
   const [order, setOrder] = useState(null); // optimistic order until the server's copy arrives
@@ -230,7 +269,8 @@ export default function UploadPage({
   }, [items]);
 
   const view = tab === "discarded" ? (discarded.length ? tab : "recommended")
-    : tab === "recommended" || playlists.some(([s]) => s === tab) ? tab : "recommended";
+    : tab === "longform" || tab === "recommended" || playlists.some(([s]) => s === tab) ? tab : "recommended";
+  const isLongform = view === "longform";
   const isBin = view === "discarded";
   const shown = isBin ? discarded : view === "recommended" ? list : list.filter((i) => i.series === view);
   const p = usePaged(shown, PAGE, view);
@@ -325,6 +365,8 @@ export default function UploadPage({
   const tabs = [
     { value: "recommended", label: "Recommended", count: items.length },
     ...playlists.map(([series, pl]) => ({ value: series, label: pl.name || series, count: pl.count })),
+    { value: "longform", label: "Long-form",
+      count: (episodes || []).filter((e) => e.has_video && !e.upload?.uploaded).length },
     ...(discarded.length ? [{ value: "discarded", label: "Discarded", count: discarded.length }] : []),
   ];
 
@@ -351,6 +393,9 @@ export default function UploadPage({
       <div className="split">
         <section className="wide stack" aria-label="Upload queue">
 
+          {isLongform && <LongformList episodes={episodes} onUpload={uploadEpisode} onOpen={onOpen} />}
+
+          {!isLongform && <>
           {review && !isBin && (
             <ReviewCard review={review} titleOf={titleOf} onApply={applyReview} onClose={() => setReview(null)} />
           )}
@@ -422,6 +467,7 @@ export default function UploadPage({
               )}
             </p>
           )}
+          </>}
         </section>
 
         <aside className="rail" aria-label="Today's batch" style={{ position: "sticky", top: 24 }}>

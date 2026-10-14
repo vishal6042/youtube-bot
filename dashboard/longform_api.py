@@ -426,6 +426,17 @@ def api_video(key: str, request: Request) -> Response:
     return _stream(path, request, "video/mp4")
 
 
+@router.get("/{key}/thumbnail")
+def api_thumbnail(key: str) -> Response:
+    try:
+        path = longform.out_dir(key) / "thumbnail.jpg"
+    except EpisodeError as exc:
+        raise HTTPException(404, str(exc))
+    if not path.exists():
+        raise HTTPException(404, "No thumbnail yet; it is made with the render")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
 @router.get("/{key}/chapter/{chapter_id}/video")
 def api_chapter_video(key: str, chapter_id: str, request: Request) -> Response:
     try:
