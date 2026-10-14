@@ -18,13 +18,11 @@ voice: en-IN-NeerjaNeural
 voice_rate: +10%
 music_mood: majestic
 target_minutes: 5
-reviewed: false
-hashtags:
-- India
-- Economy
-- GDP
+reviewed: true
 chapters:
-- id: cold_open
+- short:
+    skip: true
+  id: cold_open
   heading: India's Climb
   chart:
     mode: bump_race
@@ -41,9 +39,15 @@ chapters:
 
     '
   check: Population of India in 1991 (about 890 million) is not from the GDP data.
-  short:
-    skip: true
-- id: big_country_small_economy
+- short:
+    title: 'India in 1976: A Huge Country With a Small Economy'
+    narration: 'In 1976, India''s whole economy was worth 103 billion dollars. Italy''s was
+      more than twice its size. The United States was a 1.9 trillion dollar economy, with
+      Japan and Germany behind it. India was thirteenth. For the next fifteen years it grew
+      at under five percent a year, and its rank went nowhere in particular: as high as ninth
+      in the mid-eighties, back to twelfth by 1990. A huge country, with an economy the size
+      of a mid-sized European one.'
+  id: big_country_small_economy
   heading: A big country with a small economy
   chart:
     mode: bar_race
@@ -58,15 +62,14 @@ chapters:
     by 1990. It is a huge country with an economy the size of a mid-sized European one.
 
     '
-  short:
-    title: 'India in 1976: A Huge Country With a Small Economy'
-    narration: 'In 1976, India''s whole economy was worth 103 billion dollars. Italy''s was
-      more than twice its size. The United States was a 1.9 trillion dollar economy, with Japan
-      and Germany behind it. India was thirteenth. For the next fifteen years it grew at under
-      five percent a year, and its rank went nowhere in particular: as high as ninth in the
-      mid-eighties, back to twelfth by 1990. A huge country, with an economy the size of a mid-sized
-      European one.'
-- id: the_bottom
+- short:
+    title: '1991: The Year India''s Economy Hit Bottom'
+    narration: In 1991, measured in dollars, India's economy shrank from 321 billion to 270
+      billion in a single year, and it dropped to eighteenth in the world. Growth that year
+      was barely one percent. The country was close to running out of foreign currency to
+      pay for imports, and the rupee was devalued. It was the low point. It was also the turning
+      point, because the response was to open the economy up.
+  id: the_bottom
   heading: '1991: the bottom'
   chart:
     mode: line_grow
@@ -83,14 +86,14 @@ chapters:
     '
   check: Balance-of-payments crisis, rupee devaluation and the 1991 reforms are history, not
     chart data.
-  short:
-    title: '1991: The Year India''s Economy Hit Bottom'
-    narration: In 1991, measured in dollars, India's economy shrank from 321 billion to 270
-      billion in a single year, and it dropped to eighteenth in the world. Growth that year
-      was barely one percent. The country was close to running out of foreign currency to pay
-      for imports, and the rupee was devalued. It was the low point. It was also the turning
-      point, because the response was to open the economy up.
-- id: slow_build
+- short:
+    title: India's First Trillion Took 60 Years. The Second Took 7.
+    narration: It took India sixty years after independence to build a one trillion dollar
+      economy. The second trillion took seven. It was not a miracle. It was a slow, steady
+      build. Through the nineties the economy grew at just under six percent a year. From
+      2003 to 2012 that rose to seven. By 2000 India was back to thirteenth in the world,
+      at 468 billion dollars. In 2007 it crossed one trillion.
+  id: slow_build
   heading: The slow build
   chart:
     mode: line_grow
@@ -107,14 +110,12 @@ chapters:
     '
   check: India's GDP first passed $2T in 2014 in this data ($2.04T); confirm 'seven years'
     reads correctly against 2007.
-  short:
-    title: India's First Trillion Took 60 Years. The Second Took 7.
-    narration: It took India almost sixty years after independence to build a one trillion dollar
-      economy. The second trillion took seven. It was not a miracle. It was a slow, steady build.
-      Through the nineties the economy grew at just under six percent a year. From 2003 to 2012
-      that rose to seven. By 2000 India was back to thirteenth in the world, at 468 billion
-      dollars. In 2007 it crossed one trillion.
-- id: passing_the_old_powers
+- short:
+    title: Watch India Overtake Canada, Italy, Brazil, Russia and France
+    narration: 'Canada. Italy. Brazil. Russia. France. Between 2013 and 2019, India passed
+      every one of them. Canada for good in 2013. Italy in 2015, along with Brazil and Russia.
+      France in 2019. That made India the sixth largest economy on Earth. Next in line: Britain.'
+  id: passing_the_old_powers
   heading: Passing the old powers
   chart:
     mode: bump_race
@@ -129,12 +130,9 @@ chapters:
     history.
 
     '
-  short:
-    title: Watch India Overtake Canada, Italy, Brazil, Russia and France
-    narration: 'Canada. Italy. Brazil. Russia. France. Between 2013 and 2019, India passed every
-      one of them. Canada for good in 2013. Italy in 2015, along with Brazil and Russia. France
-      in 2019. That made India the sixth largest economy on Earth. Next in line: Britain.'
-- id: india_vs_uk
+- short:
+    title: 'India vs Britain: Who Has the Bigger Economy?'
+  id: india_vs_uk
   heading: India and Britain
   chart:
     mode: line_multi
@@ -152,9 +150,14 @@ chapters:
     is that they are level.
 
     '
-  short:
-    title: 'India vs Britain: Who Has the Bigger Economy?'
-- id: the_gap_to_china
+- short:
+    title: China and India Were Equal in 1980. What Happened?
+    narration: 'In 1980, China''s economy was almost exactly the size of India''s. In 1990
+      it was still only thirteen percent bigger. Then China pulled away: two and a half times
+      India''s size by 2000, nearly four times by 2010, more than five and a half times by
+      2020. Since then India has grown faster, and the gap has narrowed a little, to just
+      under five times. India climbed past Europe. It did not keep up with China.'
+  id: the_gap_to_china
   heading: The gap that did not close
   chart:
     mode: line_multi
@@ -172,14 +175,14 @@ chapters:
     China.
 
     '
-  short:
-    title: China and India Were Equal in 1980. What Happened?
-    narration: 'In 1980, China''s economy was almost exactly the size of India''s. In 1990 it
-      was still only thirteen percent bigger. Then China pulled away: two and a half times India''s
-      size by 2000, nearly four times by 2010, more than five and a half times by 2020. Since
-      then India has grown faster, and the gap has narrowed a little, to just under five times.
-      India climbed past Europe. It did not keep up with China.'
-- id: next_in_line
+- short:
+    title: Can India Catch Japan and Germany?
+    narration: Can India catch Japan and Germany? Japan's economy is 4.4 trillion dollars.
+      Germany, in third place, is at just over five. India is at 3.96. The difference is in
+      the direction. Over the last five years India has grown at close to eight percent a
+      year. Germany has averaged under one. Japan a little over one. Nobody can promise the
+      future, but the distance to third place is the smallest it has ever been.
+  id: next_in_line
   heading: Who is next
   chart:
     mode: line_multi
@@ -197,14 +200,15 @@ chapters:
     smallest it has ever been.
 
     '
-  short:
-    title: Can India Catch Japan and Germany?
-    narration: Can India catch Japan and Germany? Japan's economy is 4.4 trillion dollars. Germany,
-      in third place, is at just over five. India is at 3.96. The difference is in the direction.
-      Over the last five years India has grown at close to eight percent a year. Germany has
-      averaged under one. Japan a little over one. Nobody can promise the future, but the distance
-      to third place is the smallest it has ever been.
-- id: the_catch
+- short:
+    title: India Is a Top Economy. So Why Is It 144th?
+    narration: India has one of the biggest economies in the world. So why does it rank one
+      hundred and forty-fourth? India's economy is enormous because India is enormous. Divide
+      it by the people who live there and the picture changes completely. Income per person
+      is about 2,700 dollars a year. That is one hundred and forty-fourth out of 186 countries.
+      China is at almost 14,000. Britain is above 57,000. Bangladesh, next door, is level
+      with India. A top economy and a top standard of living are very different things.
+  id: the_catch
   heading: The catch
   chart:
     mode: bar_race
@@ -231,15 +235,13 @@ chapters:
     things.
 
     '
-  short:
-    title: India Is a Top Economy. So Why Is It 144th?
-    narration: India has one of the biggest economies in the world. So why does it rank one
-      hundred and forty-fourth? India's economy is enormous because India is enormous. Divide
-      it by the people who live there and the picture changes completely. Income per person
-      is about 2,700 dollars a year. That is one hundred and forty-fourth out of 186 countries.
-      China is at almost 14,000. Britain is above 57,000. Bangladesh, next door, is level with
-      India. A top economy and a top standard of living are very different things.
-- id: buying_power
+- short:
+    title: 'By This Measure, India Is Already #3 in the World'
+    narration: By one measure, India is already the third largest economy in the world. A
+      dollar buys far more in India than it does in America, so economists also compare countries
+      by what their money can actually buy. On that measure India has been third since 2009,
+      behind only China and the United States. It passed Germany on this measure back in 2003.
+  id: buying_power
   heading: Measured another way
   chart:
     mode: bar_race
@@ -254,13 +256,9 @@ chapters:
     this measure back in 2003.
 
     '
-  short:
-    title: 'By This Measure, India Is Already #3 in the World'
-    narration: By one measure, India is already the third largest economy in the world. A dollar
-      buys far more in India than it does in America, so economists also compare countries by
-      what their money can actually buy. On that measure India has been third since 2009, behind
-      only China and the United States. It passed Germany on this measure back in 2003.
-- id: outro
+- short:
+    skip: true
+  id: outro
   heading: Where that leaves India
   chart:
     mode: bump_race
@@ -275,5 +273,7 @@ chapters:
     we follow next? Tell us in the comments.
 
     '
-  short:
-    skip: true
+hashtags:
+- India
+- Economy
+- GDP
