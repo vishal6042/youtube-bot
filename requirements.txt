@@ -11,6 +11,7 @@ imageio-ffmpeg>=0.4.9   # bundles an ffmpeg binary so no system install is neede
 # Mission-control dashboard (python -m dashboard.server)
 fastapi>=0.110
 uvicorn[standard]>=0.29
+python-multipart>=0.0.9  # FastAPI needs it for the Form/File upload endpoints
 
 # Analytics warehouse (python -m graph_bot.analytics)
 psycopg[binary]>=3.2
