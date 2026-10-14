@@ -30,6 +30,7 @@ const PACES = [
 
 function statusOf(ep) {
   if (ep.build?.live) return ["Rendering", "go"];
+  if (ep.upload?.uploaded) return ["Uploaded", "go"];
   if (ep.has_video && !ep.video_stale) return ["Rendered", "go"];
   if (ep.has_video) return ["Edited since last render", "warn"];
   if (ep.reviewed) return ["Script reviewed", "info"];
@@ -49,7 +50,11 @@ function Steps({ ep }) {
       n ? ep.rendered / n : 0],
     ["Assembled", assembled, assembled ? clock(ep.build?.secs || ep.secs)
       : joining ? "joining and mixing" : ep.has_video ? "out of date" : "not yet", assembled ? 1 : joining ? 0.5 : 0],
-    ["Published", false, "not yet", 0],
+    // The API can only upload Private; going Public is a click in Studio.
+    ["Published", !!ep.upload?.uploaded,
+      ep.upload?.uploaded ? "uploaded, Private until you switch it"
+        : ep.upload?.run?.state === "running" ? "uploading" : "not yet",
+      ep.upload?.uploaded ? 1 : (ep.upload?.run?.pct || 0) / 100],
   ];
   // While a render runs, the step doing the work is the current one, whether
   // or not the script has been ticked as reviewed.
@@ -225,6 +230,62 @@ function Figures({ epKey, chapterId, version }) {
   );
 }
 
+const UPLOAD_STAGE = {
+  starting: "Starting", authorising: "Signing in to YouTube", uploading: "Uploading the video",
+  thumbnail: "Setting the thumbnail", subtitles: "Adding subtitles", playlist: "Adding to the playlist",
+  recording: "Recording the upload", done: "Done",
+};
+
+/* Upload to YouTube as Private, the way the Shorts go up; Public is a click in Studio. */
+function UploadBox({ up, dirty, onUpload }) {
+  const run = up.run;
+  if (run?.state === "running") {
+    return (
+      <div className="stack" style={{ gap: 6, marginTop: 14 }}>
+        <div className="rowf" style={{ fontSize: 13 }}>
+          <span style={{ flex: 1 }}>{UPLOAD_STAGE[run.stage] || run.stage}</span>
+          <span className="num faint">{run.pct || 0}%</span>
+        </div>
+        <Bar pct={run.pct || 0} running />
+      </div>
+    );
+  }
+  if (up.uploaded) {
+    const warnings = run?.state === "done" ? run.result?.warnings || [] : [];
+    return (
+      <div className="stack" style={{ gap: 8, marginTop: 14 }}>
+        <Banner tone="go" title="Uploaded as Private">
+          Check it in YouTube Studio, then switch Visibility to Public.
+          {warnings.map((w) => <div key={w} style={{ color: "#ffc857" }}>{w}</div>)}
+        </Banner>
+        <div className="rowf" style={{ gap: 8 }}>
+          {up.studio && <Btn size="sm" kind="primary" icon="external"
+                             onClick={() => window.open(up.studio, "_blank", "noopener")}>Open in Studio</Btn>}
+          {up.url && <Btn size="sm" icon="youtube"
+                          onClick={() => window.open(up.url, "_blank", "noopener")}>Watch on YouTube</Btn>}
+        </div>
+      </div>
+    );
+  }
+  const blocked = (up.checks || []).filter((c) => !c.ok);
+  return (
+    <div className="stack" style={{ gap: 8, marginTop: 14 }}>
+      {run?.state === "failed" && (
+        <Banner tone="bad" role="alert" title="The upload failed">{run.error}</Banner>
+      )}
+      <Btn kind="primary" icon="upload" disabled={dirty || blocked.length > 0} onClick={onUpload}
+           title={dirty ? "Save your changes first" : blocked.map((c) => c.detail).join(" · ") || undefined}>
+        {run?.state === "failed" ? "Try the upload again" : "Upload to YouTube"}
+      </Btn>
+      {blocked.length > 0 && (
+        <ul className="faint" style={{ margin: 0, paddingLeft: 18, fontSize: 12.5 }}>
+          {blocked.map((c) => <li key={c.name}>{c.detail}</li>)}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
   const [saved, setSaved] = useState(null);   // last copy from the server
   const [ep, setEp] = useState(null);         // working copy
@@ -233,12 +294,15 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
   const [watch, setWatch] = useState(null);
   const [audio, setAudio] = useState(null);
   const timer = useRef(null);
+  // The file version the working copy came from. Saves send it, and the
+  // server refuses one made from a page that is older than the file.
+  const base = useRef(null);
 
   const load = useCallback(async (adopt) => {
     try {
       const s = await api(`/api/longform/${epKey}`);
       setSaved(s);
-      if (adopt) setEp(s);
+      if (adopt) { setEp(s); base.current = s.version; }
       return s;
     } catch (e) {
       toast(e.message, true);
@@ -250,11 +314,12 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
 
   // While a render runs, keep its progress fresh without touching the draft.
   const live = saved?.build?.live;
+  const uploading = saved?.upload?.run?.state === "running";
   useEffect(() => {
-    if (!live) return undefined;
-    timer.current = setInterval(() => load(false), 3000);
+    if (!live && !uploading) return undefined;
+    timer.current = setInterval(() => load(false), uploading ? 1500 : 3000);
     return () => clearInterval(timer.current);
-  }, [live, load]);
+  }, [live, uploading, load]);
 
   const dirty = useMemo(() => {
     if (!ep || !saved) return false;
@@ -289,9 +354,10 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
   const save = async (quiet) => {
     setBusy(true);
     try {
-      const s = await api(`/api/longform/${epKey}`, { episode: ep });
+      const s = await api(`/api/longform/${epKey}`, { episode: ep, version: base.current });
       setSaved(s);
       setEp(s);
+      base.current = s.version;
       if (!quiet) toast("Episode saved");
       return s;
     } catch (e) {
@@ -369,6 +435,23 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
       await api(`/api/longform/${epKey}/build/stop`, {});
       toast("Render stopped. Finished chapters are kept.");
       load(false);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+
+  const upload = async () => {
+    const u = saved.upload || {};
+    if (!await confirm({
+      title: "Upload to YouTube?",
+      message: `"${saved.yt_title || saved.title}" goes up as Private, with its thumbnail, chapters, `
+        + `English subtitles and the ${saved.playlist} playlist. You switch it to Public in YouTube Studio.`,
+      detail: `Uses ${(u.units || 0).toLocaleString()} of today's 10,000 API units (a Short uses 1,702).`,
+      confirmLabel: "Upload as Private", cancelLabel: "Not now",
+    })) return;
+    try {
+      setSaved(await api(`/api/longform/${epKey}/upload`, {}));
+      toast("Upload started");
     } catch (e) {
       toast(e.message, true);
     }
@@ -596,6 +679,7 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
                     : saved.has_video ? "Edited since the last render" : "Not rendered yet"}
                 </span></li>
             </ul>
+            <UploadBox up={saved.upload || {}} dirty={dirty} onUpload={upload} />
             {saved.has_video && (
               <div className="rowf" style={{ marginTop: 14 }}>
                 <Btn size="sm" icon="folder" onClick={() => onOpen(`output/longform/${epKey}`)}>Open the folder</Btn>
@@ -603,7 +687,6 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
             )}
             <p className="faint" style={{ fontSize: 12.5, marginTop: 12 }}>
               The folder holds the video, a subtitle file, the title and a description with chapter timestamps.
-              Uploading long-form videos is done by hand for now.
             </p>
           </section>
         </aside>

@@ -124,6 +124,58 @@ class _Builder:
 builder = _Builder()
 
 
+class _Uploader:
+    """One episode upload at a time, in a thread (it is network-bound, unlike a
+    render). Progress lives here so the editor can poll it."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.runs: dict[str, dict[str, Any]] = {}
+
+    def snapshot(self, key: str) -> dict[str, Any] | None:
+        with self._lock:
+            run = self.runs.get(key)
+            return dict(run) if run else None
+
+    def start(self, key: str) -> None:
+        from graph_bot.longform import publish
+
+        with self._lock:
+            if any(r["state"] == "running" for r in self.runs.values()):
+                raise HTTPException(409, "An episode is already uploading. Wait for it to finish.")
+            failed = [c for c in publish.checks(key) if not c["ok"]]
+            if failed:
+                raise HTTPException(400, "; ".join(f"{c['name']}: {c['detail']}" for c in failed))
+            self.runs[key] = {"state": "running", "pct": 0, "stage": "starting"}
+
+        def progress(pct: int, stage: str) -> None:
+            with self._lock:
+                self.runs[key].update(pct=pct, stage=stage)
+
+        def run() -> None:
+            try:
+                r = publish.upload_episode(key, on_progress=progress)
+                done = {"state": "done", "pct": 100, "stage": "done", "result": r}
+            except Exception as exc:
+                done = {"state": "failed", "stage": "failed",
+                        "error": str(exc).splitlines()[0] if str(exc) else type(exc).__name__}
+            with self._lock:
+                self.runs[key].update(done)
+
+        threading.Thread(target=run, daemon=True).start()
+
+
+uploader = _Uploader()
+
+
+def _version(key: str) -> str:
+    """Fingerprint of the episode file, so a save from a stale page is refused."""
+    try:
+        return hashlib.sha1(longform.episode_path(key).read_bytes()).hexdigest()[:12]
+    except OSError:
+        return ""
+
+
 def _summary(key: str) -> dict[str, Any]:
     try:
         s = longform.summary(key)
@@ -146,8 +198,28 @@ def _summary(key: str) -> dict[str, Any]:
             build["status"] = "stopped"
     s["build"] = {**build, "live": live, "stoppable": ours, "log": builder.tail[-12:] if ours else []}
     s["playlist"] = playlist_of(s.get("series") or "world_in_data")[0]
+    s["version"] = _version(key)
+    s["upload"] = _upload_state(key)
     s.pop("_ranks", None)
     return s
+
+
+def _upload_state(key: str) -> dict[str, Any]:
+    from graph_bot import store
+    from graph_bot.analytics.importer import VIDEO_ID_RE
+    from graph_bot.longform import publish
+
+    entry = store.load_log().get(publish.log_key(key))
+    out: dict[str, Any] = {"run": uploader.snapshot(key), "uploaded": bool(entry)}
+    if entry:
+        url = entry.get("url")
+        m = VIDEO_ID_RE.search(url or "")
+        out.update(url=url, uploaded_at=entry.get("uploaded_at"),
+                   studio=f"https://studio.youtube.com/video/{m.group(1)}/edit" if m else None)
+    else:
+        out["checks"] = publish.checks(key)
+        out["units"] = publish.QUOTA_UNITS
+    return out
 
 
 @router.get("")
@@ -200,6 +272,9 @@ def api_get(key: str) -> dict[str, Any]:
 
 class SaveReq(BaseModel):
     episode: dict[str, Any]
+    # The file version the page loaded. A save from a page opened before the
+    # file last changed would overwrite that change with the page's old copy.
+    version: str | None = None
 
 
 # Fields the editor may change. Everything else in the file is left as it is.
@@ -214,6 +289,9 @@ def api_save(key: str, req: SaveReq) -> dict[str, Any]:
         ep = longform.load(key)
     except EpisodeError as exc:
         raise HTTPException(404, str(exc))
+    if req.version and req.version != _version(key):
+        raise HTTPException(409, "The script was changed outside this page since you opened it. "
+                                 "Reload the page to get the latest copy, then make your edit again.")
     for f in _EDITABLE:
         if f in req.episode:
             ep[f] = req.episode[f]
@@ -247,6 +325,15 @@ def api_build(key: str, req: BuildReq) -> dict[str, Any]:
         raise HTTPException(400, "Add at least one chapter before rendering")
     builder.start(key, req.force)
     return {"ok": True}
+
+
+@router.post("/{key}/upload")
+def api_upload(key: str) -> dict[str, Any]:
+    """Upload the rendered episode to YouTube as Private (switch to Public in Studio)."""
+    if builder.running() == key:
+        raise HTTPException(409, "The episode is rendering. Upload it once the render finishes.")
+    uploader.start(key)
+    return _summary(key)
 
 
 @router.post("/{key}/build/stop")

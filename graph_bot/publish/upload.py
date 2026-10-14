@@ -115,11 +115,74 @@ def find_playlist_id(yt, name: str) -> str | None:
     return None
 
 
+def insert_video(yt, video: Path, body: dict[str, Any],
+                 report: Callable[[int, str], None], upto: int = 90) -> str:
+    """videos.insert with a resumable upload; returns the new video id.
+
+    Progress runs from 1 to ``upto`` percent, leaving the rest for the steps
+    that follow (thumbnail, playlist, subtitles).
+    """
+    from googleapiclient.http import MediaFileUpload
+
+    media = MediaFileUpload(str(video), chunksize=1024 * 1024, resumable=True,
+                            mimetype="video/mp4")
+    request = yt.videos().insert(part="snippet,status", body=body, media_body=media)
+    report(1, "uploading")
+    response = None
+    while response is None:
+        try:
+            status, response = request.next_chunk()
+        except Exception as exc:
+            raise UploadError(f"Upload failed: {str(exc).splitlines()[0]}") from exc
+        if status:
+            report(max(1, int(status.progress() * upto)), "uploading")
+    return response["id"]
+
+
+def set_thumbnail(yt, video_id: str, thumb: Path, result: dict[str, Any]) -> None:
+    """thumbnails.set; a failure is a warning in ``result``, never an error."""
+    try:
+        yt.thumbnails().set(videoId=video_id, media_body=str(thumb)).execute()
+        result["thumbnail_set"] = True
+        # The API accepts a portrait image and reports success, but every
+        # YouTube thumbnail slot is 16:9 — so it gets pillarboxed or ignored
+        # and the video shows a frame instead. Success here is not proof the
+        # thumbnail is actually being used.
+        ratio = _aspect(thumb)
+        if ratio is not None and ratio < 1.0:
+            result["warnings"].append(
+                f"thumbnail is portrait ({ratio:.2f}); YouTube shows thumbnails at 16:9, "
+                "so it may not be used — a 1280x720 image would be")
+    except Exception as exc:
+        # Custom thumbnails need a verified (phone-confirmed) channel. The
+        # video is already up, so this is a warning, never a failure.
+        result["warnings"].append(f"thumbnail not set: {str(exc).splitlines()[0]}")
+
+
+def add_to_playlist_named(yt, video_id: str, name: str, exists: bool,
+                          result: dict[str, Any]) -> None:
+    """Add the video to one of the channel's playlists; problems become warnings."""
+    if not exists:
+        result["warnings"].append(f"playlist '{name}' is not marked as created on YouTube — skipped")
+        return
+    try:
+        pid = find_playlist_id(yt, name)
+        if pid is None:
+            result["warnings"].append(f"no playlist named '{name}' on the channel — skipped")
+            return
+        yt.playlistItems().insert(
+            part="snippet",
+            body={"snippet": {"playlistId": pid,
+                              "resourceId": {"kind": "youtube#video", "videoId": video_id}}},
+        ).execute()
+        result["playlist_added"] = True
+    except Exception as exc:
+        result["warnings"].append(f"playlist add failed: {str(exc).splitlines()[0]}")
+
+
 def upload(key: str, *, privacy: str = "private", add_to_playlist: bool = True,
            on_progress: Callable[[int, str], None] | None = None) -> dict[str, Any]:
     """Upload one exported video. Returns {video_id, url, playlist, ...}."""
-    from googleapiclient.http import MediaFileUpload
-
     if key in load_log():
         raise UploadError(f"'{key}' is already marked uploaded — unmark it first if that was wrong.")
 
@@ -150,22 +213,7 @@ def upload(key: str, *, privacy: str = "private", add_to_playlist: bool = True,
             "selfDeclaredMadeForKids": False,
         },
     }
-    media = MediaFileUpload(str(data["video"]), chunksize=1024 * 1024,
-                            resumable=True, mimetype="video/mp4")
-    request = yt.videos().insert(part="snippet,status", body=body, media_body=media)
-
-    report(1, "uploading")
-    response = None
-    while response is None:
-        try:
-            status, response = request.next_chunk()
-        except Exception as exc:
-            raise UploadError(f"Upload failed: {str(exc).splitlines()[0]}") from exc
-        if status:
-            # Reserve the last 10% for the thumbnail and playlist steps.
-            report(max(1, int(status.progress() * 90)), "uploading")
-
-    video_id = response["id"]
+    video_id = insert_video(yt, data["video"], body, report)
     url = f"https://youtu.be/{video_id}"
     result: dict[str, Any] = {
         "key": key, "video_id": video_id, "url": url, "channel": channel["title"],
@@ -177,45 +225,12 @@ def upload(key: str, *, privacy: str = "private", add_to_playlist: bool = True,
     # ---- thumbnail ----
     if data["thumbnail"]:
         report(92, "thumbnail")
-        try:
-            yt.thumbnails().set(videoId=video_id, media_body=str(data["thumbnail"])).execute()
-            result["thumbnail_set"] = True
-            # The API accepts a portrait image and reports success, but every
-            # YouTube thumbnail slot is 16:9 — so it gets pillarboxed or ignored
-            # and the video shows a frame instead. Success here is not proof the
-            # thumbnail is actually being used.
-            ratio = _aspect(data["thumbnail"])
-            if ratio is not None and ratio < 1.0:
-                result["warnings"].append(
-                    f"thumbnail is portrait ({ratio:.2f}); YouTube shows thumbnails at 16:9, "
-                    "so it may not be used — a 1280x720 image would be")
-        except Exception as exc:
-            # Custom thumbnails need a verified (phone-confirmed) channel. The
-            # video is already up, so this is a warning, never a failure.
-            result["warnings"].append(f"thumbnail not set: {str(exc).splitlines()[0]}")
+        set_thumbnail(yt, video_id, data["thumbnail"], result)
 
     # ---- playlist ----
     if add_to_playlist:
         report(96, "playlist")
-        if not playlist_exists:
-            result["warnings"].append(
-                f"playlist '{playlist_name}' is not marked as created on YouTube — skipped")
-        else:
-            try:
-                pid = find_playlist_id(yt, playlist_name)
-                if pid is None:
-                    result["warnings"].append(
-                        f"no playlist named '{playlist_name}' on the channel — skipped")
-                else:
-                    yt.playlistItems().insert(
-                        part="snippet",
-                        body={"snippet": {"playlistId": pid,
-                                          "resourceId": {"kind": "youtube#video",
-                                                         "videoId": video_id}}},
-                    ).execute()
-                    result["playlist_added"] = True
-            except Exception as exc:
-                result["warnings"].append(f"playlist add failed: {str(exc).splitlines()[0]}")
+        add_to_playlist_named(yt, video_id, playlist_name, playlist_exists, result)
 
     # ---- record it ----
     # Written last and only on success, so the upload log never claims a video

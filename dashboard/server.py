@@ -1557,6 +1557,36 @@ def api_uploads() -> dict[str, Any]:
             "live": live.get(key),
         })
 
+    # Long-form episodes are logged as lf_<key>; they are not topics.
+    from graph_bot import longform
+    from graph_bot.longform.publish import log_key
+
+    for ep_key in longform.list_keys():
+        entry = log.get(log_key(ep_key))
+        if not entry:
+            continue
+        try:
+            s = longform.summary(ep_key)
+        except Exception:
+            continue
+        series = s.get("series") or "world_in_data"
+        rows.append({
+            "key": log_key(ep_key),
+            "title": s.get("yt_title") or s.get("title", ""),
+            "subtitle": "Long-form episode",
+            "series": series,
+            "playlist": playlist_of(series)[0],
+            "episode": None,
+            "uploaded_at": entry.get("uploaded_at"),
+            "url": entry.get("url"),
+            "duration_sec": (s.get("build") or {}).get("secs"),
+            "source": "World Bank",
+            "rendered_on": ((s.get("build") or {}).get("finished_at") or "")[:10] or None,
+            "exported": f"output/longform/{ep_key}",
+            "has_thumb": False,
+            "live": live.get(log_key(ep_key)),
+        })
+
     rows.sort(key=lambda r: (r["uploaded_at"] or ""), reverse=True)
     return {
         "uploads": rows,
