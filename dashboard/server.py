@@ -141,6 +141,7 @@ class JobManager:
         self.queue: list[Job] = []
         self.current: Job | None = None
         self.history: list[dict[str, Any]] = self._load_history()
+        self._history_at = time.time()
         threading.Thread(target=self._run_loop, daemon=True).start()
 
     # ---- persistence ----
@@ -152,6 +153,24 @@ class JobManager:
         except Exception as exc:
             print(f"job history unavailable: {exc}")
             return []
+
+    def _fresh_history(self) -> list[dict[str, Any]]:
+        """The history, re-read from the database every few seconds.
+
+        Long-form renders run in their own process (dashboard or command line)
+        and write their rows straight to the job table, so the in-memory list
+        alone would miss them until a restart.
+        """
+        if time.time() - self._history_at < 3:
+            return self.history
+        self._history_at = time.time()
+        try:
+            from dashboard.longform_api import settle_job
+
+            self.history = [settle_job(r) for r in store.load_jobs(HISTORY_KEPT)]
+        except Exception as exc:  # keep serving the last copy if Postgres is down
+            print(f"job history refresh failed: {exc}")
+        return self.history
 
     def _save_job(self, d: dict[str, Any]) -> None:
         try:
@@ -196,7 +215,7 @@ class JobManager:
             return {
                 "job": self.current.to_dict(log_tail=40) if self.current else None,
                 "queue": [j.to_dict() for j in self.queue],
-                "history": self.history[:HISTORY_KEPT],
+                "history": self._fresh_history()[:HISTORY_KEPT],
                 "failures": self._failures(),
             }
 
@@ -213,7 +232,9 @@ class JobManager:
         if self.current:
             sources.append({"results": self.current.results, "id": self.current.id,
                             "at": self.current.started_at})
-        sources += self.history
+        # Long-form rows are not Shorts topics; offering to retry one would
+        # queue a Shorts render for a key that is not a topic.
+        sources += [h for h in self.history if h.get("kind") != "longform"]
         for j in sources:
             for key, res in (j.get("results") or {}).items():
                 if key in seen:

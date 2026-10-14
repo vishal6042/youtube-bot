@@ -26,6 +26,7 @@ from .. import transform
 from ..config import load_settings
 from ..render import ffmpeg_exe, render
 from . import EpisodeError, load, out_dir, validate, words
+from .history import RenderRecord
 from .narrate import DEFAULT_VOICE, audio_seconds, speak
 
 WIDTH, HEIGHT = 1920, 1080
@@ -256,9 +257,12 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
         state = {}
     done_map: dict[str, Any] = state.get("chapters", {})
     started = dt.datetime.now().isoformat(timespec="seconds")
+    record = RenderRecord(key, ep, only, force)
+    say = record.say
 
     def report(**kw: Any) -> None:
-        info = {"status": "running", "started_at": started, "total": len(chapters), **kw}
+        info = {"status": "running", "started_at": started, "total": len(chapters),
+                "job_id": record.id, **kw}
         state["build"] = info
         state["chapters"] = done_map
         state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
@@ -277,16 +281,20 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
                 base = {"stage": "chapter", "index": i, "chapter": cid, "heading": ch.get("heading"),
                         "chapter_started_at": dt.datetime.now().isoformat(timespec="seconds")}
                 report(**base, sub="voice")
-                print(f"  [{i + 1}/{len(chapters)}] {cid}: narrating and rendering ...", flush=True)
+                say(f"  [{i + 1}/{len(chapters)}] {cid}: narrating and rendering ...")
+                record.chapter(i, "active")
                 done_map[cid] = _render_chapter(
                     ep, ch, work, settings,
                     on_sub=lambda sub, _b=base, **kw: report(**_b, sub=sub, **kw))
+                record.chapter(i, "rendered", done_map[cid])
             else:
-                print(f"  [{i + 1}/{len(chapters)}] {cid}: unchanged, reusing", flush=True)
+                say(f"  [{i + 1}/{len(chapters)}] {cid}: unchanged, reusing")
+                record.chapter(i, "reused", done_map[cid])
             built.append((ch, done_map[cid]))
 
         report(stage="assembling", index=len(chapters))
-        print("  joining chapters ...", flush=True)
+        record.stage("assembling")
+        say("  joining chapters ...")
         listing = work / "concat.txt"
         listing.write_text("".join(f"file '{d['video']}'\n" for _, d in built), encoding="utf-8")
         joined = out / "joined.mp4"
@@ -295,7 +303,8 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
         total = sum(d["secs"] for _, d in built)
 
         report(stage="mixing", index=len(chapters))
-        print("  mixing music under the voice ...", flush=True)
+        record.stage("mixing")
+        say("  mixing music under the voice ...")
         from .. import audio as audio_mod
 
         video = out / "episode.mp4"
@@ -334,23 +343,26 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
             thumbnail.build_wide({"key": key, "title": ep["title"], "series": ep.get("series"),
                                   "source": "World Bank"}, video, out / "thumbnail.jpg", settings)
         except Exception as exc:  # a missing thumbnail must not fail a finished render
-            print(f"  thumbnail skipped: {exc}", flush=True)
+            say(f"  thumbnail skipped: {exc}")
 
         secs = audio_seconds(video, settings)
         state["build"] = {"status": "done", "started_at": started, "total": len(chapters),
                           "finished_at": dt.datetime.now().isoformat(timespec="seconds"),
-                          "secs": round(secs, 1), "music": track.name if track else None}
+                          "secs": round(secs, 1), "music": track.name if track else None,
+                          "job_id": record.id}
         state["chapters"] = done_map
         state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
         if progress:
             progress(state["build"])
-        print(f"  done: {video}  ({_stamp(secs)})", flush=True)
+        say(f"  done: {video}  ({_stamp(secs)})")
+        record.finish("done", secs=round(secs, 1), folder=f"output/longform/{key}")
         return video
     except Exception as exc:
         state["build"] = {"status": "failed", "started_at": started, "total": len(chapters),
                           "finished_at": dt.datetime.now().isoformat(timespec="seconds"),
-                          "error": f"{type(exc).__name__}: {exc}"}
+                          "error": f"{type(exc).__name__}: {exc}", "job_id": record.id}
         state["chapters"] = done_map
+        record.finish("failed", error=f"{type(exc).__name__}: {exc}")
         state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
         if progress:
             progress(state["build"])

@@ -51,7 +51,20 @@ function pipsLabel(job, row) {
   return `${done} of ${row.length} steps done`;
 }
 
+/* Long-form renders record chapters, not the Shorts' six pipeline steps. */
+const LF_PIP = { rendered: "", reused: "", active: "a", failed: "x" };
+const isLongform = (j) => j.kind === "longform";
+
 function Pips({ job, row }) {
+  if (isLongform(job)) {
+    const chs = job.chapters || [];
+    const done = chs.filter((c) => c.state === "rendered" || c.state === "reused").length;
+    return (
+      <div className="steps" role="img" aria-label={`${done} of ${chs.length} chapters done`}>
+        {chs.map((c) => <i key={c.id} className={LF_PIP[c.state] ?? "o"} title={`${c.heading}: ${c.state}`} />)}
+      </div>
+    );
+  }
   return (
     <div className="steps" role="img" aria-label={pipsLabel(job, row)}>
       {row.map((s) => (
@@ -63,6 +76,11 @@ function Pips({ job, row }) {
 }
 
 function VideoCell({ job, titles }) {
+  if (isLongform(job)) {
+    const n = (job.chapters || []).length;
+    return <><div className="t">{job.label}</div>
+      <div className="k">Long-form episode · {n} chapter{n === 1 ? "" : "s"}</div></>;
+  }
   const keys = keysOf(job);
   if (keys.length === 1) {
     const title = titles?.[keys[0]];
@@ -106,7 +124,69 @@ function StepTimeline({ job, steps, topic }) {
   );
 }
 
+const LF_WORD = {
+  rendered: ["Rendered", "var(--go)"], reused: ["Unchanged, reused", null], active: ["Rendering", "var(--info)"],
+  failed: ["Failed", "var(--bad)"], stopped: ["Stopped here", "var(--warn)"], pending: ["Not reached", null],
+};
+
+function LongformDetail({ job }) {
+  const res = Object.values(job.results || {})[0];
+  const log = cleanLog(job.log);
+  const opts = job.options || {};
+  return (
+    <div className="split">
+      <div className="wide">
+        <div className="step-grid tight">
+          {(job.chapters || []).map((c, i) => {
+            const [word, color] = LF_WORD[c.state] || [c.state, null];
+            return (
+              <div key={c.id} className={"card step-card" + (c.state === "failed" ? " bad" : "")}
+                   style={{ padding: "12px 14px" }}>
+                <b className={color || c.state === "reused" ? undefined : "muted"}>{i + 1}. {c.heading}</b>
+                <div className={color ? "sub" : "sub faint"} style={color ? { color } : undefined}>
+                  {word}
+                  {c.state === "rendered" && c.took != null && <span className="num muted"> · {stepSecs(c.took)}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="rail" style={{ gap: 12 }}>
+        {res?.status === "failed" && (
+          <div className="banner" style={{ "--c": "#ff6b6b" }}>
+            <div style={{ minWidth: 0 }}>
+              <b>{explain(res.error)}</b>
+              <details className="more sm">
+                <summary>Show details</summary>
+                <code className="num" style={{ fontSize: 12, overflowWrap: "anywhere" }}>{res.error}</code>
+              </details>
+            </div>
+          </div>
+        )}
+        {res?.status === "ok" && res.export && (
+          <div className="muted" style={{ fontSize: 13 }}>
+            Saved to <span className="num" style={{ overflowWrap: "anywhere" }}>{res.export}</span>
+          </div>
+        )}
+        {(opts.force || opts.only) && (
+          <div className="muted" style={{ fontSize: 13 }}>
+            {opts.force ? "Forced re-render" : "Re-render"}{opts.only ? ` of ${opts.only.join(", ")}` : ""}
+          </div>
+        )}
+        {log.length > 0 && (
+          <details className="more sm">
+            <summary>Show the log ({log.length} lines)</summary>
+            <pre className="num logbox" tabIndex={0} aria-label="Job log">{log.join("\n")}</pre>
+          </details>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Detail({ job, history, titles }) {
+  if (isLongform(job)) return <LongformDetail job={job} />;
   const steps = stepsOf(job);
   const topics = [...new Set(steps.map((s) => s.topic).filter(Boolean))];
   const groups = topics.length ? topics : [null];
@@ -191,8 +271,10 @@ function JobRow({ job, open, onToggle, history, titles, onRetry, onCancel, onCan
   const row = stepRow(job, steps, topics.length ? topics[topics.length - 1] : null);
   const expandable = job.status !== "queued";
   const fails = failedKeys(job);
-  const retry = fails.length ? fails : (job.status === "failed" || job.status === "cancelled") ? job.keys || [] : [];
-  const name = keysOf(job)[0] || job.label;
+  // Retry and Abort drive the Shorts job queue; long-form has its own controls.
+  const retry = isLongform(job) ? []
+    : fails.length ? fails : (job.status === "failed" || job.status === "cancelled") ? job.keys || [] : [];
+  const name = isLongform(job) ? job.label : keysOf(job)[0] || job.label;
   const took = job.status === "running" ? secsBetween(job.started_at)
     : job.started_at && job.finished_at ? secsBetween(job.started_at, job.finished_at) : null;
   const stopped = job.status === "failed" || job.status === "cancelled";
@@ -224,7 +306,7 @@ function JobRow({ job, open, onToggle, history, titles, onRetry, onCancel, onCan
         </td>
         <td><Pips job={job} row={row} /></td>
         <td className="r">
-          {job.status === "running" && onCancel && (
+          {job.status === "running" && onCancel && !isLongform(job) && (
             <Btn kind="danger" size="sm" onClick={onCancel}>Abort</Btn>
           )}
           {job.status === "queued" && onCancelQueued && (

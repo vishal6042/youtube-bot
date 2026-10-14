@@ -168,6 +168,44 @@ class _Uploader:
 uploader = _Uploader()
 
 
+def settle_job(r: dict[str, Any]) -> dict[str, Any]:
+    """Close out a long-form job row whose render died without saying so.
+
+    A render killed outright (Stop in the editor, a closed terminal) cannot
+    update its own row. Its state file still names the job, so: if this
+    dashboard started the render and the process has ended, or the file has
+    not moved in longer than any chapter takes, the render is over.
+    """
+    if r.get("kind") != "longform" or r.get("status") != "running" or not r.get("episode"):
+        return r
+    key = r["episode"]
+    st = longform.read_state(key).get("build") or {}
+    path = longform.out_dir(key) / "state.json"
+    try:
+        age = time.time() - path.stat().st_mtime
+    except OSError:
+        age = 1e9
+    ours = builder.key == key and builder.proc is not None
+    alive = builder.running() == key if ours else age < 420
+    if st.get("job_id") == r["id"] and st.get("status") == "running" and alive:
+        return r
+    status = st.get("status") if st.get("job_id") == r["id"] and st.get("status") in ("done", "failed")         else "cancelled"
+    finished = st.get("finished_at") if status != "cancelled" else None
+    if not finished:
+        finished = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() - min(age, 1e6)))
+    chapters = [{**c, "state": "stopped" if c.get("state") == "active" else c.get("state")}
+                for c in r.get("chapters") or []]
+    done = {**r, "status": status, "finished_at": finished, "current_key": None,
+            "stage": status, "chapters": chapters}
+    try:
+        from graph_bot import store
+
+        store.save_job(done)
+    except Exception:
+        pass
+    return done
+
+
 def _version(key: str) -> str:
     """Fingerprint of the episode file, so a save from a stale page is refused."""
     try:
