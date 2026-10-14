@@ -139,7 +139,7 @@ def chapter_topic(ep: dict[str, Any], ch: dict[str, Any], settings: dict[str, An
 
 def _chapter_hash(ep: dict[str, Any], ch: dict[str, Any]) -> str:
     blob = json.dumps({"n": " ".join((ch.get("narration") or "").split()), "c": ch.get("chart"),
-                       "h": ch.get("heading"), "v": ep.get("voice"), "r": ep.get("voice_rate"), "fmt": 5}, sort_keys=True)
+                       "h": ch.get("heading"), "v": ep.get("voice"), "r": ep.get("voice_rate"), "fmt": 6}, sort_keys=True)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
 

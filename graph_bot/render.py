@@ -49,6 +49,9 @@ MEDALS = {0: "#ffd60a", 1: "#c9d1d9", 2: "#e8994e"}  # gold / silver / bronze ri
 # Long-form chapters follow one protagonist: `highlight: <entity>` paints it in
 # this colour and mutes everything else, so the eye stays on it.
 HIGHLIGHT = "#ffb347"
+# End-of-line labels on a portrait head-to-head have about 200px; these names
+# do not fit in it with their value.
+SHORT_NAMES = {"United Kingdom": "UK", "United States": "USA", "United Arab Emirates": "UAE"}
 DIMMED = "#3d4a66"
 
 
@@ -56,6 +59,17 @@ def _wide(settings: dict[str, Any]) -> bool:
     """True for landscape output (long-form chapters), False for Shorts."""
     vconf = settings.get("video", {})
     return vconf.get("width", 1080) > vconf.get("height", 1920)
+
+
+def _bottom(settings: dict[str, Any], default: float) -> float:
+    """Bottom edge of a portrait chart's axes.
+
+    ``video.caption_band`` (a fraction of the height) lifts the chart to leave
+    a clear strip for burned-in captions; narrated Shorts cut from long-form
+    chapters use it. Everything except the title and footer is drawn relative
+    to the axes, so it all moves up together.
+    """
+    return max(default, float(settings.get("video", {}).get("caption_band") or 0))
 
 
 # --------------------------------------------------------------------------- #
@@ -135,7 +149,8 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     if wide_fmt:
         fig.subplots_adjust(left=0.20 if flag_imgs else 0.17, right=0.93, top=0.80, bottom=0.10)
     else:
-        fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=0.85, bottom=0.09)
+        fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=0.85,
+                            bottom=_bottom(settings, 0.09))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -194,10 +209,8 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
             # Flags occupy roughly -14..-46 points; keep labels clear of them.
             ax.tick_params(axis="y", pad=54)
 
-        # Big year, bottom-right.
-        ax.text(0.98, 0.05, str(int(round(yr))), transform=ax.transAxes,
-                ha="right", va="bottom", color=ACCENT, alpha=0.30,
-                fontsize=110 if wide_fmt else 70, fontweight="bold", zorder=2)
+        # Big year, bottom-right (landscape: in the header).
+        _year_mark(fig, ax, int(round(yr)), wide_fmt, 0.98, 70, zorder=2)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -238,7 +251,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
     if wide_fmt:
         fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
-        fig.subplots_adjust(left=0.16, right=0.92, top=0.82, bottom=0.11)
+        fig.subplots_adjust(left=0.16, right=0.92, top=0.82, bottom=_bottom(settings, 0.11))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -265,16 +278,16 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
             ax.set_ylim(0, ymax * 1.15)
         ax.grid(True, color=GRID, alpha=0.35)
         ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
-        if wide_fmt and not topic.get("log_scale"):
-            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _p: _axis_fmt(v, topic)))
+        # Portrait used to leave scaled values to matplotlib, which prints
+        # "1e11" in the corner and bare 0-4 on the axis.
+        if (wide_fmt or topic.get("value_scale")) and not topic.get("log_scale"):
+            ax.yaxis.set_major_formatter(_axis_formatter(ax, topic))
         for spine in ax.spines.values():
             spine.set_visible(False)
 
         ax.text(0.04, 0.95, _fmt(cy, topic), transform=ax.transAxes, ha="left", va="top",
                 color=FG, fontsize=58 if wide_fmt else 40, fontweight="bold")
-        ax.text(0.98, 0.05, str(int(round(cx))), transform=ax.transAxes, ha="right",
-                va="bottom", color=ACCENT, alpha=0.30, fontsize=110 if wide_fmt else 64,
-                fontweight="bold")
+        _year_mark(fig, ax, int(round(cx)), wide_fmt, 0.98, 64)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -326,7 +339,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         # end-of-line labels is made inside the axes (see set_xlim below).
         fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
-        fig.subplots_adjust(left=0.16, right=0.80, top=0.82, bottom=0.11)
+        fig.subplots_adjust(left=0.16, right=0.76, top=0.82, bottom=_bottom(settings, 0.11))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -349,6 +362,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
 
         # Labels: when the lines converge (the whole point of a head-to-head)
         # the labels would sit on top of each other, so push them apart.
+        top = ymax * 1.15
         gap = ymax * 0.075
         ordered = sorted(names, key=lambda n: cvals[n], reverse=True)
         label_y: dict[str, float] = {}
@@ -357,12 +371,24 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
             if rank > 0:
                 y = min(y, label_y[ordered[rank - 1]] - gap)
             label_y[n] = y
+        # Pushed apart near zero, the lowest label could land under the axis.
+        short = top * 0.04 - min(label_y.values())
+        if short > 0:
+            label_y = {n: y + short for n, y in label_y.items()}
 
-        lx = cx + ((xs[-1] - xs[0]) * 0.055 if wide_fmt else 0.0)
+        lo, hi = xs[0], xs[-1]
+        span = hi - lo
+        # Far enough right that the flag clears the line's end dot.
+        lx = cx + span * (0.055 if wide_fmt else 0.065)
+        texts = {n: f"{n if wide_fmt else SHORT_NAMES.get(n, n)}  {_fmt(cvals[n], topic)}"
+                 for n in ordered}
+        # A long name ("United Kingdom  4.00T") ran off the frame's right edge.
+        longest = max(len(t) for t in texts.values())
+        label_fs = (24 if wide_fmt else 17) * min(1.0, (17 if wide_fmt else 14) / longest)
         for n in ordered:
             col = line_colors[n]
-            ax.text(lx, label_y[n], f"{n}  {_fmt(cvals[n], topic)}",
-                    color=col, fontsize=24 if wide_fmt else 17, fontweight="bold",
+            ax.text(lx, label_y[n], texts[n],
+                    color=col, fontsize=label_fs, fontweight="bold",
                     va="center", ha="left", zorder=7,
                     transform=ax.transData, clip_on=False)
             img = flag_imgs.get(n)
@@ -375,22 +401,26 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
                 )
                 ax.add_artist(ab)
 
-        label_room = (xs[-1] - xs[0]) * 0.30 if wide_fmt else 0.0
-        ax.set_xlim(xs[0], xs[-1] + label_room)
+        label_room = span * 0.30 if wide_fmt else 0.0
+        ax.set_xlim(lo, hi + label_room)
         _year_axis(ax)
         if label_room:
-            ax.set_xticks([t for t in ax.get_xticks() if xs[0] <= t <= xs[-1]])
-        ax.set_ylim(0, ymax * 1.15)
-        ax.grid(True, color=GRID, alpha=0.35)
+            ax.set_xticks([t for t in ax.get_xticks() if lo <= t <= hi])
+        ax.set_ylim(0, top)
+        if label_room:
+            ax.grid(True, axis="x", color=GRID, alpha=0.35)
+            _hgrid_to(ax, lo, hi, alpha=0.35)
+        else:
+            ax.grid(True, color=GRID, alpha=0.35)
         ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
-        if wide_fmt and not topic.get("log_scale"):
-            ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _p: _axis_fmt(v, topic)))
+        # Portrait used to leave scaled values to matplotlib, which prints
+        # "1e11" in the corner and bare 0-4 on the axis.
+        if (wide_fmt or topic.get("value_scale")) and not topic.get("log_scale"):
+            ax.yaxis.set_major_formatter(_axis_formatter(ax, topic))
         for spine in ax.spines.values():
             spine.set_visible(False)
 
-        ax.text(0.75 if wide_fmt else 0.98, 0.05, str(int(round(cx))), transform=ax.transAxes, ha="right",
-                va="bottom", color=ACCENT, alpha=0.30, fontsize=110 if wide_fmt else 64,
-                fontweight="bold")
+        _year_mark(fig, ax, int(round(cx)), wide_fmt, 0.98, 64)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -451,7 +481,7 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     if wide_fmt:
         fig.subplots_adjust(left=0.07, right=0.95, top=0.80, bottom=0.11)
     else:
-        fig.subplots_adjust(left=0.16, right=0.72, top=0.85, bottom=0.10)
+        fig.subplots_adjust(left=0.16, right=0.72, top=0.85, bottom=_bottom(settings, 0.10))
     _add_gradient_bg(fig)
 
     flag_imgs: dict[str, Any] = {}
@@ -464,11 +494,15 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
         n = frames[idx]
         ax.clear()
         ax.set_facecolor("none")
-        label_room = (years[-1] - years[0]) * 0.20 if wide_fmt else 0.0
-        ax.set_xlim(years[0], years[-1] + label_room)
+        lo, hi = years[0], years[-1]
+        label_room = (hi - lo) * 0.20 if wide_fmt else 0.0
+        # Flags sit centred on each line's head, and the heads start at the
+        # left edge, where the flags covered the #1..#n labels.
+        lead = (hi - lo) * 0.03
+        ax.set_xlim(lo - lead, hi + label_room)
         _year_axis(ax)
-        if label_room:
-            ax.set_xticks([t for t in ax.get_xticks() if years[0] <= t <= years[-1]])
+        if label_room or lead:
+            ax.set_xticks([t for t in ax.get_xticks() if lo <= t <= hi])
         ax.set_ylim(rank_max + 0.6, 0.4)  # rank 1 at the top
         ax.set_yticks(range(1, rank_max + 1))
         ax.set_yticklabels([f"#{r}" for r in range(1, rank_max + 1)], color=MUTED,
@@ -476,8 +510,23 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
         ax.tick_params(axis="x", colors=MUTED, labelsize=16)
         for side in ("top", "right", "left", "bottom"):
             ax.spines[side].set_visible(False)
-        ax.grid(axis="y", color=GRID, linewidth=1, alpha=0.45)
+        if label_room:
+            _hgrid_to(ax, lo, hi, alpha=0.45, linewidth=1)
+        else:
+            ax.grid(axis="y", color=GRID, linewidth=1, alpha=0.45)
 
+        # Mid-swap, two heads share a row and their labels print over each
+        # other; keep the labels a row apart (the dots stay where they are).
+        heads = {e: float(curves[e][1][n - 1]) for e in entities}
+        # A country ranked below the last row has its head off the chart; its
+        # label would print under the axes (South Korea before the late 80s).
+        on_chart = {e for e in entities if heads[e] <= rank_max + 0.5}
+        label_at = dict(heads)
+        prev = None
+        for e in sorted(on_chart, key=lambda e: heads[e]):
+            if prev is not None:
+                label_at[e] = max(heads[e], label_at[prev] + 0.9)
+            prev = e
         for e in entities:
             cx, cy = curves[e]
             is_hero = e == hero
@@ -486,26 +535,26 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
                     linewidth=8 if is_hero else 3 if faded else 5,
                     solid_capstyle="round", alpha=0.45 if faded else 0.95,
                     zorder=4 if is_hero else 3)
+            if e not in on_chart:
+                continue
             x, y = float(cx[n - 1]), float(cy[n - 1])
             ax.scatter([x], [y], s=200, color=HIGHLIGHT if is_hero else colors[e], zorder=5,
                        edgecolors=BG_BOTTOM, linewidths=2)
             img = flag_imgs.get(e)
             if img is not None:
                 ax.add_artist(AnnotationBbox(
-                    OffsetImage(img, zoom=0.40), (x, y), frameon=False,
+                    OffsetImage(img, zoom=0.40), (x, label_at[e]), frameon=False,
                     box_alignment=(0.5, 0.5), zorder=6, clip_on=False))
-            ax.annotate(f"     {e}" if wide_fmt else f"  {e}", (x, y),
+            # Clear of the flag, which is centred on the head.
+            ax.annotate(f"     {e}", (x, label_at[e]),
                         color=HIGHLIGHT if is_hero else colors[e],
                         fontsize=24 if is_hero else 20,
                         fontweight="bold", va="center", ha="left",
                         annotation_clip=False, zorder=6)
 
         yr = int(round(float(curves[entities[0]][0][n - 1])))
-        # Ghosted watermark year inside the plot, matching line_grow/line_multi;
-        # above the axes it collides with the subtitle (axes stop at right=0.72).
-        ax.text(0.81 if wide_fmt else 0.98, 0.05, str(yr), transform=ax.transAxes, ha="right",
-                va="bottom", color=ACCENT, alpha=0.30, fontsize=96 if wide_fmt else 64,
-                fontweight="bold", zorder=1)
+        # Ghosted year: inside the plot in portrait, in the header in landscape.
+        _year_mark(fig, ax, yr, wide_fmt, 0.98, 64, zorder=1)
         _progress_bar(ax, n / n_pts)
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
@@ -663,6 +712,38 @@ def _add_gradient_bg(fig) -> None:
     bgax.imshow(grad, aspect="auto", cmap=cmap, extent=[0, 1, 0, 1], origin="lower")
 
 
+def _year_mark(fig, ax, year: int, wide_fmt: bool, x: float, fontsize: int, zorder: int = 2) -> None:
+    """The big ghosted year.
+
+    Portrait keeps it inside the plot, bottom-right. Landscape puts it in the
+    header, level with the title: full screen, inside the plot it sat on top
+    of the lines. Figure text survives ``ax.clear()``, so it is made once and
+    updated each frame.
+    """
+    if not wide_fmt:
+        ax.text(x, 0.05, str(year), transform=ax.transAxes, ha="right", va="bottom",
+                color=ACCENT, alpha=0.30, fontsize=fontsize, fontweight="bold", zorder=zorder)
+        return
+    mark = getattr(fig, "_year_mark", None)
+    if mark is None:
+        mark = fig._year_mark = fig.text(0.95, 0.955, "", ha="right", va="top", color=ACCENT,
+                                         alpha=0.55, fontsize=72, fontweight="bold")
+    mark.set_text(str(year))
+
+
+def _hgrid_to(ax, x0: float, x1: float, alpha: float, linewidth: float | None = None) -> None:
+    """Horizontal gridlines that stop at the last year.
+
+    Landscape line and rank charts widen the x-range past the data to make room
+    for the end labels; full-width gridlines ran on through that space and the
+    chart looked as if it stopped short of its own end.
+    """
+    lo, hi = sorted(ax.get_ylim())
+    ys = [y for y in ax.get_yticks() if lo <= y <= hi]
+    ax.hlines(ys, x0, x1, colors=GRID, alpha=alpha, zorder=0,
+              linewidth=linewidth or plt.rcParams["grid.linewidth"])
+
+
 def _progress_bar(ax, frac: float) -> None:
     """Slim time-progress bar just below the plot area."""
     y, x0, w, h = -0.055, 0.0, 1.0, 0.012
@@ -733,11 +814,21 @@ def _year_axis(ax) -> None:
     ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _p: f"{int(round(v))}"))
 
 
-def _axis_fmt(val: float, topic: dict[str, Any]) -> str:
-    """Axis tick label: the value's own format, without needless decimals."""
-    if val == 0:
-        return "0"
-    return _fmt(val, {**topic, "value_decimals": 1 if topic.get("value_scale") else 0})
+def _axis_formatter(ax, topic: dict[str, Any]) -> FuncFormatter:
+    """Axis tick labels in the value's own format, with as many decimals as the
+    tick step needs: a 0.05T step must not print "0.1T, 0.1T, 0.2T, 0.2T"."""
+    scale = float(topic.get("value_scale") or 1)
+    floor = 1 if topic.get("value_scale") else 0
+
+    def fmt(val: float, _pos: Any) -> str:
+        if val == 0:
+            return "0"
+        ticks = [t / scale for t in ax.yaxis.get_majorticklocs()]
+        need = next((d for d in range(4)
+                     if all(abs(t * 10 ** d - round(t * 10 ** d)) < 1e-6 for t in ticks)), 3)
+        return _fmt(val, {**topic, "value_decimals": max(floor, need)})
+
+    return FuncFormatter(fmt)
 
 
 def _seconds_per_year(topic: dict[str, Any], settings: dict[str, Any], n_years: int) -> float:
