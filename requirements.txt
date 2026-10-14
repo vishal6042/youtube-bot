@@ -7,6 +7,7 @@ matplotlib>=3.7
 numpy>=1.24
 python-dotenv>=1.0
 imageio-ffmpeg>=0.4.9   # bundles an ffmpeg binary so no system install is needed
+edge-tts>=7.3.1         # long-form narration; 7.2.8 and older get a 403 from the service
 
 # Mission-control dashboard (python -m dashboard.server)
 fastapi>=0.110
