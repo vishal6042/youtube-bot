@@ -92,8 +92,10 @@
 .fv-title:hover { color: var(--go); }
 .fv-progress { display: flex; flex-direction: column; gap: 4px; width: 150px; font-size: 12px; }
 .fv-title { flex-basis: 160px; }
-.fv-rows { margin: 0; padding: 4px 16px 8px 20px; border-top: 1px solid var(--line); }
-.fv-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px auto auto; align-items: center; gap: 12px;
+/* Two classes so it wins over .plain-list's padding reset, which another
+   screen's stylesheet repeats later in the bundle. */
+.fv-block .fv-rows { margin: 0; padding: 4px 18px 8px 22px; border-top: 1px solid var(--line); }
+.fv-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) 44px auto auto; align-items: center; gap: 14px;
   padding: 10px 2px; border-bottom: 1px solid var(--line); }
 .fv-row:last-child { border-bottom: 0; }
 .fv-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

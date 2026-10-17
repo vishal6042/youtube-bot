@@ -163,6 +163,12 @@ def ready(key: str) -> tuple[bool, str]:
     it = item(key)
     if it is None:
         return False, f"Unknown video: {key}"
+    return ready_item(it)
+
+
+def ready_item(it: dict[str, Any]) -> tuple[bool, str]:
+    """ready() for an item already looked up. Use it in loops: item() of a Short
+    reloads its video's script and recomputes all of that video's Shorts."""
     if not it["rendered"] or not it.get("video") or not Path(it["video"]).exists():
         return False, "Not rendered yet"
     if not it["current"]:
@@ -221,7 +227,7 @@ def queue_items(log: dict[str, Any]) -> list[dict[str, Any]]:
             continue
         v_up = log.get(v["key"])
         if not v_up:
-            ok, why = ready(v["key"])
+            ok, why = ready_item(v)
             out.append({**_public(v), "held": not ok, "planned": False,
                         "reason": "New video" if ok else why})
         shorts = video_shorts(ep_key)
@@ -233,7 +239,7 @@ def queue_items(log: dict[str, Any]) -> list[dict[str, Any]]:
         for s in shorts:
             if s["key"] in log or not s["rendered"]:
                 continue
-            ok, why = ready(s["key"])
+            ok, why = ready_item(s)
             planned = False
             if not v_up:
                 held, reason = True, "Waits for the full video to be uploaded (it links to it)"

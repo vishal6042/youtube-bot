@@ -221,56 +221,66 @@ def _summary(key: str) -> dict[str, Any]:
     s["build"] = {**build, "live": live, "stoppable": ours, "log": builder.tail[-12:] if ours else []}
     s["playlist"] = playlist_of(s.get("series") or "world_in_data")[0]
     s["version"] = _version(key)
-    s["upload"] = _upload_state(key)
-    s["shorts"] = _shorts_state(key)
+    look = _lookups()
+    s["upload"] = _upload_state(key, look)
+    s["shorts"] = _shorts_state(key, look)
     s.pop("_ranks", None)
     return s
 
 
-def _publish_state(key: str) -> dict[str, Any]:
+def _lookups() -> dict[str, Any]:
+    """The upload log, batch and stats sync, read once per request rather than
+    once per video and Short."""
+    from graph_bot import store
+
+    out: dict[str, Any] = {"log": store.load_log(), "batch": {b["key"]: b for b in store.batch_load()}}
+    try:
+        out["stats"] = store.latest_video_stats()
+    except Exception:
+        out["stats"] = {}
+    return out
+
+
+def _publish_state(it: dict[str, Any] | None, key: str, look: dict[str, Any]) -> dict[str, Any]:
     """Where a video or Short stands on its way to YouTube: uploaded (with links),
     staged in the upload batch, or ready / not ready to be added to it. The one
     batch on the Upload page sends long-form videos, their Shorts and the daily
     Shorts alike."""
-    from graph_bot import library, store
+    from graph_bot import library
     from graph_bot.analytics.importer import VIDEO_ID_RE
 
-    entry = store.load_log().get(key)
+    entry = look["log"].get(key)
     if entry:
         url = entry.get("url")
         m = VIDEO_ID_RE.search(url or "")
         # YouTube's own visibility, from the last stats sync ("public", "private",
         # or None before the first sync after the upload).
-        privacy = None
-        if m:
-            try:
-                privacy = (store.latest_video_stats().get(m.group(1)) or {}).get("privacy_status")
-            except Exception:
-                pass
+        privacy = (look["stats"].get(m.group(1)) or {}).get("privacy_status") if m else None
         return {"uploaded": True, "url": url, "uploaded_at": entry.get("uploaded_at"), "privacy": privacy,
                 "studio": f"https://studio.youtube.com/video/{m.group(1)}/edit" if m else None}
-    staged = next((b for b in store.batch_load() if b["key"] == key), None)
-    ok, why = library.ready(key)
+    staged = look["batch"].get(key)
+    ok, why = library.ready_item(it) if it else (False, f"Unknown video: {key}")
     return {"uploaded": False, "ready": ok, "reason": why,
             "staged": {k: staged.get(k) for k in ("state", "pct", "stage", "error")} if staged else None}
 
 
-def _upload_state(key: str) -> dict[str, Any]:
+def _upload_state(key: str, look: dict[str, Any] | None = None) -> dict[str, Any]:
     from graph_bot import library
 
-    return {**_publish_state(library.video_key(key)), "units": library.UNITS_VIDEO}
+    look = look or _lookups()
+    vkey = library.video_key(key)
+    return {**_publish_state(library.item(vkey), vkey, look), "units": library.UNITS_VIDEO}
 
 
-def _shorts_state(key: str) -> list[dict[str, Any]]:
+def _shorts_state(key: str, look: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """The video's Shorts for the editor: what each says, whether it is rendered
     and current, and where it stands on the way to YouTube."""
     from graph_bot import library
 
-    out = []
-    for it in library.video_shorts(key):
-        out.append({k: it.get(k) for k in ("key", "n", "chapter", "title", "name", "rendered", "current",
-                                           "duration_sec", "check")} | _publish_state(it["key"]))
-    return out
+    look = look or _lookups()
+    return [{k: it.get(k) for k in ("key", "n", "chapter", "title", "name", "rendered", "current",
+                                    "duration_sec", "check")} | _publish_state(it, it["key"], look)
+            for it in library.video_shorts(key)]
 
 
 @router.get("")
