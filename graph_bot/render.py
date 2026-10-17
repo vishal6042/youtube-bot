@@ -72,6 +72,13 @@ def _bottom(settings: dict[str, Any], default: float) -> float:
     return max(default, float(settings.get("video", {}).get("caption_band") or 0))
 
 
+def _right(settings: dict[str, Any], default: float) -> float:
+    """Right edge of a portrait chart's axes. With a caption band (Shorts from
+    videos) the chart reaches low enough to meet YouTube's like/comment/share
+    buttons, which sit down the right edge from about halfway; keep clear of them."""
+    return min(default, 0.86) if settings.get("video", {}).get("caption_band") else default
+
+
 def _top(settings: dict[str, Any], default: float) -> float:
     """Top edge of a portrait chart's axes. With a caption band the big year
     moves to the gap above the chart, so the chart starts a little lower to
@@ -291,7 +298,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     if wide_fmt:
         fig.subplots_adjust(left=0.20 if flag_imgs else 0.17, right=0.93, top=0.80, bottom=0.10)
     else:
-        fig.subplots_adjust(left=0.40 if flag_imgs else 0.33, right=0.92, top=_top(settings, 0.85),
+        fig.subplots_adjust(left=0.40 if flag_imgs else 0.33, right=_right(settings, 0.92), top=_top(settings, 0.85),
                             bottom=_bottom(settings, 0.09))
     _add_gradient_bg(fig)
     n_frames = len(frames)
@@ -395,7 +402,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
     if wide_fmt:
         fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
-        fig.subplots_adjust(left=0.16, right=0.92, top=_top(settings, 0.82), bottom=_bottom(settings, 0.11))
+        fig.subplots_adjust(left=0.16, right=_right(settings, 0.92), top=_top(settings, 0.82), bottom=_bottom(settings, 0.11))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 

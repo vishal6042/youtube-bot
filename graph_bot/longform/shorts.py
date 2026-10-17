@@ -48,11 +48,11 @@ from .narrate import DEFAULT_VOICE, speak
 WIDTH, HEIGHT = 1080, 1920
 # Fraction of the height kept clear under the chart. YouTube's own title and
 # channel name cover roughly the bottom fifth, so captions sit just above that.
-CAPTION_BAND = 0.36
-CAPTION_MARGIN_V = 430      # px from the bottom edge to the caption baseline
+CAPTION_BAND = 0.30
+CAPTION_MARGIN_V = 360      # px from the bottom edge to the caption baseline
 CAPTION_SIZE = 68
 MAX_WORDS, MAX_CHARS = 4, 24
-FMT = 3                     # bump to re-render every Short after a style change
+FMT = 5                     # bump to re-render every Short after a style change
 
 _PUNCT_BREAK = re.compile(r"[.,;:?!]$")
 
