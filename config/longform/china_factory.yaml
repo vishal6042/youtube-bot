@@ -4,13 +4,19 @@
 # 2026-10-17 (NE.EXP.GNFS.CD, NY.GDP.PCAP.CD, NY.GDP.MKTP.CD, BX.KLT.DINV.CD.WD,
 # NV.IND.MANF.CD, IS.SHP.GOOD.TU, TX.VAL.TECH.CD, IP.PAT.RESD, IP.JRN.ARTC.SC,
 # NV.IND.MANF.ZS; China's share of world manufacturing uses the WLD total).
-# 2025 figures are the Bank's first estimates and get revised. Lines marked
-# `check:` state history that is NOT in that data; confirm them before publishing.
+# 2025 figures are the Bank's first estimates and get revised. History not in that data (reforms from 1978,
+# special economic zones from 1980, WTO entry on 11 December 2001) was confirmed
+# by the user's fact-check on 2026-10-17.
+#
+# Exports are GOODS ONLY (TX.VAL.MRCH.CD.WT, the WTO series via the World Bank):
+# this is a story about factories, and "biggest exporter" is heard as goods. On
+# that series China was 27th in 1980, 13th in 1990, 3rd in 2004, passed the US in
+# 2007 and Germany in 2009. (Counting services too it passed the US only in 2013;
+# the script does not use that measure.) Investment is foreign direct investment,
+# net inflows, balance of payments (BX.KLT.DINV.CD.WD).
 #
 # Data limits the charts respect: China's manufacturing figure starts in 2004 and
 # the United States' stops after 2021, so manufacturing comparisons run 2004-2021.
-# China first passed the US in exports in 2013, fell back to second in 2016 and
-# has led since 2018, so the script says "first passed", not "has led since".
 #
 # Each chapter's narration moves forward through the years its chart shows, so
 # the words and the chart stay in step.
@@ -29,15 +35,16 @@ chapters:
   heading: The World's Factory
   chart:
     mode: bump_race
-    code: NE.EXP.GNFS.CD
+    code: TX.VAL.MRCH.CD.WT
+    source: World Bank / WTO · exports of goods
     highlight: China
     year_min: 1980
     year_max: 2024
     top_n: 12
-  narration: In 1980, China was the twenty-sixth biggest exporter on Earth, selling about
-    nineteen billion dollars of goods and services a year to the rest of the world. In 2013
-    it passed the United States to become the biggest. Today its factories make more than a
-    quarter of everything the world manufactures. This is how a country that was poorer than
+  narration: In 1980, China was the twenty-seventh biggest exporter of goods on Earth,
+    selling about eighteen billion dollars of them a year to the rest of the world. In 2009
+    it became the biggest. Today its factories make more than a quarter of everything the
+    world manufactures. This is how a country that was poorer than
     India became the world's factory, and what that title still leaves out.
   short:
     skip: true
@@ -68,20 +75,19 @@ chapters:
   chart:
     mode: line_grow
     code: BX.KLT.DINV.CD.WD
+    source: World Bank · foreign direct investment, net inflows
     entity: China
     year_min: 1980
     year_max: 2001
-  narration: What changed was the door. From the late 1970s, China began letting foreign
-    companies build factories, first in a handful of special zones on the coast. In 1980,
-    foreign investment into China was 57 million dollars. By 1992 it was more than 11 billion
+  narration: What changed was the door. From 1978, China began letting foreign companies
+    build factories, first in a handful of special economic zones on the coast. In 1980,
+    foreign direct investment into China was 57 million dollars. By 1992 it was more than 11 billion
     a year. By 2001 it was 47 billion. Foreign money brought machines, know-how and, most
     of all, customers abroad.
-  check: Reform from the late 1970s and the coastal special economic zones (from 1980) are history,
-    not chart data.
   short:
     title: How Much Foreign Money Built China's Factories?
-    narration: In 1980, foreign companies invested just 57 million dollars in China. From the
-      late 1970s, China had begun letting them build factories, first in a handful of special
+    narration: In 1980, foreign companies invested just 57 million dollars in China. From 1978,
+      China had begun letting them build factories, first in a handful of special economic
       zones on the coast. By 1992, foreign investment was more than 11 billion dollars a year.
       By 2001 it was 47 billion. That money brought machines, know-how and, most of all,
       customers abroad.
@@ -89,17 +95,17 @@ chapters:
   heading: Joining the world
   chart:
     mode: bar_race
-    code: NE.EXP.GNFS.CD
+    code: TX.VAL.MRCH.CD.WT
+    source: World Bank / WTO · exports of goods
     year_min: 1990
-    year_max: 2013
+    year_max: 2009
     top_n: 10
     highlight: China
-  narration: In 1990, China was the world's twentieth biggest exporter, selling 49 billion
-    dollars a year. At the end of 2001 it joined the World Trade Organization, and the climb
-    became a sprint. Fourth by 2004. Past Germany in 2009. And in 2013 it passed the United
-    States for the first time, selling 2.35 trillion dollars of goods and services to the
-    rest of the world.
-  check: China joined the World Trade Organization in December 2001 (history, not chart data).
+  narration: In 1990, China was the world's thirteenth biggest exporter of goods, selling 62
+    billion dollars of them a year. On the eleventh of December 2001 it joined the World Trade
+    Organization, and the climb became a sprint. Third by 2004. Past the United States in
+    2007. And in 2009, past Germany, it became the biggest exporter of goods in the world,
+    selling 1.2 trillion dollars of them that year.
   short:
     title: How China Became the World's Biggest Exporter
 - id: the_workshop
@@ -227,11 +233,12 @@ chapters:
   chart:
     mode: line_grow
     code: BX.KLT.DINV.CD.WD
+    source: World Bank · foreign direct investment, net inflows
     entity: China
     year_min: 2001
     year_max: 2025
-  narration: But the money that built the factory has started to leave. Foreign investment into
-    China kept growing for two decades, to a peak of 344 billion dollars in 2021. Then it fell
+  narration: But the money that built the factory has started to leave. Foreign direct
+    investment into China kept growing for two decades, to a peak of 344 billion dollars in 2021. Then it fell
     away. 190 billion in 2022. 51 billion in 2023. 43 billion in 2024. The first estimate for
     2025 shows a partial recovery, to 80 billion.
   short:
@@ -272,12 +279,13 @@ chapters:
   heading: What comes next
   chart:
     mode: bump_race
-    code: NE.EXP.GNFS.CD
+    code: TX.VAL.MRCH.CD.WT
+    source: World Bank / WTO · exports of goods
     highlight: China
     year_min: 1990
     year_max: 2024
     top_n: 12
-  narration: So, in about thirty years, China went from twentieth to first in exports, from a
+  narration: So, in about thirty years, China went from thirteenth to first in exports of goods, from a
     third of America's factory output to almost twice it, and from under six thousand patent
     applications a year to more than a million and a half. Whether it stays the world's
     factory, as foreign money leaves and incomes rise, is the next chapter. Which country

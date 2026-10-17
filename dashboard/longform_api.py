@@ -65,6 +65,7 @@ INDICATOR_CHOICES = [
     {"code": "SH.DYN.MORT", "label": "Child deaths per 1,000 births"},
     {"code": "MS.MIL.XPND.CD", "label": "Military spending (US dollars)"},
     {"code": "BX.GSR.GNFS.CD", "label": "Exports (US dollars)"},
+    {"code": "TX.VAL.MRCH.CD.WT", "label": "Exports of goods only (US dollars)"},
     {"code": "NE.EXP.GNFS.CD", "label": "Exports of goods and services (US dollars)"},
     {"code": "NV.IND.MANF.CD", "label": "Manufacturing output (value added, US dollars)"},
     {"code": "NV.IND.MANF.ZS", "label": "Manufacturing as a share of the economy"},
