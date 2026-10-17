@@ -72,6 +72,13 @@ def _bottom(settings: dict[str, Any], default: float) -> float:
     return max(default, float(settings.get("video", {}).get("caption_band") or 0))
 
 
+def _top(settings: dict[str, Any], default: float) -> float:
+    """Top edge of a portrait chart's axes. With a caption band the big year
+    moves to the gap above the chart, so the chart starts a little lower to
+    keep it clear of the subtitle."""
+    return min(default, 0.80) if settings.get("video", {}).get("caption_band") else default
+
+
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
@@ -149,7 +156,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     if wide_fmt:
         fig.subplots_adjust(left=0.20 if flag_imgs else 0.17, right=0.93, top=0.80, bottom=0.10)
     else:
-        fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=0.85,
+        fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=_top(settings, 0.85),
                             bottom=_bottom(settings, 0.09))
     _add_gradient_bg(fig)
     n_frames = len(frames)
@@ -210,7 +217,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
             ax.tick_params(axis="y", pad=54)
 
         # Big year, bottom-right (landscape: in the header).
-        _year_mark(fig, ax, int(round(yr)), wide_fmt, 0.98, 70, zorder=2)
+        _year_mark(fig, ax, int(round(yr)), settings, 0.98, 70, zorder=2)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -251,7 +258,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
     if wide_fmt:
         fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
-        fig.subplots_adjust(left=0.16, right=0.92, top=0.82, bottom=_bottom(settings, 0.11))
+        fig.subplots_adjust(left=0.16, right=0.92, top=_top(settings, 0.82), bottom=_bottom(settings, 0.11))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -287,7 +294,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
         ax.text(0.04, 0.95, _fmt(cy, topic), transform=ax.transAxes, ha="left", va="top",
                 color=FG, fontsize=58 if wide_fmt else 40, fontweight="bold")
-        _year_mark(fig, ax, int(round(cx)), wide_fmt, 0.98, 64)
+        _year_mark(fig, ax, int(round(cx)), settings, 0.98, 64)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -339,7 +346,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         # end-of-line labels is made inside the axes (see set_xlim below).
         fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
-        fig.subplots_adjust(left=0.16, right=0.76, top=0.82, bottom=_bottom(settings, 0.11))
+        fig.subplots_adjust(left=0.16, right=0.76, top=_top(settings, 0.82), bottom=_bottom(settings, 0.11))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -420,7 +427,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         for spine in ax.spines.values():
             spine.set_visible(False)
 
-        _year_mark(fig, ax, int(round(cx)), wide_fmt, 0.98, 64)
+        _year_mark(fig, ax, int(round(cx)), settings, 0.98, 64)
         _progress_bar(ax, idx / max(1, n_frames - 1))
 
     _title_block(fig, topic, settings)
@@ -481,7 +488,7 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     if wide_fmt:
         fig.subplots_adjust(left=0.07, right=0.95, top=0.80, bottom=0.11)
     else:
-        fig.subplots_adjust(left=0.16, right=0.72, top=0.85, bottom=_bottom(settings, 0.10))
+        fig.subplots_adjust(left=0.16, right=0.72, top=_top(settings, 0.85), bottom=_bottom(settings, 0.10))
     _add_gradient_bg(fig)
 
     flag_imgs: dict[str, Any] = {}
@@ -554,7 +561,7 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
         yr = int(round(float(curves[entities[0]][0][n - 1])))
         # Ghosted year: inside the plot in portrait, in the header in landscape.
-        _year_mark(fig, ax, yr, wide_fmt, 0.98, 64, zorder=1)
+        _year_mark(fig, ax, yr, settings, 0.98, 64, zorder=1)
         _progress_bar(ax, n / n_pts)
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
@@ -712,22 +719,32 @@ def _add_gradient_bg(fig) -> None:
     bgax.imshow(grad, aspect="auto", cmap=cmap, extent=[0, 1, 0, 1], origin="lower")
 
 
-def _year_mark(fig, ax, year: int, wide_fmt: bool, x: float, fontsize: int, zorder: int = 2) -> None:
+def _year_mark(fig, ax, year: int, settings: dict[str, Any], x: float, fontsize: int,
+               zorder: int = 2) -> None:
     """The big ghosted year.
 
-    Portrait keeps it inside the plot, bottom-right. Landscape puts it in the
-    header, level with the title: full screen, inside the plot it sat on top
-    of the lines. Figure text survives ``ax.clear()``, so it is made once and
-    updated each frame.
+    Daily Shorts keep it inside the plot, bottom-right. Where it would sit on
+    top of the data it moves out of the plot: into the header in landscape
+    (long-form, full screen), and into the gap above the chart on Shorts with a
+    caption band (the chart is shorter there, so the lines reach the corner).
+    Figure text survives ``ax.clear()``, so it is made once and updated.
     """
-    if not wide_fmt:
+    wide = _wide(settings)
+    above = not wide and settings.get("video", {}).get("caption_band")
+    if not wide and not above:
         ax.text(x, 0.05, str(year), transform=ax.transAxes, ha="right", va="bottom",
                 color=ACCENT, alpha=0.30, fontsize=fontsize, fontweight="bold", zorder=zorder)
         return
     mark = getattr(fig, "_year_mark", None)
     if mark is None:
-        mark = fig._year_mark = fig.text(0.95, 0.955, "", ha="right", va="top", color=ACCENT,
-                                         alpha=0.55, fontsize=72, fontweight="bold")
+        if wide:
+            mark = fig.text(0.95, 0.955, "", ha="right", va="top", color=ACCENT,
+                            alpha=0.55, fontsize=72, fontweight="bold")
+        else:
+            box = ax.get_position()
+            mark = fig.text(box.x1, box.y1 + 0.008, "", ha="right", va="bottom", color=ACCENT,
+                            alpha=0.55, fontsize=52, fontweight="bold")
+        fig._year_mark = mark
     mark.set_text(str(year))
 
 

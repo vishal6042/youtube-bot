@@ -6,6 +6,7 @@ own state, and shares nothing with the Shorts job queue.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -179,13 +180,22 @@ def settle_job(r: dict[str, Any]) -> dict[str, Any]:
     if r.get("kind") != "longform" or r.get("status") != "running" or not r.get("episode"):
         return r
     key = r["episode"]
-    st = longform.read_state(key).get("build") or {}
-    path = longform.out_dir(key) / "state.json"
+    shorts = r.get("target") == "shorts"
+    if shorts:
+        # The Shorts builder keeps its own state file, with the run under "_run".
+        path = longform.out_dir(key) / "shorts" / "state.json"
+        try:
+            st = json.loads(path.read_text(encoding="utf-8")).get("_run") or {}
+        except Exception:
+            st = {}
+    else:
+        st = longform.read_state(key).get("build") or {}
+        path = longform.out_dir(key) / "state.json"
     try:
         age = time.time() - path.stat().st_mtime
     except OSError:
         age = 1e9
-    ours = builder.key == key and builder.proc is not None
+    ours = not shorts and builder.key == key and builder.proc is not None
     alive = builder.running() == key if ours else age < 420
     if st.get("job_id") == r["id"] and st.get("status") == "running" and alive:
         return r

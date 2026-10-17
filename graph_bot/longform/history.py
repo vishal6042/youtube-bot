@@ -27,13 +27,20 @@ def _now() -> str:
 
 
 class RenderRecord:
-    def __init__(self, key: str, ep: dict[str, Any], only: list[str] | None, force: bool) -> None:
+    """One render's row. ``target`` is "episode" (the long video) or "shorts" (the
+    vertical Shorts cut from its chapters); ``chapters`` limits which chapters the
+    row lists (the Shorts skip the cold open and outro)."""
+
+    def __init__(self, key: str, ep: dict[str, Any], only: list[str] | None, force: bool,
+                 target: str = "episode", chapters: list[dict[str, Any]] | None = None) -> None:
+        shorts = target == "shorts"
         self.job: dict[str, Any] = {
             "id": uuid.uuid4().hex[:10],
             "kind": "longform",
+            "target": target,
             "episode": key,
-            "label": ep.get("title") or key,
-            "keys": [f"lf_{key}"],
+            "label": f"Shorts: {ep.get('title') or key}" if shorts else ep.get("title") or key,
+            "keys": [f"lf_{key}_shorts" if shorts else f"lf_{key}"],
             "status": "running",
             "created_at": _now(),
             "started_at": _now(),
@@ -42,8 +49,10 @@ class RenderRecord:
             "stage": "chapter",
             "agents": {}, "progress": {}, "steps": [], "results": {},
             "options": {"only": only, "force": force},
-            "chapters": [{"id": c["id"], "heading": c.get("heading") or c["id"], "state": "pending",
-                          "secs": None, "took": None} for c in ep["chapters"]],
+            "chapters": [{"id": c["id"], "heading": (c.get("short") or {}).get("title") if shorts
+                          and (c.get("short") or {}).get("title") else c.get("heading") or c["id"],
+                          "state": "pending", "secs": None, "took": None}
+                         for c in (chapters if chapters is not None else ep["chapters"])],
             "log": [],
             "log_len": 0,
         }
@@ -83,7 +92,7 @@ class RenderRecord:
         j["results"] = {key: {"status": "ok", "export": folder, "secs": secs} if status == "done"
                         else {"status": "failed", "error": error or "failed"}}
         self._save()
-        if status == "done":
+        if status == "done" and self.job["target"] == "episode":
             self._lifecycle(folder)
 
     def _save(self) -> None:

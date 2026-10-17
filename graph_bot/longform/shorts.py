@@ -13,6 +13,9 @@ A chapter can carry a ``short:`` block in the episode file:
       heading: ...        # on-screen title; defaults to the chapter heading
       narration: ...      # standalone script; defaults to the chapter's own
 
+An episode-level ``shorts_outro`` is spoken at the end of every Short (it points
+viewers to the full video).
+
 A chapter's narration often leans on the one before it ("Then comes 1991"), so
 the Short's own narration is where it gets a hook that works on its own.
 
@@ -22,6 +25,7 @@ Output goes to ``output/longform/<key>/shorts/``: ``<n>_<chapter>.mp4`` plus a
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import hashlib
 import json
 import re
@@ -38,6 +42,7 @@ from ..render import ACCENT, ffmpeg_exe, render
 from .. import transform
 from . import EpisodeError, load, out_dir, validate
 from .build import LEAD_IN, LEAD_OUT, chapter_topic
+from .history import RenderRecord
 from .narrate import DEFAULT_VOICE, speak
 
 WIDTH, HEIGHT = 1080, 1920
@@ -47,7 +52,7 @@ CAPTION_BAND = 0.36
 CAPTION_MARGIN_V = 430      # px from the bottom edge to the caption baseline
 CAPTION_SIZE = 68
 MAX_WORDS, MAX_CHARS = 4, 24
-FMT = 1                     # bump to re-render every Short after a style change
+FMT = 2                     # bump to re-render every Short after a style change
 
 _PUNCT_BREAK = re.compile(r"[.,;:?!]$")
 
@@ -56,13 +61,16 @@ def _conf(ch: dict[str, Any]) -> dict[str, Any]:
     return dict(ch.get("short") or {})
 
 
-def _narration(ch: dict[str, Any]) -> str:
-    return " ".join((_conf(ch).get("narration") or ch.get("narration") or "").split())
+def _narration(ep: dict[str, Any], ch: dict[str, Any]) -> str:
+    """What the Short says: its own script (or the chapter's), then the episode's
+    ``shorts_outro``, the line that sends viewers to the full video."""
+    text = _conf(ch).get("narration") or ch.get("narration") or ""
+    return " ".join(f"{text} {ep.get('shorts_outro') or ''}".split())
 
 
 def _hash(ep: dict[str, Any], ch: dict[str, Any]) -> str:
     c = _conf(ch)
-    blob = json.dumps({"n": _narration(ch), "c": ch.get("chart"),
+    blob = json.dumps({"n": _narration(ep, ch), "c": ch.get("chart"),
                        "h": c.get("heading") or ch.get("heading"), "v": ep.get("voice"),
                        "r": ep.get("voice_rate"), "fmt": FMT}, sort_keys=True)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
@@ -197,7 +205,7 @@ def _render_short(ep: dict[str, Any], ch: dict[str, Any], stem: str, work: Path,
                   settings: dict[str, Any]) -> dict[str, Any]:
     cid = ch["id"]
     began = time.time()
-    text = _narration(ch)
+    text = _narration(ep, ch)
     voice_mp3 = work / f"{stem}.mp3"
     chart_mp4 = work / f"{stem}.chart.mp4"
     ass = work / f"{stem}.ass"
@@ -262,14 +270,32 @@ def _render_short(ep: dict[str, Any], ch: dict[str, Any], stem: str, work: Path,
             "took": round(time.time() - began, 1)}
 
 
+def full_video_url(ep: dict[str, Any]) -> str | None:
+    """The long video's link: ``yt_url`` in the episode file, or else the one the
+    upload recorded (lf_<key> in the upload log). None until it is uploaded."""
+    if ep.get("yt_url"):
+        return ep["yt_url"]
+    try:
+        from .. import store
+        from .publish import log_key
+
+        return (store.load_log().get(log_key(ep["key"])) or {}).get("url")
+    except Exception:
+        return None
+
+
 def _description(ep: dict[str, Any], ch: dict[str, Any], title: str) -> str:
+    """The Short's description. The link to the full video goes first: YouTube
+    shows only the first lines before "more"."""
     source = (ch.get("chart") or {}).get("source", "World Bank")
-    full = ep.get("yt_url") or "watch the full video on the channel"
+    name = ep.get("yt_title") or ep["title"]
+    url = full_video_url(ep)
+    full = (f"▶ Full video: {name}\n{url}" if url
+            else f"▶ The full story is on the channel: {name}")
     tags = list(ep.get("hashtags") or [])
     if "shorts" not in [t.lower().lstrip("#") for t in tags]:
         tags.append("Shorts")
-    return (f"{title}\n\n"
-            f"📺 Full story: {ep.get('yt_title') or ep['title']} — {full}\n"
+    return (f"{full}\n\n"
             f"📊 Data: {source}. Latest-year figures are first estimates and get revised.\n"
             "🎙️ Narration is a synthetic voice; the script is written and checked by the channel.\n"
             "🔔 Data in Motion: the world's numbers, animated.\n\n"
@@ -292,27 +318,56 @@ def build_shorts(key: str, *, only: list[str] | None = None, force: bool = False
     except Exception:
         state = {}
 
-    videos = []
-    for n, ch in enumerate(picked, start=1):
-        cid = ch["id"]
-        stem = f"{n:02d}_{cid}"
-        cached = state.get(cid) or {}
-        fresh = (cached.get("hash") == _hash(ep, ch) and cached.get("video") == f"{stem}.mp4"
-                 and (work / cached["video"]).exists())
-        wanted = (only is None or cid in only) and (force or not fresh)
-        if wanted or not fresh:
-            print(f"  [{n}/{len(picked)}] {cid}: narrating and rendering ...", flush=True)
-            # A chapter that moved in the order leaves its old numbered files behind.
-            for old in work.glob(f"[0-9][0-9]_{cid}.*"):
-                old.unlink(missing_ok=True)
-            state[cid] = _render_short(ep, ch, stem, work, settings)
-            state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
-        else:
-            print(f"  [{n}/{len(picked)}] {cid}: unchanged, reusing", flush=True)
-        title = (_conf(ch).get("title") or ch.get("heading") or cid)[:100]
-        (work / f"{stem}.txt").write_text(f"{title}\n\n{_description(ep, ch, title)}",
-                                          encoding="utf-8")
-        videos.append(work / state[cid]["video"])
+    # A row in the dashboard's job history, like the long-form renders. The
+    # state file names the run so the dashboard can tell a dead one from a live one.
+    todo = [ch for ch in picked if only is None or ch["id"] in only]
+    record = RenderRecord(key, ep, only, force, target="shorts", chapters=todo)
 
-    print(f"  done: {len(videos)} Shorts in {work}", flush=True)
+    def mark_run(status: str) -> None:
+        state["_run"] = {"job_id": record.id, "status": status,
+                         "updated_at": dt.datetime.now().isoformat(timespec="seconds")}
+        state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
+
+    videos = []
+    mark_run("running")
+    try:
+        row = 0
+        for n, ch in enumerate(picked, start=1):
+            cid = ch["id"]
+            stem = f"{n:02d}_{cid}"
+            cached = state.get(cid) or {}
+            fresh = (cached.get("hash") == _hash(ep, ch) and cached.get("video") == f"{stem}.mp4"
+                     and (work / cached["video"]).exists())
+            # Each Short is its own file (nothing is joined afterwards), so --only
+            # really means only these; the rest are left as they are.
+            if only is not None and cid not in only:
+                if cached.get("video") and (work / cached["video"]).exists():
+                    videos.append(work / cached["video"])
+                continue
+            if force or not fresh:
+                record.say(f"  [{n}/{len(picked)}] {cid}: narrating and rendering ...")
+                record.chapter(row, "active")
+                mark_run("running")
+                # A chapter that moved in the order leaves its old numbered files behind.
+                for old in work.glob(f"[0-9][0-9]_{cid}.*"):
+                    old.unlink(missing_ok=True)
+                state[cid] = _render_short(ep, ch, stem, work, settings)
+                mark_run("running")
+                record.chapter(row, "rendered", state[cid])
+            else:
+                record.say(f"  [{n}/{len(picked)}] {cid}: unchanged, reusing")
+                record.chapter(row, "reused", state[cid])
+            row += 1
+            title = (_conf(ch).get("title") or ch.get("heading") or cid)[:100]
+            (work / f"{stem}.txt").write_text(f"{title}\n\n{_description(ep, ch, title)}",
+                                              encoding="utf-8")
+            videos.append(work / state[cid]["video"])
+    except Exception as exc:
+        mark_run("failed")
+        record.finish("failed", error=f"{type(exc).__name__}: {exc}")
+        raise
+
+    record.say(f"  done: {len(videos)} Shorts in {work}")
+    mark_run("done")
+    record.finish("done", folder=f"output/longform/{key}/shorts")
     return videos
