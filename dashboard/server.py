@@ -463,9 +463,9 @@ def _series_payload() -> dict[str, Any]:
         name, exists = playlist_of(it["series"])
         it.update(playlist=name, playlist_exists=exists, blocked=not exists, episode=None,
                   series_total=None, prev_uploaded=None)
-    picks = ([i for i in lib if not i["held"] and i["kind"] == "video"]
-             + [i for i in lib if not i["held"] and i["kind"] == "video_short"]
-             + picks + [i for i in lib if i["held"]])
+    today = [i for i in lib if not i["held"] and not i.get("planned")]
+    picks = ([i for i in today if i["kind"] == "video"] + [i for i in today if i["kind"] == "video_short"]
+             + picks + [i for i in lib if i.get("planned")] + [i for i in lib if i["held"]])
 
     # A saved manual order wins; anything not in it keeps recommended order.
     order = load_order()

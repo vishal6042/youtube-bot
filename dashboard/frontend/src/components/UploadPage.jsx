@@ -40,6 +40,7 @@ function QueueCard({ it, rank, st, primary, drag, menu, onWatch, onUpload, onUns
           <PlaylistChip series={it.series} name={it.playlist} />
           {it.kind === "video" && <Chip tone="info" plain>Video</Chip>}
           {it.kind === "video_short" && <Chip plain>Short from a video</Chip>}
+          {it.planned && <Chip tone="info" plain>Suggested for later</Chip>}
           {meta && <span className="muted num" style={{ fontSize: 12.5 }}>{meta}</span>}
           {it.blocked && <Chip tone="warn">Playlist not on YouTube yet</Chip>}
         </div>
@@ -238,7 +239,7 @@ export default function UploadPage({
   const shown = isBin ? discarded : view === "recommended" ? list : list.filter((i) => i.series === view);
   const p = usePaged(shown, PAGE, view);
   const titleOf = (key) => items.find((i) => i.key === key)?.title || detail[key]?.title || key;
-  const firstOpen = list.find((i) => !rowByKey[i.key] && !staged[i.key] && !i.blocked && !i.held)?.key;
+  const firstOpen = list.find((i) => !rowByKey[i.key] && !staged[i.key] && !i.blocked && !i.held && !i.planned)?.key;
 
   const persist = async (keys) => {
     setOrder(keys);

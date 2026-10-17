@@ -205,8 +205,12 @@ def read_upload(key: str) -> dict[str, Any]:
 
 
 def queue_items(log: dict[str, Any]) -> list[dict[str, Any]]:
-    """Videos and Shorts from videos that are rendered and not uploaded yet, with
-    their place in the posting plan (``held`` and ``reason`` when not today's)."""
+    """Videos and Shorts from videos that are rendered and not uploaded yet.
+
+    ``held``: cannot be uploaded yet (the video is not up, a fact-check, out of
+    date); ``reason`` says why. ``planned``: can be uploaded, but the posting
+    plan suggests a later day (one Short per video every few days); the person
+    may still send it now and schedule it in YouTube Studio."""
     from . import longform
 
     today = dt.date.today()
@@ -218,7 +222,8 @@ def queue_items(log: dict[str, Any]) -> list[dict[str, Any]]:
         v_up = log.get(v["key"])
         if not v_up:
             ok, why = ready(v["key"])
-            out.append({**_public(v), "held": not ok, "reason": "New video" if ok else why})
+            out.append({**_public(v), "held": not ok, "planned": False,
+                        "reason": "New video" if ok else why})
         shorts = video_shorts(ep_key)
         posted = [log[s["key"]] for s in shorts if s["key"] in log]
         last = max((_day(p.get("uploaded_at")) for p in posted), default=None)
@@ -229,16 +234,18 @@ def queue_items(log: dict[str, Any]) -> list[dict[str, Any]]:
             if s["key"] in log or not s["rendered"]:
                 continue
             ok, why = ready(s["key"])
+            planned = False
             if not v_up:
                 held, reason = True, "Waits for the full video to be uploaded (it links to it)"
             elif not ok:
                 held, reason = True, why
             else:
-                held = slot > today
-                reason = (f"One Short from this video every {SHORTS_GAP_DAYS} days: planned for {slot:%d %b}"
-                          if held else f"Short {s['n']} of {len(shorts)} from {v['name']}")
+                held, planned = False, slot > today
+                reason = (f"Suggested for {slot:%d %b} (one Short from this video every {SHORTS_GAP_DAYS} days). "
+                          "You can send it now and schedule it in YouTube Studio."
+                          if planned else f"Short {s['n']} of {len(shorts)} from {v['name']}")
                 slot += dt.timedelta(days=SHORTS_GAP_DAYS)
-            out.append({**_public(s), "held": held, "reason": reason})
+            out.append({**_public(s), "held": held, "planned": planned, "reason": reason})
     return out
 
 
