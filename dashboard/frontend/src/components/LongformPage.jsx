@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import {
-  Banner, Bar, Btn, Chip, Empty, Icon, PageHeader, Pager, PlaylistChip, Select, SkeletonRows, Stat,
-  usePaged,
+  Banner, Bar, Btn, Chip, Empty, Icon, PageHeader, Pager, PlaylistChip, Search, Seg, Select, SkeletonRows,
+  Stat, usePaged,
 } from "../ui.jsx";
 import LongformLive, { buildDoing, buildPct } from "./LongformLive.jsx";
 import { Dial } from "./LiveRun.jsx";
@@ -93,9 +93,44 @@ function Player({ src, title, onClose }) {
 
 /* ───────────────────────────── episode list ───────────────────────────── */
 
+/* Where an episode is, for the list's filter. */
+function stageOf(ep) {
+  if (ep.build?.live) return "progress";
+  if (ep.upload?.uploaded) return "uploaded";
+  if (ep.has_video && !ep.video_stale) return "ready";
+  return "progress";
+}
+
+const SORTS = [
+  { value: "recent", label: "Recently worked on" },
+  { value: "title", label: "Title, A to Z" },
+  { value: "long", label: "Longest first" },
+];
+const touched = (ep) => ep.build?.finished_at || ep.build?.started_at || "";
+
 function EpisodeList({ data, onOpen, onCreate, onWatch }) {
   const ideas = usePaged(data.ideas, 5);
   const inProgress = data.episodes.filter((e) => !(e.has_video && !e.video_stale)).length;
+  const [q, setQ] = useState("");
+  const [stage, setStage] = useState("all");
+  const [series, setSeries] = useState("");
+  const [sort, setSort] = useState("recent");
+
+  const counts = data.episodes.reduce((c, e) => ({ ...c, [stageOf(e)]: (c[stageOf(e)] || 0) + 1 }), {});
+  const playlists = [...new Map(data.episodes.map((e) => [e.series, e.playlist || e.series])).entries()];
+  const needle = q.trim().toLowerCase();
+  const shown = data.episodes
+    .filter((e) => (stage === "all" || stageOf(e) === stage)
+      && (!series || e.series === series)
+      && (!needle || `${e.title} ${e.yt_title || ""} ${e.key}`.toLowerCase().includes(needle)))
+    .sort((a, b) => {
+      // A render in progress always leads; then the chosen order.
+      if (!!b.build?.live !== !!a.build?.live) return b.build?.live ? 1 : -1;
+      if (sort === "title") return a.title.localeCompare(b.title);
+      if (sort === "long") return (b.secs || 0) - (a.secs || 0);
+      return touched(b).localeCompare(touched(a));
+    });
+  const paged = usePaged(shown, 5, `${needle}|${stage}|${series}|${sort}`);
   return (
     <>
       <PageHeader title="Videos"
@@ -119,7 +154,34 @@ function EpisodeList({ data, onOpen, onCreate, onWatch }) {
         </div>
       )}
 
-      {data.episodes.map((ep) => {
+      {data.episodes.length > 0 && (
+        <div className="rowf" style={{ gap: 12, flexWrap: "wrap" }}>
+          <Seg value={stage} onChange={setStage} label="Filter by stage" options={[
+            { value: "all", label: "All", count: data.episodes.length },
+            { value: "progress", label: "In progress", count: counts.progress || 0 },
+            { value: "ready", label: "Ready to upload", count: counts.ready || 0 },
+            { value: "uploaded", label: "Uploaded", count: counts.uploaded || 0 },
+          ]} />
+          <span className="spacer" />
+          <Search value={q} onChange={setQ} placeholder="Search videos" label="Search videos" />
+          {playlists.length > 1 && (
+            <Select value={series} onChange={setSeries} label="Playlist"
+                    options={[{ value: "", label: "All playlists" }, ...playlists.map(([v, l]) => ({ value: v, label: l }))]} />
+          )}
+          <Select value={sort} onChange={setSort} label="Sort" options={SORTS} />
+        </div>
+      )}
+
+      {data.episodes.length > 0 && !shown.length && (
+        <div className="card">
+          <Empty icon="search" title="No videos match"
+                 action={<Btn onClick={() => { setQ(""); setStage("all"); setSeries(""); }}>Clear filters</Btn>}>
+            Try another search, stage or playlist.
+          </Empty>
+        </div>
+      )}
+
+      {paged.slice.map((ep) => {
         const [label, tone] = statusOf(ep);
         return (
           <section key={ep.key} className="card" aria-label={ep.title}
@@ -169,6 +231,8 @@ function EpisodeList({ data, onOpen, onCreate, onWatch }) {
           </section>
         );
       })}
+
+      {shown.length > 0 && <Pager p={paged} noun="videos" sizes={[5, 10, 25]} />}
 
       {data.ideas.length > 0 && (
         <section className="card" style={{ padding: "8px 8px 16px" }} aria-label="Ideas for the next episodes">
