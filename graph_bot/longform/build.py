@@ -49,6 +49,20 @@ INDICATORS: dict[str, dict[str, Any]] = {
                           "value_scale": 1e12, "unit_suffix": "T", "value_decimals": 1, "prefix": "$"},
     "NY.GDP.PCAP.CD": {"subtitle": "Income per person (GDP per capita, US dollars)",
                        "value_fmt": "integer", "prefix": "$"},
+    "NV.IND.MANF.CD": {"subtitle": "What factories make (manufacturing value added, US dollars)",
+                       "value_scale": 1e12, "unit_suffix": "T", "value_decimals": 2},
+    "NE.EXP.GNFS.CD": {"subtitle": "Sales to the rest of the world (exports, US dollars)",
+                       "value_scale": 1e12, "unit_suffix": "T", "value_decimals": 2},
+    "TX.VAL.TECH.CD": {"subtitle": "High-technology exports (US dollars)",
+                       "value_scale": 1e9, "unit_suffix": "B", "value_decimals": 0},
+    "IP.PAT.RESD": {"subtitle": "Patent applications by residents", "value_fmt": "integer"},
+    "IP.JRN.ARTC.SC": {"subtitle": "Scientific and technical papers", "value_fmt": "integer"},
+    "BX.KLT.DINV.CD.WD": {"subtitle": "Foreign investment coming in (FDI, US dollars)",
+                          "value_scale": 1e9, "unit_suffix": "B", "value_decimals": 1},
+    "IS.SHP.GOOD.TU": {"subtitle": "Container traffic through ports (standard containers)",
+                       "value_scale": 1e6, "unit_suffix": "M", "value_decimals": 1},
+    "NV.IND.MANF.ZS": {"subtitle": "Manufacturing as a share of the economy",
+                       "unit_suffix": "%", "value_decimals": 1},
 }
 
 Progress = Callable[[dict[str, Any]], None]

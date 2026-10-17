@@ -65,6 +65,14 @@ INDICATOR_CHOICES = [
     {"code": "SH.DYN.MORT", "label": "Child deaths per 1,000 births"},
     {"code": "MS.MIL.XPND.CD", "label": "Military spending (US dollars)"},
     {"code": "BX.GSR.GNFS.CD", "label": "Exports (US dollars)"},
+    {"code": "NE.EXP.GNFS.CD", "label": "Exports of goods and services (US dollars)"},
+    {"code": "NV.IND.MANF.CD", "label": "Manufacturing output (value added, US dollars)"},
+    {"code": "NV.IND.MANF.ZS", "label": "Manufacturing as a share of the economy"},
+    {"code": "TX.VAL.TECH.CD", "label": "High-technology exports (US dollars)"},
+    {"code": "IP.PAT.RESD", "label": "Patent applications by residents"},
+    {"code": "IP.JRN.ARTC.SC", "label": "Scientific and technical papers"},
+    {"code": "BX.KLT.DINV.CD.WD", "label": "Foreign investment coming in (FDI)"},
+    {"code": "IS.SHP.GOOD.TU", "label": "Container traffic through ports"},
 ]
 
 VOICES = [
@@ -73,6 +81,8 @@ VOICES = [
     {"id": "en-US-AriaNeural", "label": "Aria · US English"},
     {"id": "en-US-GuyNeural", "label": "Guy · US English"},
     {"id": "en-GB-SoniaNeural", "label": "Sonia · British English"},
+    {"id": "en-GB-RyanNeural", "label": "Ryan · British English"},
+    {"id": "en-US-AndrewNeural", "label": "Andrew · US English"},
 ]
 
 

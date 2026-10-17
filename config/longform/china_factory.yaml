@@ -1,0 +1,292 @@
+# Long-form episode: How China Became the World's Factory.  DRAFT SCRIPT, not yet reviewed.
+#
+# Every number in the narration comes from the World Bank API as fetched on
+# 2026-10-17 (NE.EXP.GNFS.CD, NY.GDP.PCAP.CD, NY.GDP.MKTP.CD, BX.KLT.DINV.CD.WD,
+# NV.IND.MANF.CD, IS.SHP.GOOD.TU, TX.VAL.TECH.CD, IP.PAT.RESD, IP.JRN.ARTC.SC,
+# NV.IND.MANF.ZS; China's share of world manufacturing uses the WLD total).
+# 2025 figures are the Bank's first estimates and get revised. Lines marked
+# `check:` state history that is NOT in that data; confirm them before publishing.
+#
+# Data limits the charts respect: China's manufacturing figure starts in 2004 and
+# the United States' stops after 2021, so manufacturing comparisons run 2004-2021.
+# China first passed the US in exports in 2013, fell back to second in 2016 and
+# has led since 2018, so the script says "first passed", not "has led since".
+#
+# Each chapter's narration moves forward through the years its chart shows, so
+# the words and the chart stay in step.
+
+key: china_factory
+title: How China Became the World's Factory
+yt_title: How China Became the World's Factory (1980-2024)
+series: world_in_data
+voice: en-GB-RyanNeural
+voice_rate: +5%
+music_mood: reflective
+target_minutes: 6
+reviewed: false
+chapters:
+- id: cold_open
+  heading: The World's Factory
+  chart:
+    mode: bump_race
+    code: NE.EXP.GNFS.CD
+    highlight: China
+    year_min: 1980
+    year_max: 2024
+    top_n: 12
+  narration: In 1980, China was the twenty-sixth biggest exporter on Earth, selling about
+    nineteen billion dollars of goods and services a year to the rest of the world. In 2013
+    it passed the United States to become the biggest. Today its factories make more than a
+    quarter of everything the world manufactures. This is how a country that was poorer than
+    India became the world's factory, and what that title still leaves out.
+  short:
+    skip: true
+- id: poorer_than_india
+  heading: Poorer than India
+  chart:
+    mode: line_multi
+    code: NY.GDP.PCAP.CD
+    entities:
+    - China
+    - India
+    year_min: 1980
+    year_max: 2000
+  narration: Start in 1980. The two giants of Asia had economies of almost exactly the same
+    size, about 190 billion dollars each. But per person, China was poorer. The average
+    Chinese produced about 195 dollars of output a year. The average Indian produced 271.
+    Then the lines cross. In 1991, China's income per person passed India's for the first
+    time, and by 2000 it was more than twice as high, 969 dollars against 443.
+  short:
+    title: China Was Poorer Than India in 1980. Then This Happened.
+    narration: In 1980, the average Chinese person was poorer than the average Indian. China
+      produced about 195 dollars of output per person a year. India produced 271. The two
+      economies were almost the same size, about 190 billion dollars each. Then the lines
+      cross. In 1991, China passed India for the first time, and by 2000 it was more than
+      twice as high, 969 dollars per person against 443.
+- id: open_door
+  heading: Opening the door
+  chart:
+    mode: line_grow
+    code: BX.KLT.DINV.CD.WD
+    entity: China
+    year_min: 1980
+    year_max: 2001
+  narration: What changed was the door. From the late 1970s, China began letting foreign
+    companies build factories, first in a handful of special zones on the coast. In 1980,
+    foreign investment into China was 57 million dollars. By 1992 it was more than 11 billion
+    a year. By 2001 it was 47 billion. Foreign money brought machines, know-how and, most
+    of all, customers abroad.
+  check: Reform from the late 1970s and the coastal special economic zones (from 1980) are history,
+    not chart data.
+  short:
+    title: How Much Foreign Money Built China's Factories?
+    narration: In 1980, foreign companies invested just 57 million dollars in China. From the
+      late 1970s, China had begun letting them build factories, first in a handful of special
+      zones on the coast. By 1992, foreign investment was more than 11 billion dollars a year.
+      By 2001 it was 47 billion. That money brought machines, know-how and, most of all,
+      customers abroad.
+- id: joining_the_world
+  heading: Joining the world
+  chart:
+    mode: bar_race
+    code: NE.EXP.GNFS.CD
+    year_min: 1990
+    year_max: 2013
+    top_n: 10
+    highlight: China
+  narration: In 1990, China was the world's twentieth biggest exporter, selling 49 billion
+    dollars a year. At the end of 2001 it joined the World Trade Organization, and the climb
+    became a sprint. Fourth by 2004. Past Germany in 2009. And in 2013 it passed the United
+    States for the first time, selling 2.35 trillion dollars of goods and services to the
+    rest of the world.
+  check: China joined the World Trade Organization in December 2001 (history, not chart data).
+  short:
+    title: How China Became the World's Biggest Exporter
+- id: the_workshop
+  heading: Passing America's factories
+  chart:
+    mode: line_multi
+    code: NV.IND.MANF.CD
+    entities:
+    - China
+    - United States
+    - Japan
+    - Germany
+    year_min: 2004
+    year_max: 2021
+  narration: Exports are only what a country sells abroad. Manufacturing is everything its
+    factories make. In 2004, the first year the World Bank has China's figure, Chinese
+    factories produced 625 billion dollars of value, about a third of America's 1.61
+    trillion. China passed Japan in 2007. In 2010 it passed the United States. By 2021,
+    China's factories produced 4.85 trillion dollars, almost twice America's 2.50 trillion.
+  short:
+    title: The Year China's Factories Overtook America's
+    narration: In 2004, Chinese factories produced about a third as much as American ones,
+      625 billion dollars against 1.61 trillion. China passed Japan in 2007. In 2010 it passed
+      the United States. By 2021, China's factories produced 4.85 trillion dollars, almost
+      twice America's 2.50 trillion.
+- id: a_quarter_of_the_world
+  heading: More than the next three combined
+  chart:
+    mode: bar_race
+    code: NV.IND.MANF.CD
+    year_min: 2004
+    year_max: 2021
+    top_n: 10
+    highlight: China
+  narration: Put another way, in 2004 about one dollar in every twelve of the world's
+    manufacturing came from China. By 2020 it was close to three in every ten. And in 2021,
+    China's factories produced more than those of the United States, Japan and Germany put
+    together, 4.85 trillion dollars against 4.33.
+  short:
+    title: China Makes More Than the US, Japan and Germany Combined
+    narration: In 2004, about one dollar in every twelve of the world's manufacturing came from
+      China. By 2020 it was close to three in every ten. And in 2021, China's factories produced
+      more than those of the United States, Japan and Germany put together, 4.85 trillion
+      dollars against 4.33.
+- id: steel_boxes
+  heading: Steel boxes
+  chart:
+    mode: bar_race
+    code: IS.SHP.GOOD.TU
+    year_min: 2010
+    year_max: 2024
+    top_n: 10
+    highlight: China
+  narration: All of that has to leave the country, and most of it leaves in steel boxes. In
+    2010, China's ports handled 136 million standard containers. By 2024 it was almost 300
+    million, five times as many as the United States, the next busiest country.
+  short:
+    title: China's Ports Handle 5x More Containers Than America's
+    narration: Almost everything China makes leaves in steel boxes. In 2010, China's ports
+      handled 136 million standard containers. By 2024 it was almost 300 million, five times as
+      many as the United States, the next busiest country.
+- id: moving_up
+  heading: Not just toys and T-shirts
+  chart:
+    mode: line_multi
+    code: TX.VAL.TECH.CD
+    entities:
+    - China
+    - Germany
+    - United States
+    - Korea, Rep.
+    year_min: 2007
+    year_max: 2024
+  narration: The common picture of a Chinese factory is toys and T-shirts. The high-technology
+    figures tell a different story. In 2007, China already exported 344 billion dollars of
+    high-tech goods, more than any other country. By 2024 it was 857 billion, more than three
+    times as much as Germany or the United States.
+  short:
+    title: China Exports 3x More High-Tech Than Germany or the US
+- id: ideas
+  heading: From copying to inventing
+  chart:
+    mode: line_multi
+    code: IP.PAT.RESD
+    entities:
+    - China
+    - United States
+    - Japan
+    year_min: 1990
+    year_max: 2024
+  narration: The same shift shows up in ideas. In 1990, Chinese inventors filed fewer than six
+    thousand patent applications at home. Japanese inventors filed 333 thousand. China passed
+    the United States in 2009, and Japan in 2010. In 2017, Chinese scientists published more
+    research papers than American ones for the first time. By 2024, Chinese residents filed
+    1.67 million patent applications, more than six times the American figure. A count is not
+    a measure of quality, but the direction is clear.
+  short:
+    title: China Now Files 6x More Patents Than America
+    narration: In 1990, Chinese inventors filed fewer than six thousand patent applications at
+      home. Japanese inventors filed 333 thousand. China passed the United States in 2009, and
+      Japan in 2010. In 2017, Chinese scientists published more research papers than American
+      ones for the first time. By 2024, Chinese residents filed 1.67 million patent
+      applications, more than six times the American figure. A count is not a measure of
+      quality, but the direction is clear.
+- id: peak_factory
+  heading: The factory has already peaked
+  chart:
+    mode: line_grow
+    code: NV.IND.MANF.ZS
+    entity: China
+    year_min: 2004
+    year_max: 2025
+  narration: Inside China, though, the factory has already peaked. In 2006, manufacturing was
+    32 percent of China's whole economy. Its factories kept growing after that, from under one
+    trillion dollars of output that year to 4.8 trillion in 2025, but the rest of the economy
+    grew faster still. By 2025, manufacturing was less than a quarter of it.
+  short:
+    title: China's Factories Peaked in 2006. Here's Why.
+    narration: China's factories peaked in 2006, at least as a share of its economy. That year,
+      manufacturing was 32 percent of everything China produced. Its factories kept growing,
+      from under one trillion dollars of output to 4.8 trillion in 2025, but the rest of the
+      economy grew faster still. By 2025, manufacturing was less than a quarter of it.
+- id: money_leaves
+  heading: The money starts to leave
+  chart:
+    mode: line_grow
+    code: BX.KLT.DINV.CD.WD
+    entity: China
+    year_min: 2001
+    year_max: 2025
+  narration: But the money that built the factory has started to leave. Foreign investment into
+    China kept growing for two decades, to a peak of 344 billion dollars in 2021. Then it fell
+    away. 190 billion in 2022. 51 billion in 2023. 43 billion in 2024. The first estimate for
+    2025 shows a partial recovery, to 80 billion.
+  short:
+    title: Foreign Money Is Leaving China. The Numbers.
+    narration: Foreign investment into China kept growing for two decades, to a peak of 344
+      billion dollars in 2021. Then it fell away. 190 billion in 2022. 51 billion in 2023. 43
+      billion in 2024. The first estimate for 2025 shows a partial recovery, to 80 billion.
+- id: the_catch
+  heading: Still not rich
+  chart:
+    mode: bar_race
+    code: NY.GDP.PCAP.CD
+    year_min: 2004
+    year_max: 2025
+    highlight: China
+    entities:
+    - United States
+    - Germany
+    - United Kingdom
+    - Japan
+    - Korea, Rep.
+    - China
+    - Mexico
+    - Viet Nam
+    - India
+    - Indonesia
+  narration: And the world's factory is still not a rich country. In 2004, the average Chinese
+    person produced 1,531 dollars of output. By 2025 it was 13,862, about nine times as much.
+    But that is still seventy-second out of 186 countries, and less than a sixth of the
+    American figure of 90 thousand dollars.
+  short:
+    title: The World's Factory Is Still Not a Rich Country
+    narration: China is the world's factory, but it is still not a rich country. In 2004, the
+      average Chinese person produced 1,531 dollars of output. By 2025 it was 13,862, about nine
+      times as much. But that is still seventy-second out of 186 countries, and less than a
+      sixth of the American figure of 90 thousand dollars.
+- id: outro
+  heading: What comes next
+  chart:
+    mode: bump_race
+    code: NE.EXP.GNFS.CD
+    highlight: China
+    year_min: 1990
+    year_max: 2024
+    top_n: 12
+  narration: So, in about thirty years, China went from twentieth to first in exports, from a
+    third of America's factory output to almost twice it, and from under six thousand patent
+    applications a year to more than a million and a half. Whether it stays the world's
+    factory, as foreign money leaves and incomes rise, is the next chapter. Which country
+    should we look at next? Tell us in the comments.
+  short:
+    skip: true
+shorts_outro: The full story of how China became the world's factory is on the channel.
+hashtags:
+- China
+- Manufacturing
+- Economy
+- Trade
