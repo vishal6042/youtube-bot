@@ -24,7 +24,7 @@ import pandas as pd
 from .. import fetch as fetch_mod
 from .. import transform
 from ..config import load_settings
-from ..render import ffmpeg_exe, render
+from ..render import ffmpeg_exe, h264_args, render
 from . import EpisodeError, load, out_dir, validate, words
 from .history import RenderRecord
 from .narrate import DEFAULT_VOICE, audio_seconds, speak
@@ -192,7 +192,7 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
         f"[0:v]tpad=stop_mode=clone:stop_duration={pad:.3f},fps=30,format=yuv420p[v];"
         f"[1:a]adelay={int(LEAD_IN * 1000)}:all=1,apad,aresample=48000[a]",
         "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        *h264_args(settings),
         "-c:a", "aac", "-b:a", "192k", "-ac", "2", str(final_mp4),
     ])
     chart_mp4.unlink(missing_ok=True)

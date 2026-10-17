@@ -83,9 +83,26 @@ def _top(settings: dict[str, Any], default: float) -> float:
 # Public entry point
 # --------------------------------------------------------------------------- #
 def render(mode: str, data: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any], out_path: Path) -> float:
-    """Render the video and return its duration in seconds."""
+    """Render the video and return its duration in seconds.
+
+    With ``video.parallel_frames`` on, a long enough video is drawn by several
+    processes at once, each taking a run of frames, and the pieces are joined.
+    Matplotlib draws on one core, so this is where nearly all the time goes.
+    """
     _ensure_ffmpeg(settings)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if not settings.get("_chunk") and settings.get("_count_box") is None:
+        workers = _parallel_workers(settings, None)
+        if workers > 1:
+            n = _count_frames(mode, data, topic, settings)
+            workers = _parallel_workers(settings, n)
+            if workers > 1:
+                return _render_parallel(mode, data, topic, settings, out_path, n, workers)
+    return _dispatch(mode, data, topic, settings, out_path)
+
+
+def _dispatch(mode: str, data: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any],
+              out_path: Path) -> float:
     if mode == "line_multi":
         return _render_multi_line(data, topic, settings, out_path)
     if mode == "line_grow":
@@ -95,6 +112,121 @@ def render(mode: str, data: pd.DataFrame, topic: dict[str, Any], settings: dict[
     if mode == "waffle_grow":
         return _render_waffle(data, topic, settings, out_path)
     return _render_bar_race(data, topic, settings, out_path)
+
+
+# --------------------------------------------------------------------------- #
+# Parallel frames
+# --------------------------------------------------------------------------- #
+FRAMES_PER_WORKER = 120   # below this a process costs more to start than it saves
+MAX_WORKERS = 8
+
+
+def _parallel_workers(settings: dict[str, Any], n_frames: int | None) -> int:
+    """How many processes to draw with; 1 means draw here, as before."""
+    vconf = settings.get("video", {})
+    if not vconf.get("parallel_frames"):
+        return 1
+    import os
+
+    cap = int(vconf.get("parallel_workers") or min(MAX_WORKERS, max(1, (os.cpu_count() or 2) - 4)))
+    if n_frames is None:
+        return cap
+    return max(1, min(cap, n_frames // FRAMES_PER_WORKER))
+
+
+def _count_frames(mode: str, data: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any]) -> int:
+    """Run the renderer's setup without drawing, to learn how many frames it makes."""
+    box: list[int] = []
+    _dispatch(mode, data, topic, {**settings, "_count_box": box}, Path("unused.mp4"))
+    return box[0]
+
+
+_CHUNK_COUNTER = None
+
+
+def _chunk_init(counter) -> None:  # runs once in each drawing process
+    global _CHUNK_COUNTER
+    _CHUNK_COUNTER = counter
+
+
+def _render_chunk(mode: str, data: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any],
+                  out_path: str, start: int, end: int) -> None:
+    """Draw frames [start, end) of the video into its own file."""
+    _ensure_ffmpeg(settings)  # a fresh process: matplotlib does not know ffmpeg's path yet
+    _dispatch(mode, data, topic, {**settings, "_chunk": (start, end)}, Path(out_path))
+
+
+def _render_parallel(mode: str, data: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any],
+                     out_path: Path, n: int, workers: int) -> float:
+    import multiprocessing as mp
+    import subprocess
+    import time
+    from concurrent.futures import ProcessPoolExecutor
+
+    fps = int(settings.get("video", {}).get("fps", 30))
+    progress = settings.get("_progress")
+    # Callables and private keys stay here; the drawing processes get plain data.
+    plain = {k: v for k, v in settings.items() if not k.startswith("_")}
+    topic_plain = {k: v for k, v in topic.items() if not callable(v)}
+    bounds = [round(i * n / workers) for i in range(workers + 1)]
+    parts_dir = out_path.parent / f".{out_path.stem}.parts"
+    parts_dir.mkdir(parents=True, exist_ok=True)
+    parts = [parts_dir / f"part{i:02d}.mp4" for i in range(workers)]
+
+    ctx = mp.get_context("spawn")
+    counter = ctx.Value("i", 0)
+    try:
+        with ProcessPoolExecutor(max_workers=workers, mp_context=ctx,
+                                 initializer=_chunk_init, initargs=(counter,)) as ex:
+            futures = [ex.submit(_render_chunk, mode, data, topic_plain, plain, str(parts[i]),
+                                 bounds[i], bounds[i + 1]) for i in range(workers)]
+            while not all(f.done() for f in futures):
+                if progress:
+                    progress(min(counter.value, n) - 1, n)
+                time.sleep(0.5)
+            for f in futures:
+                f.result()  # re-raise a drawing process's error here
+        if progress:
+            progress(n - 1, n)
+        listing = parts_dir / "parts.txt"
+        listing.write_text("".join(f"file '{p.name}'\n" for p in parts), encoding="utf-8")
+        proc = subprocess.run([ffmpeg_exe(settings), "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                               "-i", str(listing), "-c", "copy", str(out_path)],
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if proc.returncode != 0:
+            raise RuntimeError(f"joining the drawn parts failed: {proc.stderr.strip()[-400:]}")
+    finally:
+        shutil.rmtree(parts_dir, ignore_errors=True)
+    return n / fps
+
+
+def nvenc_ok(settings: dict[str, Any]) -> bool:
+    """Whether to encode on the NVIDIA GPU: ``video.nvenc`` on and the encoder works."""
+    if not settings.get("video", {}).get("nvenc"):
+        return False
+    global _NVENC
+    if _NVENC is None:
+        import subprocess
+
+        try:
+            proc = subprocess.run([ffmpeg_exe(settings), "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+                                   "-i", "nullsrc=s=256x256:d=0.2", "-c:v", "h264_nvenc", "-f", "null", "-"],
+                                  capture_output=True, timeout=30)
+            _NVENC = proc.returncode == 0
+        except Exception:
+            _NVENC = False
+    return _NVENC
+
+
+_NVENC: bool | None = None
+
+
+def h264_args(settings: dict[str, Any]) -> list[str]:
+    """Encoder arguments for a final, high-quality H.264 encode: NVENC on the GPU
+    when available (about the quality of x264 at CRF 18), else x264 on the CPU."""
+    if nvenc_ok(settings):
+        return ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "19", "-b:v", "0"]
+    return ["-c:v", "libx264", "-preset", "medium", "-crf", "18"]
 
 
 # --------------------------------------------------------------------------- #
@@ -225,7 +357,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
 
     _title_block(fig, topic, settings)
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
-    _save(anim, out_path, fps, dpi, settings)
+    _save(anim, out_path, fps, dpi, settings, fig, draw)
     plt.close(fig)
     return len(frames) / fps
 
@@ -302,7 +434,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
     _title_block(fig, topic, settings)
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
-    _save(anim, out_path, fps, dpi, settings)
+    _save(anim, out_path, fps, dpi, settings, fig, draw)
     plt.close(fig)
     return len(frames) / fps
 
@@ -435,7 +567,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
 
     _title_block(fig, topic, settings)
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
-    _save(anim, out_path, fps, dpi, settings)
+    _save(anim, out_path, fps, dpi, settings, fig, draw)
     plt.close(fig)
     return len(frames) / fps
 
@@ -570,7 +702,7 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
     _title_block(fig, topic, settings)
-    _save(anim, out_path, fps, dpi, settings)
+    _save(anim, out_path, fps, dpi, settings, fig, draw)
     plt.close(fig)
     return len(frames) / fps
 
@@ -632,7 +764,7 @@ def _render_waffle(series_df: pd.DataFrame, topic: dict[str, Any], settings: dic
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
     _title_block(fig, topic, settings)
-    _save(anim, out_path, fps, dpi, settings)
+    _save(anim, out_path, fps, dpi, settings, fig, draw)
     plt.close(fig)
     return len(frames) / fps
 
@@ -900,9 +1032,31 @@ def _ensure_ffmpeg(settings: dict[str, Any]) -> None:
     plt.rcParams["animation.ffmpeg_path"] = ffmpeg_exe(settings)
 
 
-def _save(anim, out_path: Path, fps: int, dpi: int, settings: dict[str, Any]) -> None:
+def _save(anim, out_path: Path, fps: int, dpi: int, settings: dict[str, Any], fig=None, draw=None) -> None:
+    # Counting run (parallel rendering asks how many frames there will be).
+    box = settings.get("_count_box")
+    chunk = settings.get("_chunk")
+    if box is not None or chunk:
+        # Drawn by hand below (or not at all), not through anim.save(); tell
+        # matplotlib so it does not warn that the animation was never used.
+        anim._draw_was_started = True
+    if box is not None:
+        box.append(sum(1 for _ in anim.new_saved_frame_seq()))
+        return
     writer = animation.FFMpegWriter(fps=fps, bitrate=6000, codec="libx264",
                                     extra_args=["-pix_fmt", "yuv420p"])
+    if chunk:
+        # One run of frames in a drawing process. Every draw() clears and
+        # redraws, so a frame does not depend on the ones before it.
+        start, end = chunk
+        with writer.saving(fig, str(out_path), dpi):
+            for i in range(start, end):
+                draw(i)
+                writer.grab_frame()
+                if _CHUNK_COUNTER is not None:
+                    with _CHUNK_COUNTER.get_lock():
+                        _CHUNK_COUNTER.value += 1
+        return
     # Optional hook `settings["_progress"](frame, total)`: long-form builds use
     # it to show how far through a chart the renderer is.
     anim.save(str(out_path), writer=writer, dpi=dpi, progress_callback=settings.get("_progress"))

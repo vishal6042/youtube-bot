@@ -38,7 +38,7 @@ from typing import Any
 import matplotlib
 
 from ..config import load_settings
-from ..render import ACCENT, ffmpeg_exe, render
+from ..render import ACCENT, ffmpeg_exe, h264_args, render
 from .. import transform
 from . import EpisodeError, load, out_dir, validate
 from .build import LEAD_IN, LEAD_OUT, chapter_topic
@@ -271,7 +271,7 @@ def _render_short(ep: dict[str, Any], ch: dict[str, Any], stem: str, work: Path,
         f"[0:v]tpad=stop_mode=clone:stop_duration={pad:.3f},fps=30,"
         f"subtitles=filename={ass.name}:fontsdir={fonts.name},format=yuv420p[v];{audio_graph}",
         "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        *h264_args(settings),
         "-c:a", "aac", "-b:a", "192k", "-ac", "2", final_mp4.name,
     ]
     proc = subprocess.run(cmd, cwd=work, capture_output=True, text=True, encoding="utf-8",
