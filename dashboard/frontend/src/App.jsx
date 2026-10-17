@@ -383,6 +383,8 @@ export default function App() {
   // Jobs only carry topic keys; this lets the job views show real titles.
   const titles = {};
   for (const sr of state?.series || []) for (const it of sr.items) titles[it.key] = it.title;
+  // Long-form videos and the Shorts cut from them are not topics.
+  Object.assign(titles, state?.video_titles || {});
   const cancelQueued = (id) => cancelJob(id, true);
   const navCounts = state
     ? { ...state.counts, ideas: ideasCount, failures: failures.length }
@@ -449,6 +451,7 @@ export default function App() {
             onCancelQueued={cancelQueued}
             confirm={confirm}
             busy={!!state.job}
+            videoTitles={state.video_titles || {}}
             pipelineVersion={
               `${state.job?.current_key || "idle"}:${state.queue.length}:${state.history.length}`
             }

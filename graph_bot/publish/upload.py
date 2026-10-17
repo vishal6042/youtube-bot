@@ -180,16 +180,47 @@ def add_to_playlist_named(yt, video_id: str, name: str, exists: bool,
         result["warnings"].append(f"playlist add failed: {str(exc).splitlines()[0]}")
 
 
+def read_item(key: str) -> dict[str, Any]:
+    """What to upload for any key: a daily Short's export folder, a long-form
+    video, or a Short cut from one (see graph_bot.library)."""
+    from .. import library
+
+    if library.is_long_form(key):
+        ok, why = library.ready(key)
+        if not ok:
+            raise UploadError(f"'{key}': {why}")
+        d = library.read_upload(key)
+        return {**d, "title": d["title"][:TITLE_MAX], "description": d["description"][:DESCRIPTION_MAX],
+                "size": d["video"].stat().st_size}
+    data = read_export(find_export(key))
+    return {**data, "series": topic_series({"key": key}), "tags": _tags_for(key),
+            "subtitles": None, "language": None, "units": library.UNITS_SHORT}
+
+
+def add_subtitles(yt, video_id: str, srt: Path, result: dict[str, Any]) -> None:
+    """captions.insert as the English track; a failure is a warning, not an error."""
+    from googleapiclient.http import MediaFileUpload
+
+    try:
+        yt.captions().insert(
+            part="snippet",
+            body={"snippet": {"videoId": video_id, "language": "en", "name": "English",
+                              "isDraft": False}},
+            media_body=MediaFileUpload(str(srt), mimetype="application/octet-stream"),
+        ).execute()
+        result["subtitles_added"] = True
+    except Exception as exc:
+        result["warnings"].append(f"subtitles not added: {str(exc).splitlines()[0]}")
+
+
 def upload(key: str, *, privacy: str = "private", add_to_playlist: bool = True,
            on_progress: Callable[[int, str], None] | None = None) -> dict[str, Any]:
-    """Upload one exported video. Returns {video_id, url, playlist, ...}."""
+    """Upload one video of any kind. Returns {video_id, url, playlist, units, ...}."""
     if key in load_log():
         raise UploadError(f"'{key}' is already marked uploaded — unmark it first if that was wrong.")
 
-    folder = find_export(key)
-    data = read_export(folder)
-    series = topic_series({"key": key})
-    playlist_name, playlist_exists = playlist_of(series)
+    data = read_item(key)
+    playlist_name, playlist_exists = playlist_of(data["series"])
 
     def report(pct: int, stage: str) -> None:
         if on_progress:
@@ -205,27 +236,35 @@ def upload(key: str, *, privacy: str = "private", add_to_playlist: bool = True,
         "snippet": {
             "title": data["title"],
             "description": data["description"],
-            "tags": _tags_for(key) or None,
+            "tags": data["tags"] or None,
             "categoryId": CATEGORY_EDUCATION,
+            **({"defaultLanguage": data["language"], "defaultAudioLanguage": data["language"]}
+               if data.get("language") else {}),
         },
         "status": {
             "privacyStatus": privacy,
             "selfDeclaredMadeForKids": False,
         },
     }
-    video_id = insert_video(yt, data["video"], body, report)
+    video_id = insert_video(yt, data["video"], body, report, upto=85 if data.get("subtitles") else 90)
     url = f"https://youtu.be/{video_id}"
     result: dict[str, Any] = {
         "key": key, "video_id": video_id, "url": url, "channel": channel["title"],
         "title": data["title"], "privacy": privacy,
         "bytes": data["size"], "thumbnail_set": False,
-        "playlist": playlist_name, "playlist_added": False, "warnings": [],
+        "playlist": playlist_name, "playlist_added": False, "subtitles_added": False,
+        "units": data["units"], "warnings": [],
     }
 
     # ---- thumbnail ----
     if data["thumbnail"]:
         report(92, "thumbnail")
         set_thumbnail(yt, video_id, data["thumbnail"], result)
+
+    # ---- subtitles (long-form videos: accurate to the script) ----
+    if data.get("subtitles"):
+        report(94, "subtitles")
+        add_subtitles(yt, video_id, data["subtitles"], result)
 
     # ---- playlist ----
     if add_to_playlist:
@@ -250,15 +289,14 @@ def main() -> None:
     args = ap.parse_args()
 
     try:
-        folder = find_export(args.key)
-        data = read_export(folder)
+        data = read_item(args.key)
     except UploadError as exc:
         sys.exit(f"❌ {exc}")
 
-    series = topic_series({"key": args.key})
+    series = data["series"]
     name, exists = playlist_of(series)
     print(f"key         : {args.key}")
-    print(f"folder      : {folder.relative_to(PROJECT_ROOT)}")
+    print(f"video file  : {Path(data['video']).relative_to(PROJECT_ROOT)}")
     print(f"title       : {data['title']}")
     print(f"video       : {data['size'] / 1e6:.1f} MB")
     ratio = _aspect(data["thumbnail"]) if data["thumbnail"] else None
@@ -266,7 +304,7 @@ def main() -> None:
         f"{'portrait' if ratio and ratio < 1 else '16:9'}"
         + (f" ({ratio:.2f}) - YouTube shows 16:9, may be ignored" if ratio and ratio < 1 else ""))
     print(f"thumbnail   : {shape}")
-    print(f"tags        : {', '.join(_tags_for(args.key)) or 'none'}")
+    print(f"tags        : {', '.join(data['tags']) or 'none'}")
     print(f"playlist    : {name}{'' if exists else '  (not created on YouTube — will skip)'}")
     print(f"privacy     : {args.privacy}")
     print(f"quota cost  : {QUOTA_PER_UPLOAD} units of 10,000/day")

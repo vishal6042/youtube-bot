@@ -6,7 +6,6 @@ import {
 import MoreMenu from "./upload/MoreMenu.jsx";
 import Transmission, { StoppedBanner, mb } from "./upload/Transmission.jsx";
 import { BatchCard, ChecksCard, LimitCard } from "./upload/BatchRail.jsx";
-import LongformList from "./upload/LongformList.jsx";
 import "../screens/publish.css";
 
 const PAGE = 8;
@@ -29,7 +28,7 @@ function QueueCard({ it, rank, st, primary, drag, menu, onWatch, onUpload, onUns
   const [label, tone] = st ? stagedLabel(st) : [];
   return (
     <article className={"card lift rowf q-card" + (st ? " staged" : "") + (drag.cls ? " " + drag.cls : "")}
-             draggable {...drag.handlers}>
+             style={it.held && !st ? { opacity: 0.72 } : undefined} draggable {...drag.handlers}>
       <span className="num q-rank" aria-label={`Position ${rank}`}>{rank}</span>
       <div className="q-thumb"><Thumb item={it} /></div>
       <div className="q-body">
@@ -39,6 +38,8 @@ function QueueCard({ it, rank, st, primary, drag, menu, onWatch, onUpload, onUns
         </div>
         <div className="rowf" style={{ marginTop: 6 }}>
           <PlaylistChip series={it.series} name={it.playlist} />
+          {it.kind === "video" && <Chip tone="info" plain>Video</Chip>}
+          {it.kind === "video_short" && <Chip plain>Short from a video</Chip>}
           {meta && <span className="muted num" style={{ fontSize: 12.5 }}>{meta}</span>}
           {it.blocked && <Chip tone="warn">Playlist not on YouTube yet</Chip>}
         </div>
@@ -67,7 +68,8 @@ function QueueCard({ it, rank, st, primary, drag, menu, onWatch, onUpload, onUns
         {st ? (
           <Btn size="sm" disabled={st.state === "running"} onClick={() => onUnstage(it)}>Remove</Btn>
         ) : (
-          <Btn size="sm" kind={primary ? "primary" : ""} onClick={() => onUpload(it)}>Add to batch</Btn>
+          <Btn size="sm" kind={primary ? "primary" : ""} disabled={!!it.held}
+               title={it.held ? it.reason : undefined} onClick={() => onUpload(it)}>Add to batch</Btn>
         )}
       </div>
     </article>
@@ -206,44 +208,6 @@ export default function UploadPage({
     setBusy(false);
   };
 
-  // ---- long-form episodes (their own tab; each uploads on its own) ----
-  const [episodes, setEpisodes] = useState(null);
-  const loadEpisodes = useCallback(async () => {
-    try { setEpisodes((await api("/api/longform")).episodes); } catch { /* tab shows loading */ }
-  }, []);
-  const lfUploading = (episodes || []).some((e) => e.upload?.run?.state === "running");
-  useEffect(() => { loadEpisodes(); }, [loadEpisodes]);
-  useEffect(() => {
-    const t = setInterval(loadEpisodes, lfUploading ? 1500 : 15000);
-    return () => clearInterval(t);
-  }, [lfUploading, loadEpisodes]);
-  const lfWasUploading = useRef(false);
-  useEffect(() => {
-    if (lfWasUploading.current && !lfUploading) refresh(); // quota and Published changed
-    lfWasUploading.current = lfUploading;
-  }, [lfUploading, refresh]);
-
-  const uploadEpisode = async (ep) => {
-    const ok = await confirm({
-      title: "Upload this episode to YouTube?",
-      message: "It goes to Data in Motion as Private, with its thumbnail, chapters, English subtitles "
-             + "and playlist set automatically. You switch it to Public in YouTube Studio.",
-      items: [{ title: ep.yt_title || ep.title,
-                meta: [ep.playlist, fmtDuration(ep.build?.secs || ep.secs)].filter(Boolean).join(" · ") }],
-      detail: `This uses ${fmtNum(ep.upload?.units || 2102)} of your ${fmtNum(liveQuota.units_left)} `
-            + "remaining API units today.",
-      confirmLabel: "Upload as Private",
-    });
-    if (!ok) return;
-    try {
-      await api(`/api/longform/${ep.key}/upload`, {});
-      toast("Upload started");
-      await loadEpisodes();
-    } catch (e) {
-      toast(e.message, true);
-    }
-  };
-
   // ---- queue ----
   const [tab, setTab] = useState("recommended");
   const [order, setOrder] = useState(null); // optimistic order until the server's copy arrives
@@ -269,13 +233,12 @@ export default function UploadPage({
   }, [items]);
 
   const view = tab === "discarded" ? (discarded.length ? tab : "recommended")
-    : tab === "longform" || tab === "recommended" || playlists.some(([s]) => s === tab) ? tab : "recommended";
-  const isLongform = view === "longform";
+    : tab === "recommended" || playlists.some(([s]) => s === tab) ? tab : "recommended";
   const isBin = view === "discarded";
   const shown = isBin ? discarded : view === "recommended" ? list : list.filter((i) => i.series === view);
   const p = usePaged(shown, PAGE, view);
   const titleOf = (key) => items.find((i) => i.key === key)?.title || detail[key]?.title || key;
-  const firstOpen = list.find((i) => !rowByKey[i.key] && !staged[i.key] && !i.blocked)?.key;
+  const firstOpen = list.find((i) => !rowByKey[i.key] && !staged[i.key] && !i.blocked && !i.held)?.key;
 
   const persist = async (keys) => {
     setOrder(keys);
@@ -355,18 +318,18 @@ export default function UploadPage({
       { label: "Mark as uploaded", icon: "check", onClick: () => onMark(it.key, it.title) },
       it.exported && { label: "Open folder", icon: "folder", onClick: () => onOpen(it.exported) },
       it.exported && { label: "Copy file path", onClick: () => copyPath(it) },
-      { label: "Re-render", icon: "refresh", onClick: () => onRender(it.key, it.title) },
+      // A long-form video re-renders on the Videos page, not in the Shorts queue.
+      it.kind !== "video" && { label: "Re-render", icon: "refresh", onClick: () => onRender(it.key, it.title) },
       i > 0 && { label: "Move up", onClick: () => moveTo(it.key, shown[i - 1].key) },
       i < shown.length - 1 && { label: "Move down", onClick: () => moveTo(it.key, shown[i + 1].key) },
-      { label: "Discard", icon: "trash", tone: "bad", onClick: () => onDiscard(it.key, it.title) },
+      // Discard moves a daily Short's export folder; videos and their Shorts have none.
+      !it.kind?.startsWith("video") && { label: "Discard", icon: "trash", tone: "bad", onClick: () => onDiscard(it.key, it.title) },
     ];
   };
 
   const tabs = [
     { value: "recommended", label: "Recommended", count: items.length },
     ...playlists.map(([series, pl]) => ({ value: series, label: pl.name || series, count: pl.count })),
-    { value: "longform", label: "Long-form",
-      count: (episodes || []).filter((e) => e.has_video && !e.upload?.uploaded).length },
     ...(discarded.length ? [{ value: "discarded", label: "Discarded", count: discarded.length }] : []),
   ];
 
@@ -393,9 +356,6 @@ export default function UploadPage({
       <div className="split">
         <section className="wide stack" aria-label="Upload queue">
 
-          {isLongform && <LongformList episodes={episodes} onUpload={uploadEpisode} onOpen={onOpen} />}
-
-          {!isLongform && <>
           {review && !isBin && (
             <ReviewCard review={review} titleOf={titleOf} onApply={applyReview} onClose={() => setReview(null)} />
           )}
@@ -467,7 +427,6 @@ export default function UploadPage({
               )}
             </p>
           )}
-          </>}
         </section>
 
         <aside className="rail" aria-label="Today's batch" style={{ position: "sticky", top: 24 }}>

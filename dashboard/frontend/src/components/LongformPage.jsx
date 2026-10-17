@@ -97,8 +97,8 @@ function EpisodeList({ data, onOpen, onCreate, onWatch }) {
   const inProgress = data.episodes.filter((e) => !(e.has_video && !e.video_stale)).length;
   return (
     <>
-      <PageHeader title="Long-form"
-                  sub="Narrated videos of around 5 to 10 minutes, built from chart chapters and a written script">
+      <PageHeader title="Videos"
+                  sub="Long-form videos of around 5 to 10 minutes, built from chart chapters and a written script">
         <Btn kind="primary" icon="plus" onClick={() => onCreate()}>New episode</Btn>
       </PageHeader>
 
@@ -230,58 +230,145 @@ function Figures({ epKey, chapterId, version }) {
   );
 }
 
-const UPLOAD_STAGE = {
-  starting: "Starting", authorising: "Signing in to YouTube", uploading: "Uploading the video",
-  thumbnail: "Setting the thumbnail", subtitles: "Adding subtitles", playlist: "Adding to the playlist",
-  recording: "Recording the upload", done: "Done",
-};
-
-/* Upload to YouTube as Private, the way the Shorts go up; Public is a click in Studio. */
-function UploadBox({ up, dirty, onUpload }) {
-  const run = up.run;
-  if (run?.state === "running") {
-    return (
-      <div className="stack" style={{ gap: 6, marginTop: 14 }}>
-        <div className="rowf" style={{ fontSize: 13 }}>
-          <span style={{ flex: 1 }}>{UPLOAD_STAGE[run.stage] || run.stage}</span>
-          <span className="num faint">{run.pct || 0}%</span>
-        </div>
-        <Bar pct={run.pct || 0} running />
-      </div>
-    );
-  }
+/* Where a video, or one of its Shorts, stands on the way to YouTube. Every
+   video goes up the same way: added to the upload batch, sent from the Upload
+   page as Private, then switched to Public in YouTube Studio. */
+function PublishState({ up, dirty, onStage, compact }) {
+  const st = up.staged;
+  const open = (url) => window.open(url, "_blank", "noopener");
   if (up.uploaded) {
-    const warnings = run?.state === "done" ? run.result?.warnings || [] : [];
-    return (
+    return compact ? (
+      <span className="rowf" style={{ gap: 6, flexWrap: "nowrap" }}>
+        <Chip tone="go">Uploaded</Chip>
+        {up.studio && <Btn size="sm" kind="ghost" onClick={() => open(up.studio)}>Studio</Btn>}
+      </span>
+    ) : (
       <div className="stack" style={{ gap: 8, marginTop: 14 }}>
-        <Banner tone="go" title="Uploaded as Private">
-          Check it in YouTube Studio, then switch Visibility to Public.
-          {warnings.map((w) => <div key={w} style={{ color: "#ffc857" }}>{w}</div>)}
-        </Banner>
+        <Banner tone="go" title="Uploaded">It goes up as Private; switch Visibility to Public in YouTube Studio.</Banner>
         <div className="rowf" style={{ gap: 8 }}>
-          {up.studio && <Btn size="sm" kind="primary" icon="external"
-                             onClick={() => window.open(up.studio, "_blank", "noopener")}>Open in Studio</Btn>}
-          {up.url && <Btn size="sm" icon="youtube"
-                          onClick={() => window.open(up.url, "_blank", "noopener")}>Watch on YouTube</Btn>}
+          {up.studio && <Btn size="sm" kind="primary" icon="external" onClick={() => open(up.studio)}>Open in Studio</Btn>}
+          {up.url && <Btn size="sm" icon="youtube" onClick={() => open(up.url)}>Watch on YouTube</Btn>}
         </div>
       </div>
     );
   }
-  const blocked = (up.checks || []).filter((c) => !c.ok);
-  return (
+  if (st) {
+    const [label, tone] = st.state === "running" ? [`Uploading ${st.pct || 0}%`, "go"]
+      : st.state === "failed" ? ["Upload failed", "bad"] : ["In today's batch", "go"];
+    return compact ? <Chip tone={tone} plain>{label}</Chip> : (
+      <div className="stack" style={{ gap: 6, marginTop: 14 }}>
+        <div className="rowf"><Chip tone={tone} plain>{label}</Chip></div>
+        {st.state === "running" && <Bar pct={st.pct || 0} running />}
+        <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>
+          {st.state === "failed" ? `${st.error || ""} Retry it from the Upload page.`
+            : "Send it with the rest of today's batch on the Upload page."}
+        </p>
+      </div>
+    );
+  }
+  const btn = (
+    <Btn size="sm" kind={compact ? "" : "primary"} icon={compact ? undefined : "upload"}
+         disabled={dirty || !up.ready} title={dirty ? "Save your changes first" : up.ready ? undefined : up.reason}
+         onClick={onStage}>Add to batch</Btn>
+  );
+  return compact ? btn : (
     <div className="stack" style={{ gap: 8, marginTop: 14 }}>
-      {run?.state === "failed" && (
-        <Banner tone="bad" role="alert" title="The upload failed">{run.error}</Banner>
-      )}
-      <Btn kind="primary" icon="upload" disabled={dirty || blocked.length > 0} onClick={onUpload}
-           title={dirty ? "Save your changes first" : blocked.map((c) => c.detail).join(" · ") || undefined}>
-        {run?.state === "failed" ? "Try the upload again" : "Upload to YouTube"}
-      </Btn>
-      {blocked.length > 0 && (
-        <ul className="faint" style={{ margin: 0, paddingLeft: 18, fontSize: 12.5 }}>
-          {blocked.map((c) => <li key={c.name}>{c.detail}</li>)}
-        </ul>
-      )}
+      {btn}
+      {!up.ready && up.reason && <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>{up.reason}</p>}
+    </div>
+  );
+}
+
+function shortState(s) {
+  if (!s.rendered) return ["Not rendered", "bad"];
+  if (!s.current) return ["Changed, render again", "warn"];
+  if (s.check) return ["Fact-check first", "warn"];
+  return ["Rendered", "go"];
+}
+
+/* The video's Shorts: one per chapter that makes one. They render in the same
+   queue as the daily Shorts and upload through the same batch. */
+function ShortsSection({ saved, dirty, onRender, onStage, onWatch }) {
+  const shorts = saved.shorts || [];
+  if (!shorts.length) return null;
+  const todo = shorts.filter((s) => !s.uploaded && (!s.rendered || !s.current));
+  return (
+    <section className="card stack" style={{ gap: 12, marginTop: 18 }} aria-label="Shorts from this video">
+      <div className="card-head" style={{ flexWrap: "wrap" }}>
+        <h2>Shorts from this video</h2>
+        <span className="muted num" style={{ fontSize: 13 }}>
+          {shorts.length} of {saved.chapters.length} chapters
+        </span>
+        <span className="spacer" />
+        <Btn size="sm" kind={todo.length ? "primary" : ""} icon="play" disabled={!todo.length || dirty}
+             title={dirty ? "Save your changes first" : undefined}
+             onClick={() => onRender(todo.map((s) => s.key), `${todo.length} Shorts`)}>
+          {todo.length ? `Render ${todo.length} that need it` : "All rendered"}
+        </Btn>
+      </div>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+        Each chapter's chart, upright, with the narration as captions
+        {saved.shorts_outro ? <> and the closing line "{saved.shorts_outro}"</> : null}.
+        Turn a chapter's Short on or off, and edit its title and script, in the chapter above.
+      </p>
+      <ol className="plain-list stack" style={{ gap: 2, margin: 0, padding: 0 }}>
+        {shorts.map((s) => {
+          const [label, tone] = shortState(s);
+          return (
+            <li key={s.key} className="rowf" style={{ flexWrap: "nowrap", gap: 12, padding: "8px 6px" }}>
+              <span className="num faint" style={{ width: 20, fontSize: 12 }}>{s.n}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+                <div className="faint" style={{ fontSize: 12 }}>{s.name}</div>
+              </div>
+              {s.duration_sec ? <span className="num muted" style={{ fontSize: 12.5 }}>{clock(s.duration_sec)}</span> : null}
+              {!s.uploaded && <Chip tone={tone}>{label}</Chip>}
+              {s.rendered && <Btn size="sm" kind="ghost" icon="play" iconOnly={`Watch ${s.title}`} onClick={() => onWatch(s)} />}
+              {!s.uploaded && (
+                <Btn size="sm" kind="ghost" disabled={dirty} onClick={() => onRender([s.key], s.title)}>
+                  {s.rendered ? "Render again" : "Render"}
+                </Btn>
+              )}
+              <PublishState up={s} dirty={dirty} compact onStage={() => onStage(s.key)} />
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+/* A chapter's own Short: on or off, its YouTube title, and what it says. The
+   chapter's narration is used when the Short has no script of its own. */
+function ChapterShort({ ch, onChange }) {
+  const sh = ch.short || {};
+  const on = !sh.skip;
+  const set = (fields) => onChange(Object.fromEntries(
+    Object.entries({ ...sh, ...fields }).filter(([, v]) => v !== undefined && v !== "" && v !== false)));
+  const script = sh.narration || "";
+  const words = wordCount(script || ch.narration);
+  return (
+    <div className="card stack" style={{ background: "var(--bg)", gap: 12, padding: "14px 16px" }}>
+      <label className="rowf" style={{ cursor: "pointer", flexWrap: "nowrap" }}>
+        <input className="check" type="checkbox" checked={on}
+               onChange={(e) => set({ skip: e.target.checked ? undefined : true })} />
+        <span style={{ flex: 1 }}><b>Make a Short from this chapter</b>
+          <span className="faint" style={{ fontSize: 12.5 }}> · off for chapters that lean on the one before</span></span>
+      </label>
+      {on && <>
+        <label className="field">Short title
+          <input className="input" type="text" value={sh.title || ""} maxLength={100}
+                 placeholder={ch.heading || "Shown on YouTube"} onChange={(e) => set({ title: e.target.value })} />
+        </label>
+        <label className="field">What the Short says
+          <textarea className="input" rows="4" value={script}
+                    placeholder="Leave empty to use the chapter's narration. A Short should start on its own, with no 'then' or 'next'."
+                    onChange={(e) => set({ narration: e.target.value })} />
+          <span className="faint" style={{ fontSize: 12.5 }}>
+            {words} words · about {clock((words / WPM) * 60)}{script ? "" : " (the chapter's narration)"}
+          </span>
+        </label>
+      </>}
     </div>
   );
 }
@@ -324,7 +411,7 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
   const dirty = useMemo(() => {
     if (!ep || !saved) return false;
     const pick = (e) => JSON.stringify([e.title, e.voice, e.voice_rate, e.music_mood, e.target_minutes,
-      e.reviewed, e.chapters.map((c) => [c.id, c.heading, c.chart, c.narration, c.check])]);
+      e.reviewed, e.chapters.map((c) => [c.id, c.heading, c.chart, c.narration, c.check, c.short])]);
     return pick(ep) !== pick(saved);
   }, [ep, saved]);
 
@@ -440,18 +527,20 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
     }
   };
 
-  const upload = async () => {
-    const u = saved.upload || {};
-    if (!await confirm({
-      title: "Upload to YouTube?",
-      message: `"${saved.yt_title || saved.title}" goes up as Private, with its thumbnail, chapters, `
-        + `English subtitles and the ${saved.playlist} playlist. You switch it to Public in YouTube Studio.`,
-      detail: `Uses ${(u.units || 0).toLocaleString()} of today's 10,000 API units (a Short uses 1,702).`,
-      confirmLabel: "Upload as Private", cancelLabel: "Not now",
-    })) return;
+  // Videos and their Shorts go up through the one upload batch.
+  const stage = async (key) => {
     try {
-      setSaved(await api(`/api/longform/${epKey}/upload`, {}));
-      toast("Upload started");
+      setSaved(await api(`/api/longform/${epKey}/upload`, key ? { key } : {}));
+      toast("Added to today's batch. Send it from the Upload page.");
+    } catch (e) {
+      toast(e.message, true);
+    }
+  };
+  // Shorts render in the shared Shorts queue, like the daily ones.
+  const renderShorts = async (keys, label) => {
+    try {
+      await api("/api/render", { keys });
+      toast(`Render queued: ${label}. Follow it on the Shorts page.`);
     } catch (e) {
       toast(e.message, true);
     }
@@ -619,6 +708,8 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
                      onChange={(e) => patchCh({ check: e.target.value || undefined })} />
             </label>
 
+            <ChapterShort ch={ch} onChange={(short) => patchCh({ short })} />
+
             {dirty && JSON.stringify(ch.chart) !== JSON.stringify(savedCh?.chart)
               ? <p className="faint" style={{ fontSize: 12.5 }}>Save to see the figures for the changed chart.</p>
               : <Figures epKey={epKey} chapterId={ch.id} version={JSON.stringify(savedCh?.chart)} />}
@@ -679,7 +770,7 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
                     : saved.has_video ? "Edited since the last render" : "Not rendered yet"}
                 </span></li>
             </ul>
-            <UploadBox up={saved.upload || {}} dirty={dirty} onUpload={upload} />
+            <PublishState up={saved.upload || {}} dirty={dirty} onStage={() => stage(null)} />
             {saved.has_video && (
               <div className="rowf" style={{ marginTop: 14 }}>
                 <Btn size="sm" icon="folder" onClick={() => onOpen(`output/longform/${epKey}`)}>Open the folder</Btn>
@@ -692,8 +783,11 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
         </aside>
       </div>
 
-      {watch && <Player src={`/api/longform/${epKey}/video?t=${build.finished_at || ""}`} title={ep.title}
-                        onClose={() => setWatch(null)} />}
+      <ShortsSection saved={saved} dirty={dirty} onRender={renderShorts} onStage={stage}
+                     onWatch={(sh) => setWatch({ src: `/api/video/${sh.key}`, title: sh.title })} />
+
+      {watch && <Player src={watch.src || `/api/longform/${epKey}/video?t=${build.finished_at || ""}`}
+                        title={watch.title || ep.title} onClose={() => setWatch(null)} />}
     </>
   );
 }

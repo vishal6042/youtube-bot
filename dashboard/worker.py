@@ -187,6 +187,47 @@ def produce(key: str, *, refresh: bool = False) -> None:
     print(f"::exported::{key}::{dest}", flush=True)
 
 
+def produce_video_short(key: str) -> None:
+    """A Short cut from a long-form video's chapter (key lf_<episode>__<chapter>).
+
+    Same markers and the same six steps as a daily Short, so it shows in the
+    same live card and history: the voice and the chart are the video step,
+    captions and music are the mix, the description is the titles step.
+    """
+    from graph_bot import library
+    from graph_bot.longform.shorts import render_one
+
+    _, ep, cid = library.parse(key)
+    print(f"::topic::{key}", flush=True)
+    agent("video", "active")
+    # The music is the slice of the video's own theme under this chapter.
+    agent("music", "active")
+    agent("music", "done")
+    stage = {"now": "video"}
+
+    def on_sub(sub: str, **_kw: Any) -> None:
+        if sub == "combine" and stage["now"] == "video":
+            agent("video", "done")
+            agent("mixing", "active")
+            stage["now"] = "mixing"
+
+    try:
+        folder = render_one(ep, cid, on_sub=on_sub)
+    except Exception:
+        agent(stage["now"], "failed")
+        raise
+    agent(stage["now"], "done")
+    agent("subtitle", "active")
+    agent("subtitle", "done")
+    print("  Title and description written (the description links to the full video).", flush=True)
+    agent("exporting", "active")
+    agent("exporting", "done")
+    agent("thumbnail", "active")
+    agent("thumbnail", "done")
+    print("  No custom thumbnail: YouTube shows a frame for Shorts.", flush=True)
+    print(f"::exported::{key}::{folder}", flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Render + export topics for the dashboard.")
     parser.add_argument("--topics", nargs="*", default=[], help="Topic keys to produce")
@@ -204,7 +245,10 @@ def main() -> None:
     failed: list[str] = []
     for key in keys:
         try:
-            produce(key, refresh=args.refresh)
+            if key.startswith("lf_"):
+                produce_video_short(key)
+            else:
+                produce(key, refresh=args.refresh)
         except Exception as exc:  # one bad topic must not abort the batch
             print(f"::failed::{key}::{exc}", flush=True)
             failed.append(key)

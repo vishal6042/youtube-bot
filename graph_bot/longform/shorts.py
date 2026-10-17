@@ -202,9 +202,12 @@ def _music_offset(key: str, ep: dict[str, Any], cid: str) -> float:
 
 
 def _render_short(ep: dict[str, Any], ch: dict[str, Any], stem: str, work: Path,
-                  settings: dict[str, Any]) -> dict[str, Any]:
+                  settings: dict[str, Any], on_sub: Any = None) -> dict[str, Any]:
+    """Voice, chart, then captions and mix. ``on_sub(sub, **detail)`` reports each."""
     cid = ch["id"]
     began = time.time()
+    tell = on_sub or (lambda *a, **k: None)
+    tell("voice")
     text = _narration(ep, ch)
     voice_mp3 = work / f"{stem}.mp3"
     chart_mp4 = work / f"{stem}.chart.mp4"
@@ -214,11 +217,21 @@ def _render_short(ep: dict[str, Any], ch: dict[str, Any], stem: str, work: Path,
     voice_secs, cues = speak(text, ep.get("voice") or DEFAULT_VOICE, voice_mp3, settings,
                              rate=ep.get("voice_rate") or "+0%", words=True)
     total = LEAD_IN + voice_secs + LEAD_OUT
+    tell("chart", voice_secs=round(voice_secs, 1), frame=0, frames=0)
 
     topic, df = chapter_topic(ep, ch, settings)
     if _conf(ch).get("heading"):
         topic["title"] = _conf(ch)["heading"]
     rs = copy.deepcopy(settings)
+    last = [0.0]
+
+    def on_frame(i: int, n: int) -> None:
+        # Hundreds of frames: report about once a second, and the last one.
+        if time.time() - last[0] >= 1.0 or i + 1 >= (n or 0):
+            last[0] = time.time()
+            tell("chart", voice_secs=round(voice_secs, 1), frame=i + 1, frames=n or 0)
+
+    rs["_progress"] = on_frame
     rs.setdefault("video", {}).update(width=WIDTH, height=HEIGHT, caption_band=CAPTION_BAND,
                                       target_seconds=max(4.0, total - 1.0))
     mode, data = transform.prepare(df, topic, rs)
@@ -226,6 +239,7 @@ def _render_short(ep: dict[str, Any], ch: dict[str, Any], stem: str, work: Path,
     total = max(total, chart_secs)
     pad = max(0.0, total - chart_secs)
 
+    tell("combine", voice_secs=round(voice_secs, 1))
     write_ass(caption_chunks(text, cues), ass, LEAD_IN)
     fonts = _fonts_dir(work)
 
@@ -323,9 +337,16 @@ def build_shorts(key: str, *, only: list[str] | None = None, force: bool = False
     todo = [ch for ch in picked if only is None or ch["id"] in only]
     record = RenderRecord(key, ep, only, force, target="shorts", chapters=todo)
 
-    def mark_run(status: str) -> None:
-        state["_run"] = {"job_id": record.id, "status": status,
-                         "updated_at": dt.datetime.now().isoformat(timespec="seconds")}
+    started = dt.datetime.now().isoformat(timespec="seconds")
+
+    def mark_run(status: str, **progress: Any) -> None:
+        """The run's state, read by the dashboard's live card: which Short, which
+        step (voice, chart frames, combine), and when it started."""
+        state["_run"] = {"job_id": record.id, "status": status, "started_at": started,
+                         "total": len(todo), "items": [c["id"] for c in todo],
+                         "updated_at": dt.datetime.now().isoformat(timespec="seconds"), **progress}
+        if status != "running":
+            state["_run"]["finished_at"] = state["_run"]["updated_at"]
         state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
 
     videos = []
@@ -371,3 +392,40 @@ def build_shorts(key: str, *, only: list[str] | None = None, force: bool = False
     mark_run("done")
     record.finish("done", folder=f"output/longform/{key}/shorts")
     return videos
+
+
+def render_one(key: str, cid: str, on_sub: Any = None) -> Path:
+    """Render one Short now (whether or not it changed) and return its folder.
+
+    What the dashboard's render queue runs for a ``lf_<key>__<chapter>`` key, so
+    Shorts from videos go through the same jobs, live card and history as the
+    daily Shorts. Updates the same state file and text file as build_shorts().
+    """
+    ep = load(key)
+    validate(ep)
+    picked = [ch for ch in ep["chapters"] if not _conf(ch).get("skip")]
+    n, ch = next(((i, c) for i, c in enumerate(picked, start=1) if c["id"] == cid), (0, None))
+    if ch is None:
+        raise EpisodeError(f"'{cid}' is not a chapter with a Short in '{key}'")
+    settings = load_settings()
+    work = out_dir(key) / "shorts"
+    work.mkdir(parents=True, exist_ok=True)
+    state_path = work / "state.json"
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        state = {}
+    stem = f"{n:02d}_{cid}"
+    for old in work.glob(f"[0-9][0-9]_{cid}.*"):
+        old.unlink(missing_ok=True)
+    done = _render_short(ep, ch, stem, work, settings, on_sub=on_sub)
+    # Re-read: another render may have written its own entry meanwhile.
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    state[cid] = done
+    state_path.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    title = (_conf(ch).get("title") or ch.get("heading") or cid)[:100]
+    (work / f"{stem}.txt").write_text(f"{title}\n\n{_description(ep, ch, title)}", encoding="utf-8")
+    return work

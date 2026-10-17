@@ -5,6 +5,7 @@ import {
   fmtDuration,
 } from "../ui.jsx";
 import LiveRun from "./LiveRun.jsx";
+import FromVideos from "./render/FromVideos.jsx";
 import "../screens/produce.css";
 
 /* Strategies are intents, not orderings: "re-cut" deliberately targets videos
@@ -89,7 +90,8 @@ function PlanRow({ t, n, onRemove, onRevert }) {
 }
 
 export default function RenderPage({ series = [], job, queue = [], lines, onRenderBatch, onRevertTopic,
-                                     onCancel, onCancelQueued, confirm, busy, pipelineVersion }) {
+                                     onCancel, onCancelQueued, confirm, busy, pipelineVersion,
+                                     videoTitles = {} }) {
   const [mode, setMode] = useState("new");
   const [count, setCount] = useState(3);
   const [pickedSeries, setPickedSeries] = useState("");
@@ -134,8 +136,8 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
     const map = {};
     for (const s of series) for (const i of s.items || []) if (i.title) map[i.key] = i.title;
     for (const t of plan?.topics || []) if (t.title) map[t.key] = t.title;
-    return map;
-  }, [series, plan]);
+    return { ...videoTitles, ...map };
+  }, [series, plan, videoTitles]);
 
   const topics = (plan?.topics || []).filter((t) => !removed.has(t.key));
   const firstLoad = loading && !plan;
@@ -187,12 +189,15 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
 
   return (
     <>
-      <PageHeader title="Render" sub="Choose what to build, see exactly what will run, then start it" />
+      <PageHeader title="Shorts" sub="Render daily Shorts and the Shorts cut from your videos. They share one queue." />
 
       <div className="split">
         <div className="wide stack" style={{ gap: 18 }}>
           <LiveRun job={job} queue={queue} lines={lines} titles={titles}
                    onCancel={onCancel} onCancelQueued={onCancelQueued} />
+
+          <FromVideos job={job} queue={queue}
+                      onRender={(keys, label) => onRenderBatch({ keys, refresh: false, label })} />
 
           <section className="card" aria-label="Step 1: what kind of work">
             <div className="card-head"><Chip plain tone="go" className="num">1</Chip><h2>What kind of work?</h2></div>

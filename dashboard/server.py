@@ -449,6 +449,24 @@ def _series_payload() -> dict[str, Any]:
             "prev_uploaded": prev[-1]["title"] if prev else None,
         })
 
+    # Long-form videos and the Shorts cut from them share this queue. A video
+    # not yet up goes first; its Shorts follow the posting plan, and the ones
+    # held back (one every few days, waiting on the video, a fact-check) go last.
+    from graph_bot import library
+
+    try:
+        lib = library.queue_items(load_log())
+    except Exception as exc:  # a broken episode must not take the queue down
+        print(f"long-form queue items unavailable: {exc}")
+        lib = []
+    for it in lib:
+        name, exists = playlist_of(it["series"])
+        it.update(playlist=name, playlist_exists=exists, blocked=not exists, episode=None,
+                  series_total=None, prev_uploaded=None)
+    picks = ([i for i in lib if not i["held"] and i["kind"] == "video"]
+             + [i for i in lib if not i["held"] and i["kind"] == "video_short"]
+             + picks + [i for i in lib if i["held"]])
+
     # A saved manual order wins; anything not in it keeps recommended order.
     order = load_order()
     if order:
@@ -518,9 +536,27 @@ def api_queue_order_reset() -> dict[str, Any]:
     return {"ok": True}
 
 
+def _video_titles() -> dict[str, str]:
+    """Titles for long-form videos and their Shorts, which are not topics, so the
+    job and upload views can name them."""
+    from graph_bot import library, longform
+
+    out: dict[str, str] = {}
+    try:
+        for ep in longform.list_keys():
+            v = library.item(library.video_key(ep))
+            if v:
+                out[v["key"]] = v["name"]
+            for sh in library.video_shorts(ep):
+                out[sh["key"]] = sh["title"]
+    except Exception:
+        pass
+    return out
+
+
 @app.get("/api/state")
 def api_state() -> dict[str, Any]:
-    return {**_series_payload(), **manager.snapshot(),
+    return {**_series_payload(), **manager.snapshot(), "video_titles": _video_titles(),
             "upload_batch": store.batch_load(), "upload_run": runner.snapshot(),
             "upload_quota": store.quota_status(), "now": _now()}
 
@@ -783,8 +819,13 @@ class RenderReq(BaseModel):
 
 @app.post("/api/render")
 def api_render(req: RenderReq) -> dict[str, Any]:
+    from graph_bot import library
+
     valid = {t["key"] for t in load_topics()}
-    bad = [k for k in req.keys if k not in valid]
+    videos = [k for k in req.keys if library.parse(k)[0] == "video"]
+    if videos:
+        raise HTTPException(400, "Videos render on the Videos page; this queue renders Shorts")
+    bad = [k for k in req.keys if k not in valid and not library.exists(k)]
     if bad:
         raise HTTPException(400, f"Unknown topic(s): {', '.join(bad)}")
     if not req.keys and not req.batch:
@@ -839,8 +880,10 @@ class MarkReq(BaseModel):
 
 @app.post("/api/mark")
 def api_mark(req: MarkReq) -> dict[str, Any]:
+    from graph_bot import library
+
     valid = {t["key"] for t in load_topics()}
-    if req.key not in valid:
+    if req.key not in valid and not library.exists(req.key):
         raise HTTPException(400, f"Unknown topic: {req.key}")
     store.mark_uploaded(req.key, req.url, _now())
     return {"ok": True}
@@ -1342,8 +1385,9 @@ class UploadRunner:
                         store.batch_update(key, state="failed", stage="failed", error=msg)
                         self._stop(f"{key}: {msg}")
                         return
-                    # Billed only for an upload that actually happened.
-                    store.record_upload_units()
+                    # Billed only for an upload that actually happened, at what
+                    # it cost (a long-form video also sends its subtitles).
+                    store.record_upload_units(r.get("units") or store.UNITS_PER_UPLOAD)
                     store.batch_update(key, state="done", stage="done", pct=100,
                                        url=r["url"], warnings=r["warnings"])
             finally:
@@ -1391,7 +1435,7 @@ def _preflight() -> dict[str, Any]:
         if b["state"] == "done":
             continue
         try:
-            up.read_export(up.find_export(b["key"]))
+            up.read_item(b["key"])
         except Exception as exc:
             missing.append(f"{b['key']}: {exc}")
     checks.append({"name": "Export files", "ok": not missing,
@@ -1419,7 +1463,19 @@ def api_upload_batch() -> dict[str, Any]:
     topics = {t["key"]: t for t in load_topics()}
     exported = _exported_keys()
     items = []
+    from graph_bot import library
+
     for b in store.batch_load():
+        if library.is_long_form(b["key"]):
+            it = library.item(b["key"]) or {}
+            video = Path(it["video"]) if it.get("video") else None
+            series = it.get("series")
+            items.append({**b, "title": it.get("title", b["key"]), "kind": it.get("kind"),
+                          "series": series, "playlist": playlist_of(series)[0] if series else None,
+                          "bytes": video.stat().st_size if video and video.exists() else 0,
+                          "has_thumb": bool(it.get("thumbnail") and Path(it["thumbnail"]).exists()),
+                          "units": it.get("units")})
+            continue
         topic = topics.get(b["key"], {})
         series = topic_series(topic) if topic else None
         rel = exported.get(b["key"])
@@ -1427,9 +1483,9 @@ def api_upload_batch() -> dict[str, Any]:
         if rel:
             v = PROJECT_ROOT / rel / "video.mp4"
             size = v.stat().st_size if v.exists() else 0
-        items.append({**b, "title": topic.get("title", b["key"]), "series": series,
+        items.append({**b, "title": topic.get("title", b["key"]), "series": series, "kind": "short",
                       "playlist": playlist_of(series)[0] if series else None,
-                      "bytes": size,
+                      "bytes": size, "units": library.UNITS_SHORT,
                       "has_thumb": bool(rel and (PROJECT_ROOT / rel / "thumbnail.jpg").exists())})
     return {"batch": items, "quota": store.quota_status(), "run": runner.snapshot()}
 
@@ -1441,11 +1497,17 @@ def api_upload_preflight() -> dict[str, Any]:
 
 @app.post("/api/upload/batch/add")
 def api_batch_add(req: BatchReq) -> dict[str, Any]:
-    if req.key not in {t["key"] for t in load_topics()}:
+    from graph_bot import library
+
+    if library.is_long_form(req.key):
+        ok, why = library.ready(req.key)
+        if not ok:
+            raise HTTPException(400, f"Not ready to upload: {why}")
+    elif req.key not in {t["key"] for t in load_topics()}:
         raise HTTPException(400, f"Unknown topic: {req.key}")
     if req.key in load_log():
         raise HTTPException(400, f"'{req.key}' is already marked uploaded")
-    if not _exported_keys().get(req.key):
+    if not library.is_long_form(req.key) and not _exported_keys().get(req.key):
         raise HTTPException(400, f"'{req.key}' has no export folder")
     q = store.quota_status()
     staged = sum(1 for b in store.batch_load() if b["state"] in ("queued", "failed"))
@@ -1578,35 +1640,35 @@ def api_uploads() -> dict[str, Any]:
             "live": live.get(key),
         })
 
-    # Long-form episodes are logged as lf_<key>; they are not topics.
-    from graph_bot import longform
-    from graph_bot.longform.publish import log_key
+    # Long-form videos (lf_<key>) and the Shorts cut from them (lf_<key>__<chapter>)
+    # are not topics; the library describes them.
+    from graph_bot import library, longform
 
     for ep_key in longform.list_keys():
-        entry = log.get(log_key(ep_key))
-        if not entry:
-            continue
-        try:
-            s = longform.summary(ep_key)
-        except Exception:
-            continue
-        series = s.get("series") or "world_in_data"
-        rows.append({
-            "key": log_key(ep_key),
-            "title": s.get("yt_title") or s.get("title", ""),
-            "subtitle": "Long-form episode",
-            "series": series,
-            "playlist": playlist_of(series)[0],
-            "episode": None,
-            "uploaded_at": entry.get("uploaded_at"),
-            "url": entry.get("url"),
-            "duration_sec": (s.get("build") or {}).get("secs"),
-            "source": "World Bank",
-            "rendered_on": ((s.get("build") or {}).get("finished_at") or "")[:10] or None,
-            "exported": f"output/longform/{ep_key}",
-            "has_thumb": False,
-            "live": live.get(log_key(ep_key)),
-        })
+        video = library.item(library.video_key(ep_key))
+        entries = ([video] if video else []) + library.video_shorts(ep_key)
+        for it in entries:
+            entry = log.get(it["key"])
+            if not entry:
+                continue
+            rows.append({
+                "key": it["key"],
+                "kind": it["kind"],
+                "title": it["title"],
+                "subtitle": "Long-form video" if it["kind"] == "video"
+                            else f"Short from {video['name'] if video else ep_key}",
+                "series": it["series"],
+                "playlist": playlist_of(it["series"])[0],
+                "episode": None,
+                "uploaded_at": entry.get("uploaded_at"),
+                "url": entry.get("url"),
+                "duration_sec": it.get("duration_sec"),
+                "source": "World Bank",
+                "rendered_on": it.get("rendered_on"),
+                "exported": library.folder_rel(it["key"]),
+                "has_thumb": bool(it.get("thumbnail") and Path(it["thumbnail"]).exists()),
+                "live": live.get(it["key"]),
+            })
 
     rows.sort(key=lambda r: (r["uploaded_at"] or ""), reverse=True)
     return {
@@ -2858,9 +2920,15 @@ def api_video(key: str, request: Request) -> Response:
     Serves Range requests, because browsers will not scrub (or in some cases
     even start) an HTML5 video without them.
     """
-    rel = _exported_keys().get(key)
-    path = (PROJECT_ROOT / rel / "video.mp4") if rel else None
-    if path is None or not path.exists():
+    from graph_bot import library
+
+    if library.is_long_form(key):
+        it = library.item(key)
+        path = Path(it["video"]) if it and it.get("video") else None
+    else:
+        rel = _exported_keys().get(key)
+        path = (PROJECT_ROOT / rel / "video.mp4") if rel else None
+    if (path is None or not path.exists()) and not library.is_long_form(key):
         latest = _latest_renders().get(key)
         if latest:
             try:
@@ -2918,7 +2986,15 @@ app.include_router(longform_api.router)
 
 @app.get("/api/thumb/{key}")
 def api_thumb(key: str) -> FileResponse:
-    """The exported thumbnail.jpg for a topic, if one exists."""
+    """The exported thumbnail.jpg for a topic, or a long-form video's own one."""
+    from graph_bot import library
+
+    if library.is_long_form(key):
+        it = library.item(key)
+        thumb = it and it.get("thumbnail")
+        if thumb and Path(thumb).exists():
+            return FileResponse(thumb, media_type="image/jpeg", headers={"Cache-Control": "max-age=300"})
+        raise HTTPException(404, "No thumbnail")
     rel = _exported_keys().get(key)
     if rel:
         path = PROJECT_ROOT / rel / "thumbnail.jpg"

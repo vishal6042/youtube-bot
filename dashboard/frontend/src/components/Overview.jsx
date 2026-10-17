@@ -6,6 +6,7 @@ import {
 } from "../ui.jsx";
 import LiveRun from "./LiveRun.jsx";
 import LongformLive from "./LongformLive.jsx";
+import Transmission from "./upload/Transmission.jsx";
 
 const median = (xs) => {
   if (!xs.length) return null;
@@ -146,6 +147,12 @@ export default function Overview({
 
       <LiveRun job={job} queue={queue} lines={lines} onCancel={onCancel} onCancelQueued={onCancelQueued} titles={titles} />
       <LongformLive ep={lfLive} onOpen={() => setView("__longform")} compact />
+      {/* Whatever is live shows here: the Shorts queue (daily Shorts and Shorts
+          from videos), a video render, and an upload run. */}
+      {state.upload_run?.running && (
+        <Transmission run={state.upload_run}
+                      rows={(state.upload_batch || []).map((b) => ({ ...b, title: titles[b.key] || b.key }))} />
+      )}
 
       <section className="card" aria-label="Pipeline">
         <div className="card-head">

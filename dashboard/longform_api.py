@@ -125,50 +125,6 @@ class _Builder:
 builder = _Builder()
 
 
-class _Uploader:
-    """One episode upload at a time, in a thread (it is network-bound, unlike a
-    render). Progress lives here so the editor can poll it."""
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self.runs: dict[str, dict[str, Any]] = {}
-
-    def snapshot(self, key: str) -> dict[str, Any] | None:
-        with self._lock:
-            run = self.runs.get(key)
-            return dict(run) if run else None
-
-    def start(self, key: str) -> None:
-        from graph_bot.longform import publish
-
-        with self._lock:
-            if any(r["state"] == "running" for r in self.runs.values()):
-                raise HTTPException(409, "An episode is already uploading. Wait for it to finish.")
-            failed = [c for c in publish.checks(key) if not c["ok"]]
-            if failed:
-                raise HTTPException(400, "; ".join(f"{c['name']}: {c['detail']}" for c in failed))
-            self.runs[key] = {"state": "running", "pct": 0, "stage": "starting"}
-
-        def progress(pct: int, stage: str) -> None:
-            with self._lock:
-                self.runs[key].update(pct=pct, stage=stage)
-
-        def run() -> None:
-            try:
-                r = publish.upload_episode(key, on_progress=progress)
-                done = {"state": "done", "pct": 100, "stage": "done", "result": r}
-            except Exception as exc:
-                done = {"state": "failed", "stage": "failed",
-                        "error": str(exc).splitlines()[0] if str(exc) else type(exc).__name__}
-            with self._lock:
-                self.runs[key].update(done)
-
-        threading.Thread(target=run, daemon=True).start()
-
-
-uploader = _Uploader()
-
-
 def settle_job(r: dict[str, Any]) -> dict[str, Any]:
     """Close out a long-form job row whose render died without saying so.
 
@@ -248,25 +204,46 @@ def _summary(key: str) -> dict[str, Any]:
     s["playlist"] = playlist_of(s.get("series") or "world_in_data")[0]
     s["version"] = _version(key)
     s["upload"] = _upload_state(key)
+    s["shorts"] = _shorts_state(key)
     s.pop("_ranks", None)
     return s
 
 
-def _upload_state(key: str) -> dict[str, Any]:
-    from graph_bot import store
+def _publish_state(key: str) -> dict[str, Any]:
+    """Where a video or Short stands on its way to YouTube: uploaded (with links),
+    staged in the upload batch, or ready / not ready to be added to it. The one
+    batch on the Upload page sends long-form videos, their Shorts and the daily
+    Shorts alike."""
+    from graph_bot import library, store
     from graph_bot.analytics.importer import VIDEO_ID_RE
-    from graph_bot.longform import publish
 
-    entry = store.load_log().get(publish.log_key(key))
-    out: dict[str, Any] = {"run": uploader.snapshot(key), "uploaded": bool(entry)}
+    entry = store.load_log().get(key)
     if entry:
         url = entry.get("url")
         m = VIDEO_ID_RE.search(url or "")
-        out.update(url=url, uploaded_at=entry.get("uploaded_at"),
-                   studio=f"https://studio.youtube.com/video/{m.group(1)}/edit" if m else None)
-    else:
-        out["checks"] = publish.checks(key)
-        out["units"] = publish.QUOTA_UNITS
+        return {"uploaded": True, "url": url, "uploaded_at": entry.get("uploaded_at"),
+                "studio": f"https://studio.youtube.com/video/{m.group(1)}/edit" if m else None}
+    staged = next((b for b in store.batch_load() if b["key"] == key), None)
+    ok, why = library.ready(key)
+    return {"uploaded": False, "ready": ok, "reason": why,
+            "staged": {k: staged.get(k) for k in ("state", "pct", "stage", "error")} if staged else None}
+
+
+def _upload_state(key: str) -> dict[str, Any]:
+    from graph_bot import library
+
+    return {**_publish_state(library.video_key(key)), "units": library.UNITS_VIDEO}
+
+
+def _shorts_state(key: str) -> list[dict[str, Any]]:
+    """The video's Shorts for the editor: what each says, whether it is rendered
+    and current, and where it stands on the way to YouTube."""
+    from graph_bot import library
+
+    out = []
+    for it in library.video_shorts(key):
+        out.append({k: it.get(k) for k in ("key", "n", "chapter", "title", "name", "rendered", "current",
+                                           "duration_sec", "check")} | _publish_state(it["key"]))
     return out
 
 
@@ -328,7 +305,7 @@ class SaveReq(BaseModel):
 # Fields the editor may change. Everything else in the file is left as it is.
 _EDITABLE = ("title", "yt_title", "series", "voice", "voice_rate", "music_mood",
              "target_minutes", "reviewed")
-_CHAPTER_FIELDS = ("id", "heading", "chart", "narration", "check")
+_CHAPTER_FIELDS = ("id", "heading", "chart", "narration", "check", "short")
 
 
 @router.post("/{key}")
@@ -375,12 +352,36 @@ def api_build(key: str, req: BuildReq) -> dict[str, Any]:
     return {"ok": True}
 
 
+class StageReq(BaseModel):
+    key: str | None = None   # a Short of this video (lf_<key>__<chapter>); none = the video
+
+
 @router.post("/{key}/upload")
-def api_upload(key: str) -> dict[str, Any]:
-    """Upload the rendered episode to YouTube as Private (switch to Public in Studio)."""
+def api_upload(key: str, req: StageReq | None = None) -> dict[str, Any]:
+    """Add the video, or one of its Shorts, to the upload batch on the Upload page.
+
+    Nothing is sent from here: the batch sends long-form videos, their Shorts and
+    the daily Shorts the same way (Private, then Public in YouTube Studio)."""
+    from graph_bot import library, store
+
+    target = (req.key if req and req.key else library.video_key(key))
+    kind, ep, _ = library.parse(target)
+    if ep != key or kind == "short":
+        raise HTTPException(400, f"'{target}' is not this video or one of its Shorts")
     if builder.running() == key:
-        raise HTTPException(409, "The episode is rendering. Upload it once the render finishes.")
-    uploader.start(key)
+        raise HTTPException(409, "The video is rendering. Add it once the render finishes.")
+    ok, why = library.ready(target)
+    if not ok:
+        raise HTTPException(400, f"Not ready to upload: {why}")
+    if target in store.load_log():
+        raise HTTPException(400, "Already uploaded")
+    q = store.quota_status()
+    staged = sum(1 for b in store.batch_load() if b["state"] in ("queued", "failed"))
+    if staged >= q["slots_left"]:
+        raise HTTPException(400, f"Only {q['slots_left']} upload slot(s) left today. "
+                                 "The quota resets at midnight US Pacific.")
+    if not any(b["key"] == target for b in store.batch_load()):
+        store.batch_add(target)
     return _summary(key)
 
 

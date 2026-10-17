@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { Icon } from "../ui.jsx";
 
-/* Watch a rendered video without leaving the dashboard. Portrait 1080x1920
-   source, so the frame is sized tall-and-narrow to match. */
+/* Watch a rendered video without leaving the dashboard. Shorts are portrait
+   1080x1920, so the frame is tall-and-narrow; a long-form video is 16:9. */
 export default function VideoModal({ video, onClose, onOpenFolder }) {
   useEffect(() => {
     if (!video) return;
@@ -12,13 +12,16 @@ export default function VideoModal({ video, onClose, onOpenFolder }) {
   }, [video, onClose]);
 
   if (!video) return null;
+  // Long-form videos are landscape; every other video is a portrait Short.
+  const wide = video.kind === "video";
 
   return (
     <div
       className="modal-back"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal vid-modal" role="dialog" aria-modal="true" aria-label={video.title}>
+      <div className="modal vid-modal" role="dialog" aria-modal="true" aria-label={video.title}
+           style={wide ? { width: "min(960px, 94vw)", maxWidth: "none" } : undefined}>
         <div className="rowf" style={{ flexWrap: "nowrap", marginBottom: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <b>{video.title}</b>
@@ -38,7 +41,7 @@ export default function VideoModal({ video, onClose, onOpenFolder }) {
           autoPlay
           loop
           playsInline
-          style={{ aspectRatio: "9 / 16" }}
+          style={{ aspectRatio: wide ? "16 / 9" : "9 / 16", width: wide ? "100%" : undefined }}
         />
 
         {(video.url || (video.exported && onOpenFolder)) && (
