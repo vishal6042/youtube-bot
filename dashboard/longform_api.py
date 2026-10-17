@@ -151,6 +151,13 @@ def settle_job(r: dict[str, Any]) -> dict[str, Any]:
         age = time.time() - path.stat().st_mtime
     except OSError:
         age = 1e9
+    if shorts:
+        # Shorts rendered through the queue write the same state file, so its
+        # age says nothing about this run; the run's own heartbeat does.
+        try:
+            age = time.time() - time.mktime(time.strptime(st.get("updated_at", ""), "%Y-%m-%dT%H:%M:%S"))
+        except (TypeError, ValueError):
+            age = 1e9
     ours = not shorts and builder.key == key and builder.proc is not None
     alive = builder.running() == key if ours else age < 420
     if st.get("job_id") == r["id"] and st.get("status") == "running" and alive:
