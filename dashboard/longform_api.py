@@ -238,7 +238,15 @@ def _publish_state(key: str) -> dict[str, Any]:
     if entry:
         url = entry.get("url")
         m = VIDEO_ID_RE.search(url or "")
-        return {"uploaded": True, "url": url, "uploaded_at": entry.get("uploaded_at"),
+        # YouTube's own visibility, from the last stats sync ("public", "private",
+        # or None before the first sync after the upload).
+        privacy = None
+        if m:
+            try:
+                privacy = (store.latest_video_stats().get(m.group(1)) or {}).get("privacy_status")
+            except Exception:
+                pass
+        return {"uploaded": True, "url": url, "uploaded_at": entry.get("uploaded_at"), "privacy": privacy,
                 "studio": f"https://studio.youtube.com/video/{m.group(1)}/edit" if m else None}
     staged = next((b for b in store.batch_load() if b["key"] == key), None)
     ok, why = library.ready(key)

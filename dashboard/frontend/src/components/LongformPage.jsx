@@ -52,7 +52,8 @@ function Steps({ ep }) {
       : joining ? "joining and mixing" : ep.has_video ? "out of date" : "not yet", assembled ? 1 : joining ? 0.5 : 0],
     // The API can only upload Private; going Public is a click in Studio.
     ["Published", !!ep.upload?.uploaded,
-      ep.upload?.uploaded ? "uploaded, Private until you switch it"
+      ep.upload?.uploaded ? (ep.upload.privacy === "public" ? "public on YouTube"
+        : ep.upload.privacy === "unlisted" ? "unlisted on YouTube" : "uploaded, Private until you switch it")
         : ep.upload?.run?.state === "running" ? "uploading" : "not yet",
       ep.upload?.uploaded ? 1 : (ep.upload?.run?.pct || 0) / 100],
   ];
