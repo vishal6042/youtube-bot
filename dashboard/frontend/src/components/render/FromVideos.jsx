@@ -6,9 +6,9 @@ import { Bar, Btn, Chip, Icon, Pager, PlaylistChip, Seg, fmtDuration, usePaged }
    through the same queue as the daily Shorts (same live card, steps, history
    and retry); this card only says which ones need rendering and starts them.
 
-   It grows with every video, so each video folds to one summary line, opens
-   by default only when it has Shorts to render, and both the videos and the
-   Shorts inside one are paged. */
+   It grows with every video, so each video folds to one summary line and
+   opens by default only when it has Shorts to render; an open video lists all
+   its Shorts, and the videos themselves are paged. */
 
 const OPEN_KEY = "dim.fromVideos.open";
 
@@ -32,7 +32,6 @@ function VideoBlock({ ep, queuedKeys, open, onToggle, onRender }) {
   const rendered = shorts.filter((s) => s.rendered && s.current).length;
   const uploaded = shorts.filter((s) => s.uploaded).length;
   const queued = shorts.filter((s) => queuedKeys.has(s.key)).length;
-  const page = usePaged(shorts, 6, ep.key);
   const bodyId = `fv-${ep.key}`;
 
   return (
@@ -61,7 +60,7 @@ function VideoBlock({ ep, queuedKeys, open, onToggle, onRender }) {
       {open && (
         <div id={bodyId}>
           <ol className="plain-list fv-rows">
-            {page.slice.map((s) => {
+            {shorts.map((s) => {
               const isQueued = queuedKeys.has(s.key);
               const [label, tone] = stateOf(s, isQueued);
               return (
@@ -76,7 +75,6 @@ function VideoBlock({ ep, queuedKeys, open, onToggle, onRender }) {
               );
             })}
           </ol>
-          {shorts.length > 6 && <Pager p={page} noun="Shorts" sizes={null} style={{ padding: "8px 4px 0" }} />}
         </div>
       )}
     </div>
@@ -98,7 +96,7 @@ export default function FromVideos({ job, queue, onRender }) {
   const needWork = withShorts.filter((e) => (e.shorts || []).some(needsRender));
   const view = filter || (needWork.length ? "todo" : "all");
   const shown = view === "todo" ? needWork : withShorts;
-  const page = usePaged(shown, 3, view);
+  const page = usePaged(shown, 5, view);
   if (!withShorts.length) return null;
   const queuedKeys = new Set([...(job ? job.keys || [] : []), ...(queue || []).flatMap((j) => j.keys || [])]);
 
@@ -132,7 +130,7 @@ export default function FromVideos({ job, queue, onRender }) {
         <VideoBlock key={ep.key} ep={ep} queuedKeys={queuedKeys} open={isOpen(ep)}
                     onToggle={() => toggle(ep)} onRender={onRender} />
       ))}
-      {shown.length > 3 && <Pager p={page} noun="videos" sizes={null} />}
+      {shown.length > 5 && <Pager p={page} noun="videos" sizes={[5, 10, 25]} />}
     </section>
   );
 }
