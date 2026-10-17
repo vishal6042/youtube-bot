@@ -293,6 +293,28 @@ chapters:
   short:
     skip: true
 shorts_outro: The full story of how China became the world's factory is on the channel.
+thumbnail:
+  kicker: HOW CHINA BECAME
+  headline:
+  - THE WORLD'S
+  - FACTORY
+  accent: '#ffcc33'
+  stat: 27th → 1st
+  stat_label: biggest exporter of goods, 1980 → 2009
+  chart:
+    code: NV.IND.MANF.CD
+    entities:
+    - China
+    - United States
+    labels:
+      China: CHINA
+      United States: USA
+    hero: China
+    year_min: 2004
+    year_max: 2021
+    mark:
+      year: 2010
+      text: '2010'
 hashtags:
 - China
 - Manufacturing

@@ -354,10 +354,16 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
 
         _write_text_assets(ep, built, out)
         try:
-            from .. import thumbnail
+            if ep.get("thumbnail"):
+                # The script says what its thumbnail shows (see thumbnail_hero.py).
+                from .thumbnail_hero import build_hero
 
-            thumbnail.build_wide({"key": key, "title": ep["title"], "series": ep.get("series"),
-                                  "source": "World Bank"}, video, out / "thumbnail.jpg", settings)
+                build_hero(ep, out / "thumbnail.jpg", settings)
+            else:
+                from .. import thumbnail
+
+                thumbnail.build_wide({"key": key, "title": ep["title"], "series": ep.get("series"),
+                                      "source": "World Bank"}, video, out / "thumbnail.jpg", settings)
         except Exception as exc:  # a missing thumbnail must not fail a finished render
             say(f"  thumbnail skipped: {exc}")
 

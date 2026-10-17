@@ -127,9 +127,11 @@ function EpisodeList({ data, onOpen, onCreate, onWatch }) {
             <div className="split" style={{ alignItems: "center" }}>
               <div style={{ flex: "0 1 300px", minWidth: 220 }}>
                 {ep.has_video ? (
-                  <button type="button" className="lf-wide" onClick={() => onWatch(ep)}
+                  <button type="button" className="lf-wide lf-thumb" onClick={() => onWatch(ep)}
                           aria-label={`Watch ${ep.title}`}>
-                    <Icon name="play" size={34} />
+                    <img src={`/api/longform/${ep.key}/thumbnail?t=${ep.build?.finished_at || ""}`} alt=""
+                         loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                    <span className="lf-play" aria-hidden="true"><Icon name="play" size={28} /></span>
                   </button>
                 ) : ep.build?.live ? (
                   <div className="lf-wide lf-wide-live">

@@ -86,3 +86,11 @@ button.lf-wide:hover { border-color: var(--go); transform: translateY(-2px); col
 .rd-mini i.d { background: var(--go); }
 .rd-foot { border-top: 1px solid var(--line); padding-top: 14px; gap: 10px 22px; font-size: 13.5px; }
 @media (max-width: 900px) { .rd-row { grid-template-columns: 26px 1fr 56px; } .rd-row > .rd-stages, .rd-row > .rd-mini { grid-column: 2 / -1; grid-row: 2; } .rd-cols { display: none; } .rd-figs { gap: 16px; } }
+
+/* Episode card: the video's thumbnail, with a play button over it. */
+.lf-thumb { position: relative; overflow: hidden; padding: 0; }
+.lf-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: none; }
+.lf-play { position: relative; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(11, 14, 20, .62); border: 1px solid rgba(255, 255, 255, .28); color: #fff;
+  backdrop-filter: blur(4px); transition: transform .2s var(--ease), background .2s var(--ease); }
+button.lf-thumb:hover .lf-play { transform: scale(1.08); background: rgba(11, 14, 20, .78); }
