@@ -52,7 +52,7 @@ CAPTION_BAND = 0.36
 CAPTION_MARGIN_V = 430      # px from the bottom edge to the caption baseline
 CAPTION_SIZE = 68
 MAX_WORDS, MAX_CHARS = 4, 24
-FMT = 2                     # bump to re-render every Short after a style change
+FMT = 3                     # bump to re-render every Short after a style change
 
 _PUNCT_BREAK = re.compile(r"[.,;:?!]$")
 

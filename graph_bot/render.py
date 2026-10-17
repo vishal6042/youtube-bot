@@ -114,7 +114,10 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     if hero in entities:
         colors = {e: (HIGHLIGHT if e == hero else DIMMED) for e in entities}
     wide_fmt = _wide(settings)
-    fs = 18 if wide_fmt else 14
+    # Portrait text is read on a phone at about a third of its pixel size;
+    # 23 pt lands near 12 pt on screen, the smallest that reads comfortably.
+    fs = 18 if wide_fmt else 23
+    name = (lambda e: e) if wide_fmt else (lambda e: SHORT_NAMES.get(e, e))
 
     # Rank of every entity in every year (0 = bottom bar). Bars are drawn at an
     # interpolated rank rather than at the current sort order, so an overtake
@@ -156,7 +159,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     if wide_fmt:
         fig.subplots_adjust(left=0.20 if flag_imgs else 0.17, right=0.93, top=0.80, bottom=0.10)
     else:
-        fig.subplots_adjust(left=0.38 if flag_imgs else 0.32, right=0.90, top=_top(settings, 0.85),
+        fig.subplots_adjust(left=0.40 if flag_imgs else 0.33, right=0.92, top=_top(settings, 0.85),
                             bottom=_bottom(settings, 0.09))
     _add_gradient_bg(fig)
     n_frames = len(frames)
@@ -171,7 +174,7 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
         positions = np.array([pos[e] for e in order])
         values = np.array([float(vals[e]) for e in order])
         vmax = float(values.max()) or 1.0
-        xlim = vmax * 1.20
+        xlim = vmax * (1.20 if wide_fmt else 1.30)
 
         rank_from_top = {ent: len(order) - 1 - i for i, ent in enumerate(order)}
         bar_colors = [colors[e] for e in order]
@@ -185,10 +188,10 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
                     color=FG, fontsize=fs, fontweight="bold", zorder=4)
 
         ax.set_yticks(positions)
-        ax.set_yticklabels(order, color=FG, fontsize=fs)
+        ax.set_yticklabels([name(e) for e in order], color=FG, fontsize=fs)
         if hero in entities:
             for lbl in ax.get_yticklabels():
-                if lbl.get_text() == hero:
+                if lbl.get_text() == name(hero):
                     lbl.set_color(HIGHLIGHT)
                     lbl.set_fontweight("bold")
 
@@ -284,7 +287,7 @@ def _render_line(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[
         else:
             ax.set_ylim(0, ymax * 1.15)
         ax.grid(True, color=GRID, alpha=0.35)
-        ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
+        ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 21)
         # Portrait used to leave scaled values to matplotlib, which prints
         # "1e11" in the corner and bare 0-4 on the axis.
         if (wide_fmt or topic.get("value_scale")) and not topic.get("log_scale"):
@@ -346,7 +349,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
         # end-of-line labels is made inside the axes (see set_xlim below).
         fig.subplots_adjust(left=0.08, right=0.95, top=0.80, bottom=0.12)
     else:
-        fig.subplots_adjust(left=0.16, right=0.76, top=_top(settings, 0.82), bottom=_bottom(settings, 0.11))
+        fig.subplots_adjust(left=0.17, right=0.68, top=_top(settings, 0.82), bottom=_bottom(settings, 0.11))
     _add_gradient_bg(fig)
     n_frames = len(frames)
 
@@ -391,7 +394,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
                  for n in ordered}
         # A long name ("United Kingdom  4.00T") ran off the frame's right edge.
         longest = max(len(t) for t in texts.values())
-        label_fs = (24 if wide_fmt else 17) * min(1.0, (17 if wide_fmt else 14) / longest)
+        label_fs = 24 * min(1.0, (17 if wide_fmt else 14) / longest)
         for n in ordered:
             col = line_colors[n]
             ax.text(lx, label_y[n], texts[n],
@@ -419,7 +422,7 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
             _hgrid_to(ax, lo, hi, alpha=0.35)
         else:
             ax.grid(True, color=GRID, alpha=0.35)
-        ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 13)
+        ax.tick_params(colors=MUTED, labelsize=17 if wide_fmt else 21)
         # Portrait used to leave scaled values to matplotlib, which prints
         # "1e11" in the corner and bare 0-4 on the axis.
         if (wide_fmt or topic.get("value_scale")) and not topic.get("log_scale"):
@@ -513,8 +516,9 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
         ax.set_ylim(rank_max + 0.6, 0.4)  # rank 1 at the top
         ax.set_yticks(range(1, rank_max + 1))
         ax.set_yticklabels([f"#{r}" for r in range(1, rank_max + 1)], color=MUTED,
-                           fontsize=14 if rank_max > 14 else 18)
-        ax.tick_params(axis="x", colors=MUTED, labelsize=16)
+                           fontsize=(14 if rank_max > 14 else 18) if wide_fmt
+                           else (19 if rank_max > 14 else 22))
+        ax.tick_params(axis="x", colors=MUTED, labelsize=16 if wide_fmt else 21)
         for side in ("top", "right", "left", "bottom"):
             ax.spines[side].set_visible(False)
         if label_room:
@@ -553,9 +557,9 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
                     OffsetImage(img, zoom=0.40), (x, label_at[e]), frameon=False,
                     box_alignment=(0.5, 0.5), zorder=6, clip_on=False))
             # Clear of the flag, which is centred on the head.
-            ax.annotate(f"     {e}", (x, label_at[e]),
+            ax.annotate(f"     {e if wide_fmt else SHORT_NAMES.get(e, e)}", (x, label_at[e]),
                         color=HIGHLIGHT if is_hero else colors[e],
-                        fontsize=24 if is_hero else 20,
+                        fontsize=(24 if is_hero else 20) if wide_fmt else (28 if is_hero else 25),
                         fontweight="bold", va="center", ha="left",
                         annotation_clip=False, zorder=6)
 
@@ -791,7 +795,7 @@ def _title_block(fig, topic: dict[str, Any], settings: dict[str, Any]) -> None:
     # Accent underline under the title.
     fig.add_artist(plt.Line2D([0.38, 0.62], [0.918, 0.918], color=ACCENT, linewidth=3))
     if topic.get("subtitle"):
-        fig.text(0.5, 0.905, topic["subtitle"], ha="center", va="top", color=MUTED, fontsize=18)
+        fig.text(0.5, 0.905, topic["subtitle"], ha="center", va="top", color=MUTED, fontsize=22)
     credit = f"Source: {topic.get('source', 'unknown')}"
     fig.text(0.5, 0.028, credit, ha="center", va="bottom", color=MUTED, fontsize=13)
     footer = settings.get("branding", {}).get("footer")
