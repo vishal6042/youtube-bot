@@ -306,7 +306,9 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
         positions = np.array([pos[e] for e in order])
         values = np.array([float(vals[e]) for e in order])
         vmax = float(values.max()) or 1.0
-        xlim = vmax * (1.20 if wide_fmt else 1.30)
+        # Room right of the longest bar for its value label; at portrait sizes
+        # a value with a unit ("21,492 TWh") needs more than a bare number.
+        xlim = vmax * (1.20 if wide_fmt else 1 + max(0.30, 0.046 * len(_fmt(vmax, topic))))
 
         rank_from_top = {ent: len(order) - 1 - i for i, ent in enumerate(order)}
         bar_colors = [colors[e] for e in order]
