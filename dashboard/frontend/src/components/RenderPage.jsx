@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
 import {
-  Banner, Btn, Chip, Empty, MODE_LABEL, PageHeader, PlaylistChip, Select, SkeletonRows, Thumb,
-  fmtDuration,
+  Banner, Btn, Chip, Empty, MODE_LABEL, PageHeader, Pager, PlaylistChip, Search, Select,
+  SkeletonRows, fmtDuration, usePaged,
 } from "../ui.jsx";
 import LiveRun from "./LiveRun.jsx";
 import FromVideos from "./render/FromVideos.jsx";
@@ -20,8 +20,6 @@ const MODES = [
     empty: "No published videos match these options." },
 ];
 
-const COUNTS = [1, 2, 3, 5, 7, 10];
-
 function fmtMins(secs) {
   if (!secs) return "";
   const m = Math.round(secs / 60);
@@ -30,14 +28,19 @@ function fmtMins(secs) {
 
 function daysAgo(iso) {
   if (!iso) return null;
-  const d = Math.round((Date.now() - new Date(iso + "T00:00:00").getTime()) / 86400000);
+  // Whole calendar days between that date and today (both at local midnight),
+  // so something made this evening is "today", not "yesterday".
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = Math.round((today.getTime() - new Date(iso + "T00:00:00").getTime()) / 86400000);
   return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`;
 }
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-function PlanRow({ t, n, onRemove, onRevert }) {
+function PlanRow({ t, checked, onToggle, onRevert }) {
   const last = t.last_rendered ? `${daysAgo(t.last_rendered)}` : "Never";
+  const madeToday = daysAgo(t.last_rendered) === "today";
   const more = [
     t.episode != null && `Episode ${t.episode}`,
     t.mood && `${t.mood} music`,
@@ -45,8 +48,13 @@ function PlanRow({ t, n, onRemove, onRevert }) {
   ].filter(Boolean).join("\n");
 
   return (
-    <tr title={more}>
-      <td className="num faint">{n}</td>
+    <tr title={more} onClick={t.already_queued ? undefined : onToggle}
+        style={{ cursor: t.already_queued ? "default" : "pointer" }}
+        aria-selected={checked}>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input className="check" type="checkbox" checked={checked} disabled={t.already_queued}
+               aria-label={`Render ${t.title || t.key}`} onChange={onToggle} />
+      </td>
       <td>
         <div className="t">{t.title || t.key}</div>
         <div className="k">{t.key}</div>
@@ -72,18 +80,15 @@ function PlanRow({ t, n, onRemove, onRevert }) {
           : t.staged_new ? <Chip tone="go">New</Chip> : null}
       </td>
       <td className="muted">
-        {last}{t.duration_sec != null ? ` · ${fmtDuration(t.duration_sec)}` : ""}
+        {madeToday ? <Chip tone="go" title="Rendered today">Made today</Chip> : last}
+        {t.duration_sec != null ? ` · ${fmtDuration(t.duration_sec)}` : ""}
       </td>
-      <td>
-        <div className="rowf" style={{ gap: 0, flexWrap: "nowrap", justifyContent: "flex-end" }}>
-          {t.staged_new && !t.already_queued && (
-            <Btn kind="ghost" size="sm" icon="trash"
-                 iconOnly={`Delete ${t.title || t.key} from the topic list (never rendered)`}
-                 onClick={onRevert} />
-          )}
-          <Btn kind="ghost" size="sm" icon="close"
-               iconOnly={`Remove ${t.title || t.key} from this plan`} onClick={onRemove} />
-        </div>
+      <td onClick={(e) => e.stopPropagation()}>
+        {t.staged_new && !t.already_queued && (
+          <Btn kind="ghost" size="sm" icon="trash"
+               iconOnly={`Delete ${t.title || t.key} from the topic list (never rendered)`}
+               onClick={onRevert} />
+        )}
       </td>
     </tr>
   );
@@ -93,22 +98,23 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
                                      onCancel, onCancelQueued, confirm, busy, pipelineVersion,
                                      videoTitles = {} }) {
   const [mode, setMode] = useState("new");
-  const [count, setCount] = useState(3);
   const [pickedSeries, setPickedSeries] = useState("");
+  const [q, setQ] = useState("");
   const [refresh, setRefresh] = useState(false);
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [autoPicked, setAutoPicked] = useState(false);
-  const [removed, setRemoved] = useState(() => new Set());
+  // Ticked videos, by key. Kept across search and playlist filters, so you can
+  // pick from several playlists and render them together.
+  const [selected, setSelected] = useState(() => new Set());
   const reqRef = useRef(0);
 
   const loadPlan = useCallback(async () => {
     const req = ++reqRef.current;
     setLoading(true);
     try {
-      const q = new URLSearchParams({ batch: String(count), mode });
-      if (pickedSeries) q.set("series", pickedSeries);
-      const p = await api(`/api/plan?${q}`);
+      // Every matching video; searching, filtering and ticking happen in the page.
+      const p = await api(`/api/plan?${new URLSearchParams({ batch: "1000", mode })}`);
       if (req !== reqRef.current) return;   // a newer request superseded this one
       // First load only: if there is no new work, fall back to the next most
       // useful strategy rather than opening on an empty plan.
@@ -126,11 +132,11 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
     // pipelineVersion changes whenever a job starts or finishes, so a finished
     // render drops out of the plan instead of lingering.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, mode, pickedSeries, autoPicked, pipelineVersion]);
+  }, [mode, autoPicked, pipelineVersion]);
 
   useEffect(() => { loadPlan(); }, [loadPlan]);
-  // A different question gets a fresh plan; hand-removed rows do not carry over.
-  useEffect(() => { setRemoved(new Set()); }, [count, mode, pickedSeries]);
+  // A different kind of work is a different list; ticks do not carry over.
+  useEffect(() => { setSelected(new Set()); }, [mode]);
 
   const titles = useMemo(() => {
     const map = {};
@@ -139,13 +145,33 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
     return { ...videoTitles, ...map };
   }, [series, plan, videoTitles]);
 
-  const topics = (plan?.topics || []).filter((t) => !removed.has(t.key));
+  const all = plan?.topics || [];
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return all.filter((t) => (!pickedSeries || t.series === pickedSeries)
+      && (!needle || `${t.title} ${t.key}`.toLowerCase().includes(needle)));
+  }, [all, pickedSeries, q]);
+  const paged = usePaged(shown, 10, `${mode}|${pickedSeries}|${q}`);
+  // What will run: the ticked videos, in list order (never rendered first, then oldest).
+  const topics = all.filter((t) => selected.has(t.key) && !t.already_queued);
   const firstLoad = loading && !plan;
-  const nothing = !firstLoad && topics.length === 0;
+  const nothing = topics.length === 0;
   const runway = plan?.ready_count;
-  const available = plan?.available ?? 0;
+  const available = all.length;
   const active = MODES.find((m) => m.id === mode);
   const secsTotal = plan?.secs_each ? plan.secs_each * topics.length : 0;
+  const pickable = shown.filter((t) => !t.already_queued);
+  const allShownPicked = pickable.length > 0 && pickable.every((t) => selected.has(t.key));
+  const toggle = (key) => setSelected((s) => {
+    const n = new Set(s);
+    if (n.has(key)) n.delete(key); else n.add(key);
+    return n;
+  });
+  const toggleShown = () => setSelected((s) => {
+    const n = new Set(s);
+    for (const t of pickable) { if (allShownPicked) n.delete(t.key); else n.add(t.key); }
+    return n;
+  });
 
   // Only never-rendered topics add to what is ready to post; re-rendering an
   // existing video replaces a local file and adds nothing new.
@@ -175,14 +201,14 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
       refresh,
       label: active.label.toLowerCase(),
     });
-    setRemoved(new Set());
+    setSelected(new Set());
     loadPlan();
   };
 
   const playlistOptions = [
     { value: "", label: "All playlists" },
     ...series.map((s) => {
-      const n = plan?.available_by_playlist?.[s.playlist];
+      const n = all.filter((t) => t.series === s.series).length;
       return { value: s.series, label: s.playlist + (n ? ` (${n})` : "") };
     }),
   ];
@@ -216,32 +242,18 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
             </div>
           </section>
 
-          <section className="card" aria-label="Step 2: how many and from where">
+          <section className="card" aria-label="Step 2: pick videos" aria-busy={loading}>
             <div className="card-head" style={{ flexWrap: "wrap" }}>
               <Chip plain tone="go" className="num">2</Chip>
-              <h2>How many, and from which playlist?</h2>
+              <h2>Pick the videos to render</h2>
               {plan && (
                 <span className="muted" style={{ fontSize: 13 }}>
-                  {plural(available, "topic")} {available === 1 ? "matches" : "match"}
-                  {pickedSeries ? " in this playlist" : ""}
+                  {topics.length} of {plural(available, "video")} ticked
                 </span>
               )}
             </div>
-            <div className="rowf" style={{ gap: 18, alignItems: "flex-end" }}>
-              <div className="field">
-                <span id="render-count">How many</span>
-                <div className="seg" role="group" aria-labelledby="render-count">
-                  {COUNTS.map((n) => (
-                    <button key={n} type="button" className={count === n ? "on" : ""}
-                            aria-pressed={count === n}
-                            disabled={n > available && available > 0}
-                            style={n > available && available > 0 ? { opacity: .4, cursor: "not-allowed" } : undefined}
-                            onClick={() => setCount(n)}>
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="rowf" style={{ gap: 14, alignItems: "flex-end", marginBottom: 12 }}>
+              <Search value={q} onChange={setQ} placeholder="Search title or key" label="Search videos" />
               <label className="field">
                 Playlist
                 <Select value={pickedSeries} onChange={setPickedSeries} options={playlistOptions} />
@@ -255,56 +267,48 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
                 </span>
               </label>
             </div>
-          </section>
-
-          <section className="card" aria-label="Step 3: the plan" aria-busy={loading}>
-            <div className="card-head" style={{ flexWrap: "wrap" }}>
-              <Chip plain tone="go" className="num">3</Chip>
-              <h2>The plan</h2>
-              <span className="muted" style={{ fontSize: 13 }}>
-                exactly what will run, in this order · remove any you don't want
-              </span>
-            </div>
             {firstLoad && <SkeletonRows rows={3} />}
-            {nothing && (
-              <Empty icon="play" title="Nothing to render">
-                {removed.size > 0 && plan?.topics?.length
-                  ? "You removed every topic from this plan."
-                  : plan ? active.empty : "The plan could not be loaded."}
+            {!firstLoad && shown.length === 0 && (
+              <Empty icon="play" title="Nothing here">
+                {all.length ? "No videos match this search or playlist." : active.empty}
               </Empty>
             )}
-            {nothing && removed.size > 0 && (
-              <div style={{ textAlign: "center" }}>
-                <Btn size="sm" icon="undo" onClick={() => setRemoved(new Set())}>Put them back</Btn>
-              </div>
+            {shown.length > 0 && (
+              <>
+                <div className="scroll">
+                  <table className="tbl">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 36 }}>
+                          <input className="check" type="checkbox" checked={allShownPicked}
+                                 disabled={!pickable.length} onChange={toggleShown}
+                                 aria-label="Tick every video in this list" />
+                        </th>
+                        <th>Video</th><th>Playlist</th><th>Chart</th>
+                        <th>Status</th><th>Last made</th>
+                        <th style={{ width: 48 }}><span className="sr">Actions</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paged.slice.map((t) => (
+                        <PlanRow key={t.key} t={t} checked={selected.has(t.key)}
+                                 onToggle={() => toggle(t.key)}
+                                 onRevert={async () => { await onRevertTopic(t.key, t.title); loadPlan(); }} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="rowf" style={{ justifyContent: "space-between", marginTop: 10 }}>
+                  <Pager p={paged} noun="videos" />
+                  {selected.size > 0 && (
+                    <button type="button" className="link" style={{ fontSize: 13 }}
+                            onClick={() => setSelected(new Set())}>
+                      Clear {plural(topics.length, "tick")}
+                    </button>
+                  )}
+                </div>
+              </>
             )}
-            {topics.length > 0 && (
-              <div className="scroll">
-                <table className="tbl">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 36 }}>#</th><th>Video</th><th>Playlist</th><th>Chart</th>
-                      <th>Status</th><th>Last made</th>
-                      <th style={{ width: 90 }}><span className="sr">Actions</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topics.map((t, i) => (
-                      <PlanRow key={t.key} t={t} n={i + 1}
-                               onRemove={() => setRemoved((s) => new Set(s).add(t.key))}
-                               onRevert={async () => { await onRevertTopic(t.key, t.title); loadPlan(); }} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {!nothing && removed.size > 0 && (
-              <button type="button" className="link" style={{ fontSize: 13, marginTop: 10 }}
-                      onClick={() => setRemoved(new Set())}>
-                Put back {plural(removed.size, "removed topic")}
-              </button>
-            )}
-
           </section>
         </div>
 
@@ -314,7 +318,7 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
             <div className="cols" style={{ gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div className="stat">
                 <div className="lbl">Videos</div>
-                <div className="val" style={{ fontSize: 24 }}>{firstLoad ? "" : topics.length}</div>
+                <div className="val" style={{ fontSize: 24 }}>{topics.length}</div>
               </div>
               {secsTotal > 0 && (
                 <div className="stat">
@@ -326,8 +330,8 @@ export default function RenderPage({ series = [], job, queue = [], lines, onRend
             </div>
 
             <Btn kind="primary" icon={nothing ? undefined : "play"} style={{ width: "100%", marginTop: 16 }}
-                 disabled={nothing || firstLoad || busy} onClick={start}>
-              {nothing || firstLoad ? "Nothing to render" : `Start ${plural(topics.length, "render")}`}
+                 disabled={nothing || busy} onClick={start}>
+              {nothing ? "Tick videos to render" : `Start ${plural(topics.length, "render")}`}
             </Btn>
             <p className="faint" style={{ fontSize: 12.5, marginTop: 10 }}>
               {busy
