@@ -1340,6 +1340,8 @@ topics:
     mood: "majestic"
     year_min: 1985
     year_max: 2024
+    # China's share of the summed country totals for 2024 was 51.6%.
+    end_note: "China now digs more than\nhalf of the world's coal"
     hashtags: ["coal", "energy", "worldstats"]
 
   # added via dashboard 2026-10-08
@@ -1395,12 +1397,12 @@ topics:
     mode: "bar_race"
     series: "world_in_data"
     source: "Our World in Data / IEA"
-    unit_suffix: "M"
-    value_scale: 1000000
-    value_decimals: 2
+    value_fmt: "compact"
     top_n: 10
     mood: "hopeful"
-    year_min: 2012
+    year_min: 2015
+    # China's share of the summed country totals for 2025 was 63.9%.
+    end_note: "China bought about 6 in 10 of\nthe world's electric cars in 2025"
     hashtags: ["electriccars", "ev", "worldstats"]
 
   # added via dashboard 2026-10-08

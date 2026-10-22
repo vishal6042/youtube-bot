@@ -258,29 +258,33 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     fs = 18 if wide_fmt else 23
     name = (lambda e: e) if wide_fmt else (lambda e: SHORT_NAMES.get(e, e))
 
-    # Rank of every entity in every year (0 = bottom bar). Bars are drawn at an
-    # interpolated rank rather than at the current sort order, so an overtake
-    # glides the two bars past each other instead of swapping them between
-    # frames — the snap that made the motion look sudden.
-    rank_by_year = [
-        {ent: r for r, ent in enumerate(wide.iloc[i].sort_values(ascending=True).index)}
-        for i in range(len(years))
-    ]
+    # Values move linearly between years. A bar's place is re-ranked every
+    # frame from those values, so an overtake happens the moment one bar
+    # passes another, and the drawn position slides to the new place over
+    # about a third of a second. (Easing every rank change across a whole
+    # year left several bars half-way through a swap, piled on each other,
+    # for most of the video.)
+    def ranks(v: pd.Series) -> dict[str, int]:
+        ordered = sorted(entities, key=lambda e: (float(v[e]) if pd.notna(v[e]) else -1.0, e))
+        return {e: r for r, e in enumerate(ordered)}
 
-    # Build interpolated frames between successive years, plus an end hold.
-    frames: list[tuple[float, pd.Series, dict[str, float]]] = []
+    end_note = topic.get("end_note")
+    hold = fps * (3 if end_note else 1)
+    timeline: list[tuple[float, pd.Series]] = []
     for i in range(len(years) - 1):
         v0, v1 = wide.iloc[i], wide.iloc[i + 1]
-        r0, r1 = rank_by_year[i], rank_by_year[i + 1]
         for s in range(steps):
             f = s / steps
-            # Values move linearly (steady growth); ranks are eased, because a
-            # rank change is a discrete event and easing is what sells the slide.
-            fe = _ease(f)
-            pos = {e: r0[e] + (r1[e] - r0[e]) * fe for e in entities}
-            frames.append((years[i] + (years[i + 1] - years[i]) * f, v0 + (v1 - v0) * f, pos))
-    final_pos = {e: float(r) for e, r in rank_by_year[-1].items()}
-    frames.extend([(years[-1], wide.iloc[-1], final_pos)] * fps)  # 1s hold
+            timeline.append((years[i] + (years[i + 1] - years[i]) * f, v0 + (v1 - v0) * f))
+    timeline.extend([(years[-1], wide.iloc[-1])] * hold)
+
+    frames: list[tuple[float, pd.Series, dict[str, float]]] = []
+    pos = {e: float(r) for e, r in ranks(timeline[0][1]).items()}
+    slide = 0.35  # share of the remaining distance covered each frame (~0.2s slide)
+    for yr, vals in timeline:
+        target = ranks(vals)
+        pos = {e: pos[e] + (target[e] - pos[e]) * slide for e in entities}
+        frames.append((yr, vals, pos))
 
     # Country flags (skipped for org/company topics via `flags: false`).
     flag_imgs: dict[str, Any] = {}
@@ -361,9 +365,33 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
             ax.tick_params(axis="y", pad=54)
 
         # Big year, bottom-right (landscape: in the header).
-        _year_mark(fig, ax, int(round(yr)), settings, 0.98, 70, zorder=2)
+        # The closing takeaway: the final standings show for a second, then a
+        # full-width band fades in over the short bars at the bottom.
+        note_from = n_frames - hold + fps
+        in_note = note is not None and idx >= note_from
+        if not in_note:
+            _year_mark(fig, ax, int(round(yr)), settings, 0.98, 70, zorder=2)
         _progress_bar(ax, idx / max(1, n_frames - 1))
+        if note is not None:
+            a = min(1.0, (idx - note_from + 1) / 10) if in_note else 0.0
+            note.set_alpha(a)
+            band.set_alpha(0.94 * a)
+            for rule in rules:
+                rule.set_alpha(a)
 
+    note = None
+    if end_note:
+        box = ax.get_position()
+        cy, half = box.y0 + 0.12, 0.062
+        band = Rectangle((0, cy - half), 1, 2 * half, transform=fig.transFigure,
+                         facecolor=BG_TOP, edgecolor="none", zorder=9, alpha=0.0)
+        fig.add_artist(band)
+        rules = [fig.add_artist(plt.Line2D([0, 1], [y, y], color=ACCENT, linewidth=2,
+                                           zorder=10, alpha=0.0))
+                 for y in (cy - half, cy + half)]
+        note = fig.text(0.5, cy, end_note, ha="center", va="center", color=FG,
+                        fontsize=30 if not wide_fmt else 34, fontweight="bold",
+                        linespacing=1.4, zorder=11, alpha=0.0)
     _title_block(fig, topic, settings)
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
     _save(anim, out_path, fps, dpi, settings, fig, draw)
@@ -940,11 +968,6 @@ def _render_people_lights(series_df: pd.DataFrame, topic: dict[str, Any],
     return len(frames) / fps
 
 
-def _ease(f: float) -> float:
-    """Smoothstep: zero velocity at both ends, so moves start and stop softly."""
-    return f * f * (3.0 - 2.0 * f)
-
-
 def _mono_tangents(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Fritsch-Carlson tangents for monotone cubic interpolation.
 
@@ -1114,6 +1137,14 @@ def _fmt(val: float, topic: dict[str, Any]) -> str:
     suffix = topic.get("unit_suffix", "")
     # Head-to-heads often need extra precision — 1.42B vs 1.41B, not "1.4B" twice.
     decimals = int(topic.get("value_decimals", 1))
+
+    # Counts spanning thousands to millions: "13.3M", "860K", "4,600".
+    if topic.get("value_fmt") == "compact":
+        for div, unit in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+            if abs(val) >= div:
+                q = val / div
+                return f"{q:,.{1 if q < 100 else 0}f}{unit}{suffix}"
+        return f"{val:,.0f}{suffix}"
 
     # Whole-number display for counts (e.g. "50" not "50.0").
     if topic.get("value_fmt") == "integer":
