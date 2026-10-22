@@ -73,7 +73,17 @@ def _gradient(width: int, height: int) -> Image.Image:
     return base.resize((width, height), Image.BILINEAR)
 
 
-def _grab_frame(video: Path, settings: dict[str, Any]) -> Image.Image | None:
+def _crop_box(topic: dict[str, Any], frame: Image.Image) -> tuple[int, int, int, int]:
+    """Rows of the grabbed frame to show: the chart without its own title block.
+
+    A topic whose layout differs from a chart (a simulation) can set
+    ``thumb_crop: [top, bottom]`` as fractions of the frame height to trim.
+    """
+    top_f, bottom_f = topic.get("thumb_crop") or (CROP_TOP, CROP_BOTTOM)
+    return 0, int(frame.height * float(top_f)), frame.width, int(frame.height * (1 - float(bottom_f)))
+
+
+def _grab_frame(video: Path, settings: dict[str, Any], at: float = FRAME_AT) -> Image.Image | None:
     """Pull a single still from near the end of the video via ffmpeg."""
     duration = _duration(video, settings)
     if duration is None:
@@ -81,7 +91,7 @@ def _grab_frame(video: Path, settings: dict[str, Any]) -> Image.Image | None:
     with tempfile.TemporaryDirectory() as tmp:
         still = Path(tmp) / "frame.png"
         cmd = [ffmpeg_exe(settings), "-y", "-loglevel", "error",
-               "-ss", f"{duration * FRAME_AT:.2f}", "-i", str(video),
+               "-ss", f"{duration * at:.2f}", "-i", str(video),
                "-frames:v", "1", str(still)]
         try:
             subprocess.run(cmd, check=True, capture_output=True)
@@ -212,11 +222,9 @@ def build(topic: dict[str, Any], video: Path, out_path: Path,
     source_font = _font(_REGULAR, 38)
     panel_top = y + 44
     panel_bottom = HEIGHT - 150
-    frame = _grab_frame(video, settings)
+    frame = _grab_frame(video, settings, float(topic.get("thumb_at") or FRAME_AT))
     if frame is not None and panel_bottom - panel_top > 200:
-        top = int(frame.height * CROP_TOP)
-        bottom = int(frame.height * (1 - CROP_BOTTOM))
-        chart = frame.crop((0, top, frame.width, bottom))
+        chart = frame.crop(_crop_box(topic, frame))
 
         avail_w, avail_h = text_width, panel_bottom - panel_top
         # Fill the full cover width, then trim any overflow off the bottom —
@@ -299,11 +307,9 @@ def build_wide(topic: dict[str, Any], video: Path, out_path: Path,
               font=_font(_REGULAR, 22), fill=MUTED)
 
     # ---- chart panel on the right ----
-    frame = _grab_frame(video, settings)
+    frame = _grab_frame(video, settings, float(topic.get("thumb_at") or FRAME_AT))
     if frame is not None:
-        top = int(frame.height * CROP_TOP)
-        bottom = int(frame.height * (1 - CROP_BOTTOM))
-        chart = frame.crop((0, top, frame.width, bottom))
+        chart = frame.crop(_crop_box(topic, frame))
 
         avail_w = WIDE_WIDTH - chart_x - pad
         avail_h = WIDE_HEIGHT - pad * 2

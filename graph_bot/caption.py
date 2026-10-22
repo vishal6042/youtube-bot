@@ -181,21 +181,25 @@ def build_description(topic: dict[str, Any], year_min: int, year_max: int,
 
     headline = title if not subtitle else f"{title} — {subtitle}"
     tags = " ".join(f"#{h.lstrip('#')}" for h in hashtags)
-    blurb = (f"{year_min}–{year_max}, animated. Watch how the world changed. 📈"
-             if year_min and year_max else "Explained visually in 30 seconds. 📈")
+    blurb = topic.get("blurb") or (
+        f"{year_min}–{year_max}, animated. Watch how the world changed. 📈"
+        if year_min and year_max else "Explained visually in 30 seconds. 📈")
 
-    lines = [
-        headline,
-        blurb,
-        "",
-        f"📊 Data source: {source}",
-    ]
-    credit = music_credit(music)
-    if credit:
-        lines.append(f"🎵 Music: {credit}")
+    lines = [headline, blurb, ""]
+    if topic.get("mode") == "sim":
+        # A simulation has no data source or music: say how it works instead,
+        # and that the sound is the simulation itself.
+        if topic.get("how"):
+            lines.append(f"🧮 How it works: {topic['how']}")
+        lines.append("🎵 Sound: every note is a real bounce or event in the simulation")
+    else:
+        lines.append(f"📊 Data source: {source}")
+        credit = music_credit(music)
+        if credit:
+            lines.append(f"🎵 Music: {credit}")
     lines += [
-        "🔔 A new world-data short every day — subscribe for more!",
-        "💬 Which one surprised you? Let me know 👇",
+        topic.get("cta") or "🔔 A new world-data short every day — subscribe for more!",
+        topic.get("prompt") or "💬 Which one surprised you? Let me know 👇",
         "",
         tags,
     ]

@@ -258,6 +258,12 @@ def mux_track(video_path: Path, settings: dict[str, Any], duration: float,
     return track.name
 
 
+def normalize(video_path: Path, settings: dict[str, Any]) -> bool:
+    """Bring a video that made its own sound (a simulation) to the channel's
+    loudness target, the same as videos with music."""
+    return _normalize_loudness(video_path, settings, settings.get("audio", {}) or {})
+
+
 def _fades(conf: dict[str, Any], duration: float) -> tuple[float, float]:
     """Fade lengths for this runtime.
 

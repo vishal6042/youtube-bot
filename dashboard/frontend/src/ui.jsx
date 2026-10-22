@@ -305,5 +305,5 @@ export function fmtWhen(iso, { time = true } = {}) {
 }
 export const MODE_LABEL = {
   bar_race: "Bar race", bump_race: "Rank race", line_grow: "Line", line_multi: "Head to head",
-  waffle_grow: "Dot grid", manim: "Narrated scene",
+  waffle_grow: "Dot grid", manim: "Narrated scene", sim: "Simulation",
 };

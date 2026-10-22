@@ -75,6 +75,7 @@ def run_topic(topic: dict, *, refresh: bool = False, auto_approve: bool = False,
     out_dir.mkdir(parents=True, exist_ok=True)
     video_path = out_dir / "video.mp4"
 
+    is_sim = topic.get("mode") == "sim"
     if is_scene:
         # Concept videos are authored Manim scenes — no data fetch/transform.
         from . import manim_render
@@ -84,6 +85,15 @@ def run_topic(topic: dict, *, refresh: bool = False, auto_approve: bool = False,
         entities = [topic.get("scene", "")]
         print(f"[1/3] Rendering Manim scene '{topic.get('scene')}' (this takes a minute) ...")
         duration = manim_render.render_scene(topic, settings, video_path)
+    elif is_sim:
+        # Math in Motion: a simulation draws the video and makes its own sound.
+        from . import sims
+
+        mode = "sim"
+        year_min = year_max = 0
+        entities = [topic.get("sim", "")]
+        print(f"[1/2] Simulating '{topic.get('sim')}' -> {video_path} ...")
+        duration = sims.render_topic(topic, settings, video_path)
     else:
         print(f"[1/4] Fetching '{key}' via {topic.get('fetcher')} ...")
         df = fetch.fetch(topic, settings, refresh=refresh)
@@ -98,7 +108,12 @@ def run_topic(topic: dict, *, refresh: bool = False, auto_approve: bool = False,
         duration = render.render(mode, data, topic, settings, video_path)
 
     stage("music")
-    music_track = audio.add_music(video_path, settings, duration, topic, on_stage=on_stage)
+    # A simulation's soundtrack is its own events (every bounce is a note);
+    # music on top would bury it.
+    music_track = (None if is_sim else
+                   audio.add_music(video_path, settings, duration, topic, on_stage=on_stage))
+    if is_sim:
+        audio.normalize(video_path, settings)
 
     stage("subtitle")
     print("[4/4] Writing caption + metadata ...")

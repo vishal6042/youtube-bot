@@ -30,6 +30,7 @@ export const PLAYLIST_COLORS = {
   ml_concept: "#a78bfa",
   charts_lie: "#ff7a90",
   country_vs_country: "#6f9bff",
+  math_in_motion: "#c8f560",
 };
 
 // The render pipeline's steps, in order. Keys match the ::agent:: markers

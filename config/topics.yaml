@@ -8,6 +8,8 @@
 #   subtitle       optional smaller line under the title
 #   fetcher        one of: worldbank | owid | dbnomics | curated_csv
 #   mode           bar_race (top-N racing bars) | line_grow (single growing line)
+#                  | sim (a simulation from graph_bot/sims; set `sim:` and optional
+#                  `seed:`; no fetcher, makes its own sound, no music added)
 #   source         attribution string shown on the video + caption
 #   unit           optional label (e.g. "people", "USD")
 #   value_scale    optional divisor for display (e.g. 1_000_000 -> "millions")
@@ -1613,3 +1615,24 @@ topics:
     value_decimals: 2
     mood: "reflective"
     hashtags: ["uk", "france", "economy"]
+
+  # ===================== MATH IN MOTION =====================
+  # Wordless simulations (mode: sim, graph_bot/sims/). Each makes its own
+  # sound, so no music is added. Plan: docs/SERIES_math_in_motion.md
+  - key: "math_galton"
+    title: "Where Will 500 Balls Land?"
+    subtitle: "A Galton board, simulated"
+    yt_title: "Where Will 500 Balls Land? 🎯 The Galton Board"
+    mode: "sim"
+    sim: "galton"
+    seed: 7
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "500 balls, 12 rows of pegs, and a coin flip at every bounce. Watch what pure chance builds. 🎯"
+    how: "At every peg a ball bounces left or right, 50/50. The bin it lands in is how many times it went right out of 12, so the piles follow the binomial (bell) curve. The gold line is the curve maths predicts."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Did you expect the curve? Tell me 👇"
+    # Thumbnail: the finished pile under its curve, board only (no on-screen text).
+    thumb_at: 0.97
+    thumb_crop: [0.195, 0.195]
+    hashtags: ["math", "probability", "bellcurve", "galtonboard", "satisfying"]

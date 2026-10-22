@@ -59,7 +59,9 @@ def _side_branch(topic: dict[str, Any], settings: dict[str, Any], y0: int, y1: i
     """Music selection + title/description, in parallel with the render."""
     agent("music", "active")
     try:
-        track = audio.select_track(settings, topic, est_duration)
+        # A simulation's sound is its own events; it gets no music.
+        track = (None if topic.get("mode") == "sim"
+                 else audio.select_track(settings, topic, est_duration))
         results["track"] = track
         agent("music", "done")
     except Exception:
@@ -89,6 +91,7 @@ def produce(key: str, *, refresh: bool = False) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     video_path = out_dir / "video.mp4"
     is_scene = topic.get("mode") == "manim"
+    is_sim = topic.get("mode") == "sim"
 
     # An estimate is enough for track selection — the mux loops the track and
     # fades are computed from the real duration at mixing time.
@@ -106,6 +109,17 @@ def produce(key: str, *, refresh: bool = False) -> None:
                 side = ex.submit(_side_branch, topic, settings, y0, y1, est, out_dir, results)
                 print(f"Rendering Manim scene '{topic.get('scene')}' ...", flush=True)
                 duration = manim_render.render_scene(topic, settings, video_path)
+                agent("video", "done")
+                side.result()
+        elif is_sim:
+            from graph_bot import sims
+
+            mode, y0, y1 = "sim", 0, 0
+            entities = [topic.get("sim", "")]
+            with ThreadPoolExecutor(max_workers=1) as ex:
+                side = ex.submit(_side_branch, topic, settings, y0, y1, est, out_dir, results)
+                print(f"Rendering sim -> {video_path} ...", flush=True)
+                duration = sims.render_topic(topic, settings, video_path)
                 agent("video", "done")
                 side.result()
         else:
@@ -130,6 +144,8 @@ def produce(key: str, *, refresh: bool = False) -> None:
     try:
         track = results.get("track")
         music_track = audio.mux_track(video_path, settings, duration, track) if track else None
+        if is_sim:
+            audio.normalize(video_path, settings)
         agent("mixing", "done")
     except Exception:
         agent("mixing", "failed")

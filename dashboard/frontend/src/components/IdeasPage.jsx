@@ -72,14 +72,18 @@ export default function IdeasPage({ toast, refresh, onOpenTopics }) {
   }, [data]);                                  // eslint-disable-line react-hooks/exhaustive-deps
   const ready = ordered.filter((i) => i.state === "ready");
   const added = ordered.filter((i) => i.state === "exists");
+  // Planned: the idea needs its simulation built before it can be added.
+  const planned = ordered.filter((i) => i.state === "planned");
   const groupOf = (series) => groups.find((g) => g.series === series);
 
   // A playlist tab disappears once its last suggestion is added.
-  const tabOk = tab === "all" || (tab === ADDED ? added.length > 0 : (groupOf(tab)?.ready || 0) > 0);
+  const tabOk = tab === "all" || (tab === ADDED ? added.length > 0
+    : ((groupOf(tab)?.ready || 0) + (groupOf(tab)?.planned || 0)) > 0);
   const cur = tabOk ? tab : "all";
 
   const shown = useMemo(() => {
-    const base = cur === ADDED ? added : cur === "all" ? ready : ready.filter((i) => i.series === cur);
+    const base = cur === ADDED ? added : cur === "all" ? ready
+      : [...ready, ...planned].filter((i) => i.series === cur);
     if (sort === "title") return [...base].sort((a, b) => a.title.localeCompare(b.title));
     if (sort === "chart") return [...base].sort((a, b) => modeLabel(a.mode).localeCompare(modeLabel(b.mode)));
     return base;
@@ -105,7 +109,8 @@ export default function IdeasPage({ toast, refresh, onOpenTopics }) {
 
   const tabs = [
     { value: "all", label: "All", count: ready.length },
-    ...groups.filter((g) => g.ready > 0).map((g) => ({ value: g.series, label: g.playlist, count: g.ready })),
+    ...groups.filter((g) => g.ready + (g.planned || 0) > 0)
+      .map((g) => ({ value: g.series, label: g.playlist, count: g.ready + (g.planned || 0) })),
     ...(added.length ? [{ value: ADDED, label: "Already added", count: added.length }] : []),
   ];
   const curGroup = cur !== "all" && cur !== ADDED ? groupOf(cur) : null;
@@ -161,6 +166,11 @@ export default function IdeasPage({ toast, refresh, onOpenTopics }) {
                     <div className="rowf">
                       <PlaylistChip series={idea.series} name={idea.playlist} />
                       {idea.state === "exists" && <Chip tone="go" plain>In topics</Chip>}
+                      {idea.state === "planned" && (
+                        <Chip tone="warn" plain title="Its simulation has to be built before it can render">
+                          Not built yet
+                        </Chip>
+                      )}
                       {group && !group.playlist_exists && cur === "all" && (
                         <Chip tone="warn" plain>Playlist not on YouTube yet</Chip>
                       )}
@@ -207,7 +217,7 @@ export default function IdeasPage({ toast, refresh, onOpenTopics }) {
 
         <div className="rail">
           <section className="card" aria-label="Series that need writing">
-            <div className="card-head"><h2>Needs a script first</h2></div>
+            <div className="card-head"><h2>Needs building first</h2></div>
             {data.authored?.length ? (
               <div className="stack" style={{ gap: 14 }}>
                 {data.authored.map((s) => (
@@ -221,8 +231,9 @@ export default function IdeasPage({ toast, refresh, onOpenTopics }) {
                   </div>
                 ))}
                 <p className="faint" style={{ fontSize: 12.5 }}>
-                  These are narrated animations, not data charts. Each episode needs its scene
-                  written in code before it can be rendered, so they cannot be added in one click.
+                  These are animations and simulations, not data charts. Each episode needs its
+                  scene or simulation written in code before it can be rendered, so they cannot be
+                  added in one click.
                 </p>
               </div>
             ) : (

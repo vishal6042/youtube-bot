@@ -510,12 +510,9 @@ class PlaylistCreatedReq(BaseModel):
 @app.post("/api/playlist-created")
 def api_playlist_created(req: PlaylistCreatedReq) -> dict[str, Any]:
     """Record that a playlist now exists on YouTube (clears the ⚠ warning)."""
-    data = load_brand()
-    entry = data["playlists"].setdefault(
-        req.series, {"name": playlist_of(req.series)[0], "description": ""}
-    )
-    entry["created"] = bool(req.created)
-    save_brand(data)
+    # (This called a save_brand() that no longer exists, so the button failed.)
+    store.brand_save_playlist(req.series, name=playlist_of(req.series)[0],
+                              created=bool(req.created))
     return {"ok": True, "series": req.series, "created": req.created}
 
 
@@ -1035,7 +1032,10 @@ def api_settings() -> dict[str, Any]:
 
 
 class SettingsReq(BaseModel):
-    channel: dict[str, str] | None = None
+    # The page sends back what it loaded, which after a YouTube sync includes
+    # non-text fields (edited_since_sync: bool, yt_synced_at). Only tagline and
+    # description are read, so accept the rest instead of failing the save.
+    channel: dict[str, Any] | None = None
     # values are str | bool ("created"), so keep this loose
     playlists: dict[str, dict[str, Any]] | None = None
 
@@ -1812,7 +1812,7 @@ REQUIRED_BY_FETCHER = {
 # Only an ordering — fields not listed here are still written, after these.
 _FIELD_ORDER = [
     "key", "title", "subtitle", "fetcher", "code", "slug", "url", "file",
-    "agg", "mode", "scene", "entities", "entity_filter", "years_window",
+    "agg", "mode", "scene", "sim", "seed", "entities", "entity_filter", "years_window",
     "series", "source", "unit", "unit_suffix", "value_scale",
     "value_decimals", "value_fmt", "top_n", "flags", "mood",
 ]
@@ -1825,6 +1825,11 @@ def _check_mode_fields(topic: dict[str, Any]) -> None:
     mode, key = topic.get("mode"), topic.get("key")
     if mode == "manim" and topic.get("scene") not in SCENES:
         raise HTTPException(400, f"'{key}': mode 'manim' needs a `scene:` from {', '.join(SCENES)}")
+    if mode == "sim":
+        from graph_bot.sims import SIMS
+
+        if topic.get("sim") not in SIMS:
+            raise HTTPException(400, f"'{key}': mode 'sim' needs a built `sim:` from {', '.join(SIMS)}")
     if mode == "line_multi" and not topic.get("entities"):
         raise HTTPException(400, f"'{key}': mode 'line_multi' needs an `entities:` list")
 
@@ -2735,11 +2740,138 @@ IDEAS: list[dict[str, Any]] = [
             "hashtags": ["data", "statistics", "dataliteracy"],
         },
     },
+    # ===================== MATH IN MOTION =====================
+    # Wordless simulations (mode: sim). Plan and quality bar:
+    # docs/SERIES_math_in_motion.md. Ideas whose `sim` is not built yet show
+    # as Planned and cannot be added until graph_bot/sims has them.
+    {
+        "id": "math_galton",
+        "reason": 'Wordless, satisfying and true: 500 marbles bounce through 12 rows and pile into a bell curve. Built.',
+        "topic": {
+            "key": "math_galton", "title": 'Where Will 500 Balls Land?', "subtitle": 'A Galton board, simulated',
+            "mode": "sim", "sim": "galton", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'probability', 'bellcurve', 'galtonboard', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_monty_hall",
+        "reason": "The most argued-about puzzle in maths: 'switch' and 'stay' win counters race until switching wins 2 in 3.",
+        "topic": {
+            "key": "math_monty_hall", "title": 'Should You Switch Doors?', "subtitle": 'The Monty Hall problem, played 1,000 times',
+            "mode": "sim", "sim": "monty_hall", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'probability', 'montyhall', 'puzzle'],
+        },
+    },
+    {
+        "id": "math_monte_carlo_pi",
+        "reason": 'Random dots rain into a square; the share inside the circle closes in on 3.14159 on screen.',
+        "topic": {
+            "key": "math_monte_carlo_pi", "title": 'Can Random Dots Find π?', "subtitle": 'Monte Carlo, live',
+            "mode": "sim", "sim": "monte_carlo_pi", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'pi', 'probability', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_chaos_circle",
+        "reason": "The genre's proven hook: two balls start together and split completely. The butterfly effect you can watch.",
+        "topic": {
+            "key": "math_chaos_circle", "title": 'Two Balls, 0.001 Apart. Same Path?', "subtitle": 'Chaos in a circle',
+            "mode": "sim", "sim": "chaos_circle", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'chaos', 'physics', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_double_pendulum",
+        "reason": 'A rainbow of double pendulums released a hair apart, then chaos. Spectacle for the feed.',
+        "topic": {
+            "key": "math_double_pendulum", "title": '100 Pendulums, Almost Identical', "subtitle": 'Double pendulums fan out',
+            "mode": "sim", "sim": "double_pendulum", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['physics', 'chaos', 'pendulum', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_pendulum_wave",
+        "reason": 'Snakes, lines, chaos, then all 15 back in sync: hypnotic, loops perfectly.',
+        "topic": {
+            "key": "math_pendulum_wave", "title": '15 Pendulums, One Release', "subtitle": 'A pendulum wave',
+            "mode": "sim", "sim": "pendulum_wave", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['physics', 'pendulum', 'satisfying', 'math'],
+        },
+    },
+    {
+        "id": "math_chaos_game",
+        "reason": 'Jump halfway to a random corner, again and again, and a Sierpinski triangle appears out of noise.',
+        "topic": {
+            "key": "math_chaos_game", "title": 'What Do Random Dots Draw?', "subtitle": 'The chaos game',
+            "mode": "sim", "sim": "chaos_game", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'fractal', 'chaos', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_birthday",
+        "reason": 'People walk into a room until two match; repeated 500 times, the answer is usually just 23.',
+        "topic": {
+            "key": "math_birthday", "title": 'How Many People Until Two Share a Birthday?', "subtitle": 'The birthday paradox, 500 rooms',
+            "mode": "sim", "sim": "birthday", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'probability', 'birthdayparadox', 'puzzle'],
+        },
+    },
+    {
+        "id": "math_random_walk",
+        "reason": 'A surprising theorem made visible: in 2D you always return home, in 3D you often never do.',
+        "topic": {
+            "key": "math_random_walk", "title": 'Will a Lost Walker Ever Get Home?', "subtitle": 'Random walks, 2D vs 3D',
+            "mode": "sim", "sim": "random_walk", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'probability', 'randomwalk'],
+        },
+    },
+    {
+        "id": "math_coffee_caustic",
+        "reason": 'Rays bounce inside a circle and draw a glowing cardioid, the curve you see in a mug of coffee.',
+        "topic": {
+            "key": "math_coffee_caustic", "title": 'The Shape Hiding in Your Coffee Cup', "subtitle": 'Light reflecting in a circle',
+            "mode": "sim", "sim": "coffee_caustic", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'geometry', 'light', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_sort_race",
+        "reason": 'Bubble, quick and merge sort race on the same bars with sound; coders share these.',
+        "topic": {
+            "key": "math_sort_race", "title": 'Which Sort Finishes First?', "subtitle": 'Sorting algorithms race',
+            "mode": "sim", "sim": "sort_race", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['coding', 'algorithms', 'sorting', 'satisfying'],
+        },
+    },
+    {
+        "id": "math_prime_spiral",
+        "reason": 'Numbers spiral out and only primes light up; spiral arms appear from nowhere.',
+        "topic": {
+            "key": "math_prime_spiral", "title": 'Plot the Primes in a Spiral', "subtitle": 'Patterns in the primes',
+            "mode": "sim", "sim": "prime_spiral", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'primes', 'numbers', 'satisfying'],
+        },
+    },
 ]
 
 # Planned series that need a narrated Manim scene authored first — listed so
 # they are visible, but never presented as one-click work.
 AUTHORED_SERIES = [
+    {"name": "Math in Motion", "episodes": 12, "doc": "docs/SERIES_math_in_motion.md",
+     "note": "1 of 12 simulations built (Galton board). Each of the others needs its "
+             "simulation written before it can render."},
     {"name": "How Charts Lie", "episodes": 13, "doc": "docs/SERIES_how_charts_lie.md",
      "note": "4 of 17 episodes have scenes written (see Build Next); the other 13 "
              "still need theirs authored."},
@@ -2749,7 +2881,15 @@ AUTHORED_SERIES = [
 
 
 def _idea_state(idea: dict[str, Any], existing: set[str]) -> str:
-    return "exists" if idea["topic"]["key"] in existing else "ready"
+    if idea["topic"]["key"] in existing:
+        return "exists"
+    if idea["topic"].get("mode") == "sim":
+        from graph_bot.sims import SIMS
+
+        # Its simulation has to be written before the topic can render.
+        if idea["topic"].get("sim") not in SIMS:
+            return "planned"
+    return "ready"
 
 
 @app.get("/api/ideas")
@@ -2776,9 +2916,11 @@ def api_ideas() -> dict[str, Any]:
             "source": topic.get("source", ""),
             # Long cricsheet URLs are noise in the card; show the archive name.
             "code": (topic.get("scene", "") if topic.get("mode") == "manim"
+                     else topic.get("sim", "") if topic.get("mode") == "sim"
                      else (code.rsplit("/", 1)[-1] if code.startswith("http") else code)),
-            # Authored scenes have no fetcher — they carry their own content.
-            "fetcher": topic.get("fetcher", "authored scene"),
+            # Authored scenes and simulations have no fetcher — they make their own content.
+            "fetcher": topic.get("fetcher") or ("simulation" if topic.get("mode") == "sim"
+                                                else "authored scene"),
             "mode": topic.get("mode", "bar_race"),
             "state": _idea_state(idea, existing),
         })
@@ -2796,6 +2938,7 @@ def api_ideas() -> dict[str, Any]:
             "playlist_exists": exists,
             "in_catalog": by_series.get(series, 0),
             "ready": sum(1 for i in items if i["state"] == "ready"),
+            "planned": sum(1 for i in items if i["state"] == "planned"),
             "ideas": items,
         })
     # Most suggestions first — that is where the work is.
@@ -2818,6 +2961,14 @@ def api_idea_verify(req: IdeaReq) -> dict[str, Any]:
     idea = next((i for i in IDEAS if i["id"] == req.id), None)
     if not idea:
         raise HTTPException(404, "Unknown idea")
+    if idea["topic"].get("mode") == "sim":
+        from graph_bot.sims import SIMS
+
+        sim = idea["topic"].get("sim")
+        if sim not in SIMS:
+            return {"ok": False, "error": f"simulation '{sim}' is not built yet"}
+        return {"ok": True, "rows": 0, "years": "simulation", "entities": None,
+                "note": f"Simulation '{sim}' is built and ready to render."}
     if idea["topic"].get("mode") == "manim":
         # Narrated scenes carry their own content; there is nothing to fetch.
         from graph_bot.scenes import SCENES
@@ -2852,6 +3003,8 @@ def api_idea_accept(req: IdeaReq) -> dict[str, Any]:
     topic = idea["topic"]
     if any(t.get("key") == topic["key"] for t in load_topics()):
         raise HTTPException(400, f"'{topic['key']}' is already in the catalog")
+    if _idea_state(idea, set()) == "planned":
+        raise HTTPException(400, f"'{topic['title']}' needs its simulation built first")
 
     _append_topic_block(topic)
 
