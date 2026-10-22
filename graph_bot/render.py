@@ -239,6 +239,65 @@ def h264_args(settings: dict[str, Any]) -> list[str]:
 # --------------------------------------------------------------------------- #
 # Bar chart race
 # --------------------------------------------------------------------------- #
+RACE_STICKY = 0.02   # a bar overtakes only once it is 2% ahead, so near-ties do not flicker
+RACE_HOLD = 1.0      # ...and only if it will still be ahead this many seconds later
+RACE_SETTLE = 0.6    # seconds for a bar to glide to its new place
+
+
+def _race_frames(wide: pd.DataFrame, steps: int, hold: int, fps: int,
+                 sticky: float = RACE_STICKY, settle: float = RACE_SETTLE,
+                 lookahead: float = RACE_HOLD) -> list[tuple[float, pd.Series, dict[str, float]]]:
+    """Per-frame (year, values, drawn position) for a bar race.
+
+    * Values follow a smooth curve through the yearly points (no overshoot),
+      so growth does not change speed with a jolt at every new year.
+    * Places come from those values with a little stickiness: a bar passes
+      another only once it is clearly ahead and will still be ahead a second
+      later (the whole timeline is known up front), so two near-tied countries
+      do not swap back and forth. During such a brief crossing the bars keep
+      their places; their values are within a few percent of each other.
+    * Each bar glides to its place on a critically damped spring: it speeds
+      up and slows down gently and never overshoots, and a second overtake
+      mid-glide simply redirects it.
+    """
+    years = [float(y) for y in wide.index]
+    ents = list(wide.columns)
+    filled = wide.astype(float).fillna(0.0)
+    xs = _smooth_path(years, filled[ents[0]].tolist(), steps)[0]
+    curves = {e: np.clip(_smooth_path(years, filled[e].tolist(), steps)[1], 0.0, None) for e in ents}
+    n = len(xs)
+
+    order = sorted(ents, key=lambda e: (curves[e][0], e))   # bottom bar first
+    pos = {e: float(r) for r, e in enumerate(order)}
+    vel = {e: 0.0 for e in ents}
+    omega = 4.7 / settle   # critically damped: within 1% of the target after `settle`
+    dt = 1.0 / fps
+    ahead = max(1, int(round(lookahead * fps)))
+    out = []
+    for k in range(n + hold):
+        i = min(k, n - 1)
+        v = {e: float(curves[e][i]) for e in ents}
+        later = min(i + ahead, n - 1)
+        # Bubble pass with a margin: swap neighbours only when the lower one
+        # is clearly bigger now and still bigger a moment later. Repeats until
+        # no swap is due.
+        moved = True
+        while moved:
+            moved = False
+            for j in range(len(order) - 1):
+                lo, hi = order[j], order[j + 1]
+                if (v[lo] > v[hi] * (1 + sticky) + 1e-9
+                        and curves[lo][later] > curves[hi][later]):
+                    order[j], order[j + 1] = hi, lo
+                    moved = True
+        for r, e in enumerate(order):
+            acc = omega * omega * (r - pos[e]) - 2 * omega * vel[e]
+            vel[e] += acc * dt
+            pos[e] += vel[e] * dt
+        out.append((float(xs[i]), pd.Series(v), dict(pos)))
+    return out
+
+
 def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any], out_path: Path) -> Path:
     vconf = settings.get("video", {})
     width, height = vconf.get("width", 1080), vconf.get("height", 1920)
@@ -258,33 +317,9 @@ def _render_bar_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[s
     fs = 18 if wide_fmt else 23
     name = (lambda e: e) if wide_fmt else (lambda e: SHORT_NAMES.get(e, e))
 
-    # Values move linearly between years. A bar's place is re-ranked every
-    # frame from those values, so an overtake happens the moment one bar
-    # passes another, and the drawn position slides to the new place over
-    # about a third of a second. (Easing every rank change across a whole
-    # year left several bars half-way through a swap, piled on each other,
-    # for most of the video.)
-    def ranks(v: pd.Series) -> dict[str, int]:
-        ordered = sorted(entities, key=lambda e: (float(v[e]) if pd.notna(v[e]) else -1.0, e))
-        return {e: r for r, e in enumerate(ordered)}
-
     end_note = topic.get("end_note")
     hold = fps * (3 if end_note else 1)
-    timeline: list[tuple[float, pd.Series]] = []
-    for i in range(len(years) - 1):
-        v0, v1 = wide.iloc[i], wide.iloc[i + 1]
-        for s in range(steps):
-            f = s / steps
-            timeline.append((years[i] + (years[i + 1] - years[i]) * f, v0 + (v1 - v0) * f))
-    timeline.extend([(years[-1], wide.iloc[-1])] * hold)
-
-    frames: list[tuple[float, pd.Series, dict[str, float]]] = []
-    pos = {e: float(r) for e, r in ranks(timeline[0][1]).items()}
-    slide = 0.35  # share of the remaining distance covered each frame (~0.2s slide)
-    for yr, vals in timeline:
-        target = ranks(vals)
-        pos = {e: pos[e] + (target[e] - pos[e]) * slide for e in entities}
-        frames.append((yr, vals, pos))
+    frames = _race_frames(wide, steps, hold, fps)
 
     # Country flags (skipped for org/company topics via `flags: false`).
     flag_imgs: dict[str, Any] = {}
