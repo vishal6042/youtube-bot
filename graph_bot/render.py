@@ -722,6 +722,8 @@ def _render_bump_race(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
 def _render_waffle(series_df: pd.DataFrame, topic: dict[str, Any], settings: dict[str, Any],
                    out_path: Path) -> Path:
     """A 10x10 dot grid filling as a bounded percentage moves over time."""
+    if "people" in series_df.columns and not _wide(settings):
+        return _render_people_lights(series_df, topic, settings, out_path)
     vconf = settings.get("video", {})
     width, height = vconf.get("width", 1080), vconf.get("height", 1920)
     fps = int(vconf.get("fps", 30))
@@ -770,6 +772,166 @@ def _render_waffle(series_df: pd.DataFrame, topic: dict[str, Any], settings: dic
                 ha="center", va="center", color=FG, fontsize=46, fontweight="bold",
                 alpha=0.9)
         _progress_bar(ax, (i + 1) / n_pts)
+
+    anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
+    _title_block(fig, topic, settings)
+    _save(anim, out_path, fps, dpi, settings, fig, draw)
+    plt.close(fig)
+    return len(frames) / fps
+
+
+LIGHT = "#ffd166"       # a lit dot: warm lamp yellow
+LIGHT_NEW = "#fff4cc"   # the flash as a dot switches on
+UNLIT = "#34405e"
+
+
+def _millions(v: float) -> str:
+    """453 -> '453 million', 1.4 -> '1 million' (the source is rounded to 0.1%,
+    so a decimal on a small count would claim precision the data lacks)."""
+    if v >= 1000:
+        return f"{v / 1000:.2f} billion"
+    return f"{max(1, round(v)):,.0f} million"
+
+
+def _render_people_lights(series_df: pd.DataFrame, topic: dict[str, Any],
+                          settings: dict[str, Any], out_path: Path) -> float:
+    """One dot per million people; dots light up as the share with X rises.
+
+    The field grows with the population, so the video shows both stories: the
+    share rising and the head count still left out. Which dots light is random
+    (seeded, so every drawing process agrees) and says nothing about where in
+    the country those people live. A small timeline underneath carries the
+    year, the share and the topic's `milestones:`.
+    """
+    vconf = settings.get("video", {})
+    width, height = vconf.get("width", 1080), vconf.get("height", 1920)
+    fps = int(vconf.get("fps", 30))
+    dpi = 100
+    words = {"without": "still without", "lit": "with", "unlit": "without",
+             "people": "people", "outro": "{gain} more {people} {lit} since {start}",
+             **(topic.get("lights") or {})}
+    milestones = sorted((int(y), str(t)) for y, t in (topic.get("milestones") or {}).items())
+
+    years = [int(y) for y in series_df.index]
+    vals = [float(v) for v in series_df["value"].values]
+    pops = [float(v) for v in series_df["people"].values]
+    steps = max(1, int(round(fps * _seconds_per_year(topic, settings, len(years)))))
+    curve_x, curve_y = _smooth_path(years, vals, steps, False)
+    _, curve_p = _smooth_path(years, pops, steps, False)
+    n_pts = len(curve_x)
+    lead, hold = fps, int(fps * 3)  # read the opening number; then the closing line
+    frames = [0] * lead + list(range(n_pts)) + [n_pts - 1] * hold
+
+    # Dot field: rows fill from the bottom, so population growth stacks dots upward.
+    cols = 46
+    n_max = int(np.ceil(max(pops)))
+    rows = int(np.ceil(n_max / cols))
+    pos = np.arange(rows * cols)
+    gx, gy = pos % cols, pos // cols
+    order = np.random.default_rng(7).permutation(rows * cols)  # who gets power first
+
+    def state(i: int) -> tuple[int, np.ndarray]:
+        n = int(curve_p[i])
+        share = max(0.0, min(100.0, float(curve_y[i])))
+        lit_n = int(round(share / 100.0 * n))
+        lit = np.zeros(rows * cols, dtype=bool)
+        lit[order[order < n][:lit_n]] = True
+        return n, lit
+
+    start_lit = vals[0] / 100 * pops[0]
+    gain = vals[-1] / 100 * pops[-1] - start_lit
+
+    fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
+    fig.patch.set_facecolor(BG_BOTTOM)
+    _add_gradient_bg(fig)
+    left, right = 0.08, _right(settings, 0.86)
+    cell_w = (right - left) / cols
+    field_h = cell_w * rows * width / height
+    field_top = 0.735
+    ax = fig.add_axes([left, field_top - field_h, right - left, field_h])
+    tl = fig.add_axes([left + 0.07, 0.205, right - left - 0.07, 0.08])
+
+    big = fig.text(0.5, 0.835, "", ha="center", va="center", color=FG, fontsize=82,
+                   fontweight="bold")
+    fig.text(0.5, 0.783, f"{words['people']} {words['without']}",
+             ha="center", va="center", color=MUTED, fontsize=25)
+    legend_y = field_top - field_h - 0.022
+    fig.text(left, legend_y, "●", ha="left", va="center", color=LIGHT, fontsize=20)
+    fig.text(left + 0.03, legend_y, words["lit"], ha="left", va="center", color=FG, fontsize=18)
+    fig.text(left + 0.20, legend_y, "●", ha="left", va="center", color=UNLIT, fontsize=20)
+    fig.text(left + 0.23, legend_y, words["unlit"], ha="left", va="center", color=FG, fontsize=18)
+    pop_txt = fig.text(right, legend_y, "", ha="right", va="center", color=MUTED, fontsize=18)
+    note_y = legend_y - 0.045
+    note_year = fig.text(left, note_y, "", ha="left", va="center", color=LIGHT, fontsize=22,
+                         fontweight="bold")
+    note = fig.text(left + 0.105, note_y, "", ha="left", va="center", color=FG, fontsize=21,
+                    wrap=True)
+    year_txt = fig.text(right, 0.322, "", ha="right", va="center", color=FG, fontsize=40,
+                        fontweight="bold", alpha=0.9)
+    outro = fig.text(0.5, note_y, "", ha="center", va="center", color=LIGHT, fontsize=24,
+                     fontweight="bold")
+
+    def draw(idx: int) -> None:
+        i = frames[idx]
+        n, lit = state(i)
+        share = max(0.0, min(100.0, float(curve_y[i])))
+        year = int(round(float(curve_x[i])))
+        # Dots that switched on in the last few frames flash brighter. Dots that
+        # are new (population growth) just appear, so only a switch-on flashes.
+        prev_n, prev_lit = state(frames[max(0, idx - 8)])
+        fresh = lit & ~prev_lit & (pos < prev_n)
+        exists = pos < n
+        ax.clear()
+        ax.set_xlim(-0.6, cols - 0.4)
+        ax.set_ylim(-0.6, rows - 0.4)
+        ax.axis("off")
+        dark = exists & ~lit
+        on = lit & ~fresh
+        ax.scatter(gx[dark], gy[dark], s=60, c=UNLIT, linewidths=0, zorder=2)
+        ax.scatter(gx[lit], gy[lit], s=330, c=LIGHT, alpha=0.10, linewidths=0, zorder=3)
+        ax.scatter(gx[on], gy[on], s=70, c=LIGHT, linewidths=0, zorder=4)
+        ax.scatter(gx[fresh], gy[fresh], s=120, c=LIGHT_NEW, linewidths=0, zorder=5)
+
+        big.set_text(_millions(n * (100 - share) / 100))
+        pop_txt.set_text(f"{_millions(n)} {words['people']}")
+        year_txt.set_text(str(year))
+
+        # The latest milestone stays up until the next one; the closing line replaces it.
+        if idx >= lead + n_pts:
+            note_year.set_text("")
+            note.set_text("")
+            outro.set_text(words["outro"].format(gain=_millions(gain), start=years[0], **words))
+        else:
+            outro.set_text("")
+            past = [m for m in milestones if m[0] <= curve_x[i]]
+            note_year.set_text(str(past[-1][0]) if past else "")
+            note.set_text(past[-1][1] if past else "")
+
+        tl.clear()
+        tl.set_facecolor("none")
+        tl.set_xlim(years[0], years[-1])
+        tl.set_ylim(0, 100)
+        for s in ("top", "right", "left"):
+            tl.spines[s].set_visible(False)
+        tl.spines["bottom"].set_color(GRID)
+        tl.set_yticks([50, 100])
+        tl.set_yticklabels(["50%", "100%"], color=MUTED, fontsize=15)
+        tl.set_xticks([years[0], years[-1]])
+        tl.set_xticklabels([str(years[0]), str(years[-1])], color=MUTED, fontsize=15)
+        tl.tick_params(length=0)
+        for g in (50, 100):
+            tl.axhline(g, color=GRID, linewidth=1, alpha=0.6, zorder=1)
+        for y, _t in milestones:
+            if y <= curve_x[i]:
+                tl.axvline(y, color=LIGHT, linewidth=1.2, alpha=0.45, linestyle=(0, (3, 3)), zorder=2)
+        xs, ys = curve_x[: i + 1], curve_y[: i + 1]
+        tl.fill_between(xs, 0, ys, facecolor=(1.0, 0.82, 0.4, 0.16), edgecolor="none", zorder=2)
+        tl.plot(xs, ys, color=LIGHT, linewidth=3.5, solid_capstyle="round", zorder=3)
+        tl.scatter([xs[-1]], [ys[-1]], s=90, c=LIGHT, zorder=4, linewidths=0)
+        # 99.9% must not read as 100% next to a count of people still without.
+        pct = f"{share:.1f}" if 99 <= share < 100 else f"{share:.0f}"
+        tl.text(0, 1.18, f"{pct}% {words['lit']}", transform=tl.transAxes,
+                ha="left", va="bottom", color=LIGHT, fontsize=22, fontweight="bold")
 
     anim = animation.FuncAnimation(fig, draw, frames=len(frames), interval=1000 / fps)
     _title_block(fig, topic, settings)

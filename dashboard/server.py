@@ -2187,7 +2187,7 @@ IDEAS: list[dict[str, Any]] = [
     {
         "id": "india_power",
         "reason": "India went from half-connected to universal power in 30 years — "
-                  "drawn as 100 dots, that lands harder than any axis.",
+                  "one dot per million Indians, lighting up as they get power.",
         "topic": {
             "key": "india_electricity_access", "title": "How India Got Power",
             "subtitle": "Share of Indians with electricity", "fetcher": "worldbank",

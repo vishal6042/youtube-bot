@@ -1118,11 +1118,22 @@ topics:
   # added via dashboard 2026-09-09
   - key: "india_electricity_access"
     title: "How India Got Power"
-    subtitle: "Share of Indians with electricity"
+    subtitle: "Each dot is one million Indians"
     fetcher: "worldbank"
     code: "EG.ELC.ACCS.ZS"
     mode: "waffle_grow"
     entity_filter: "India"
+    # One dot per million Indians (population from SP.POP.TOTL), lit when they have power.
+    people_code: "SP.POP.TOTL"
+    lights:
+      people: "Indians"
+      without: "still without electricity"
+      lit: "have power"
+      unlit: "no power"
+      outro: "{gain} more {people} got power since {start}"
+    milestones:
+      2005: "Rural electrification drive begins"
+      2017: "Saubhagya: a connection for every home"
     flags: false
     series: "india_in_data"
     source: "World Bank"
