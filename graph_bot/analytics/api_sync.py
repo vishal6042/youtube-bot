@@ -20,10 +20,10 @@ can be mixed in any order without fighting.
 from __future__ import annotations
 
 import datetime as dt
+import re
 import time
 from typing import Any
 
-from ..config import load_topics
 from ..db import connect
 from ..publish import auth
 from .importer import topic_map
@@ -63,6 +63,37 @@ def _query(yta: Any, **params: Any) -> list[list[Any]]:
                 raise
             time.sleep(0.5 * 2 ** attempt)
     return []
+
+
+_ISO_DUR = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?")
+
+
+def _video_details(vids: list[str]) -> dict[str, dict[str, Any]]:
+    """Title, publish date and length straight from YouTube (Data API).
+
+    The Analytics API has none of these, and Studio zips only cover the videos
+    in that export, so without this a video never seen in a zip shows blanks.
+    Costs 1 Data API unit per 50 videos. Best effort: on any failure the sync
+    carries on with what the upload log and library know.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        yt = auth.service()
+        for i in range(0, len(vids), 50):
+            resp = yt.videos().list(part="snippet,contentDetails",
+                                    id=",".join(vids[i:i + 50])).execute()
+            for v in resp.get("items", []):
+                m = _ISO_DUR.fullmatch(v.get("contentDetails", {}).get("duration") or "")
+                secs = (int(m[1] or 0) * 3600 + int(m[2] or 0) * 60 + int(m[3] or 0)) if m else None
+                pub = (v.get("snippet", {}).get("publishedAt") or "")[:10]
+                out[v["id"]] = {
+                    "title": v.get("snippet", {}).get("title") or None,
+                    "published_at": dt.date.fromisoformat(pub) if pub else None,
+                    "duration_sec": secs or None,
+                }
+    except Exception as exc:
+        print(f"  ! video details skipped: {type(exc).__name__}: {exc}")
+    return out
 
 
 def sync(days: int = 90) -> dict[str, Any]:
@@ -124,8 +155,9 @@ def _sync(yta: Any, ids: str, days: int) -> dict[str, Any]:
             if views:
                 vid_daily.append((vid, day, int(views)))
 
+    details = _video_details(vids)
+
     # ---- load, through the same guarded shapes as the zip importer ----
-    titles = {t["key"]: t.get("title") for t in load_topics()}
     with connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -139,17 +171,23 @@ def _sync(yta: Any, ids: str, days: int) -> dict[str, Any]:
             # Videos must exist for the FK; never blank out zip-sourced detail.
             cur.executemany(
                 """
-                INSERT INTO video (video_id, topic_key, series, playlist, title)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO video (video_id, topic_key, series, playlist, title,
+                                   published_at, duration_sec)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (video_id) DO UPDATE SET
-                    topic_key = COALESCE(video.topic_key, EXCLUDED.topic_key),
-                    series    = COALESCE(video.series,    EXCLUDED.series),
-                    playlist  = COALESCE(video.playlist,  EXCLUDED.playlist),
-                    title     = COALESCE(video.title,     EXCLUDED.title),
-                    last_seen = now()
+                    topic_key    = COALESCE(video.topic_key,    EXCLUDED.topic_key),
+                    series       = COALESCE(video.series,       EXCLUDED.series),
+                    playlist     = COALESCE(video.playlist,     EXCLUDED.playlist),
+                    title        = COALESCE(video.title,        EXCLUDED.title),
+                    published_at = COALESCE(video.published_at, EXCLUDED.published_at),
+                    duration_sec = COALESCE(video.duration_sec, EXCLUDED.duration_sec),
+                    last_seen    = now()
                 """,
                 [(vid, m.get("topic_key"), m.get("series"), m.get("playlist"),
-                  titles.get(m.get("topic_key"))) for vid, m in mapping.items()],
+                  details.get(vid, {}).get("title") or m.get("title"),
+                  details.get(vid, {}).get("published_at"),
+                  details.get(vid, {}).get("duration_sec") or m.get("duration_sec"))
+                 for vid, m in mapping.items()],
             )
 
             months = {dt.date.fromisoformat(d).replace(day=1) for _, d, _ in vid_daily}

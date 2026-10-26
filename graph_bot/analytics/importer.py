@@ -103,11 +103,21 @@ def topic_map() -> dict[str, dict[str, str]]:
         if not m:
             continue
         topic = by_key.get(key)
-        series = topic_series(topic) if topic else None
+        if topic:
+            series, title, secs = topic_series(topic), topic.get("title"), None
+        else:
+            # Long-form videos (lf_<ep>) and Shorts cut from them are not
+            # topics; the library knows their title, playlist and length.
+            from .. import library
+
+            it = library.item(key) or {}
+            series, title, secs = it.get("series"), it.get("title"), it.get("duration_sec")
         out[m.group(1)] = {
             "topic_key": key,
             "series": series,
             "playlist": playlist_of(series)[0] if series else None,
+            "title": title,
+            "duration_sec": round(secs) if secs else None,
         }
     return out
 
