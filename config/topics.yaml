@@ -1636,3 +1636,54 @@ topics:
     thumb_at: 0.97
     thumb_crop: [0.195, 0.195]
     hashtags: ["math", "probability", "bellcurve", "galtonboard", "satisfying"]
+  - key: "math_monty_hall"
+    title: "Should You Switch Doors?"
+    subtitle: "The Monty Hall problem, played 1,000 times"
+    yt_title: "Should You Switch Doors? 🚪 Monty Hall, Played 1,000 Times"
+    mode: "sim"
+    sim: "monty_hall"
+    seed: 2
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "Three doors, one prize. The host opens an empty door: stay or switch? 1,000 real games settle it. 🚪"
+    how: "In every game both players pick the same door. The host, who knows where the prize is, opens an empty door. The cyan player stays, the pink player switches to the last closed door, and the winner's marble drops into their tube. Switching wins whenever the first pick was wrong, which happens 2 times in 3."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Would you have switched? Tell me 👇"
+    # Thumbnail: the two filled tubes under the payoff.
+    thumb_at: 0.97
+    thumb_crop: [0.195, 0.195]
+    hashtags: ["math", "probability", "montyhall", "puzzle", "satisfying"]
+  - key: "math_birthday"
+    title: "How Many People Until Two Share a Birthday?"
+    subtitle: "The birthday paradox, 500 rooms"
+    yt_title: "How Many People Until Two Share a Birthday? 🎂 The Birthday Paradox"
+    mode: "sim"
+    sim: "birthday"
+    seed: 11
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "People walk into a room one by one. How many until two share a birthday? 500 rooms, simulated. 🎂"
+    how: "Each person gets a random birthday out of 365. A room stops at the first shared birthday, and its marble drops onto the chart at that head count. With 23 people there are 253 possible pairs, so a match is about a coin flip. The gold curve is the exact maths."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Did you guess higher than 23? Tell me 👇"
+    # Thumbnail: the finished histogram, the 23 marker and the gold centre number.
+    thumb_at: 0.97
+    thumb_crop: [0.195, 0.195]
+    hashtags: ["math", "probability", "birthdayparadox", "puzzle", "satisfying"]
+  - key: "math_monte_carlo_pi"
+    title: "Can Random Dots Find π?"
+    subtitle: "Monte Carlo, live"
+    yt_title: "Can Random Dots Find π? 🎯 100,000 Dots, One Circle"
+    mode: "sim"
+    sim: "monte_carlo_pi"
+    seed: 131
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "Throw random dots at a square with a circle inside. Count them, and π appears. 100,000 dots, live. 🎯"
+    how: "The circle fills π/4 of the square, so about π/4 of random dots land inside it. Four times the share inside is an estimate of π, and it gets closer the more dots you throw. Every dot here is a real random point."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 How many digits did you expect it to get? Tell me 👇"
+    # Thumbnail: the golden disc and the final estimate.
+    thumb_at: 0.93
+    thumb_crop: [0.18, 0.2]
+    hashtags: ["math", "pi", "probability", "montecarlo", "satisfying"]

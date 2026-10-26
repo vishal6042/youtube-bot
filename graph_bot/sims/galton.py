@@ -177,36 +177,7 @@ def _ball_color(b: int) -> tuple[int, int, int]:
     return mix(GOLD, PINK, f * 2) if f < 0.5 else mix(PINK, CYAN, (f - 0.5) * 2)
 
 
-def _sphere(color, r: float, ox: float, oy: float, size: int, ss: int = 8) -> Image.Image:
-    """A glossy marble, drawn 8x large and shrunk (smooth edges at any sub-pixel offset)."""
-    big = Image.new("RGBA", (size * ss, size * ss), (0, 0, 0, 0))
-    d = ImageDraw.Draw(big)
-    cx, cy = (size / 2 + ox) * ss, (size / 2 + oy) * ss
-    hx, hy = cx - 0.38 * r * ss, cy - 0.42 * r * ss
-    steps = 14
-    for s in range(steps):
-        f = s / (steps - 1)                       # 0 rim .. 1 highlight
-        rr = r * ss * (1 - 0.86 * f)
-        x, y = cx + (hx - cx) * f, cy + (hy - cy) * f
-        col = (mix(scale(color, 0.45), color, f / 0.55) if f < 0.55
-               else mix(color, WHITE, (f - 0.55) / 0.45 * 0.8))
-        d.ellipse((x - rr, y - rr, x + rr, y + rr), fill=col + (255,))
-    return big.resize((size, size), Image.LANCZOS)
-
-
-class Sprites:
-    """Marble images for each colour at 4x4 sub-pixel offsets, pasted centred on (x, y)."""
-
-    def __init__(self, colors, r: float, sub: int = 4):
-        self.sub = sub
-        self.size = int(math.ceil(r * 2 + 4)) // 2 * 2 + 2
-        self.cache = {c: {(i, k): _sphere(c, r, i / sub, k / sub, self.size)
-                          for i in range(sub) for k in range(sub)} for c in set(colors)}
-
-    def paste(self, img: Image.Image, color, x: float, y: float) -> None:
-        fx, fy = math.floor(x), math.floor(y)
-        spr = self.cache[color][(int((x - fx) * self.sub), int((y - fy) * self.sub))]
-        img.paste(spr, (fx - self.size // 2, fy - self.size // 2), spr)
+Sprites = cv.Sprites        # glossy marbles, shared by every episode
 
 
 def _halo(radius: int, color, alpha: float) -> Image.Image:

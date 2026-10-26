@@ -16,6 +16,9 @@ from typing import Any
 # sim name -> module with render(out_path, ffmpeg, seed=..., progress=...) -> seconds
 SIMS = {
     "galton": "graph_bot.sims.galton",
+    "monty_hall": "graph_bot.sims.monty_hall",
+    "monte_carlo_pi": "graph_bot.sims.monte_carlo_pi",
+    "birthday": "graph_bot.sims.birthday",
 }
 
 

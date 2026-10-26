@@ -29,13 +29,13 @@ what the maths actually does.
 | # | Hook on screen | What happens | Payoff | Status |
 |---|---|---|---|---|
 | 1 | **Where will 500 balls land?** | Galton board: marbles bounce through 12 rows of pegs into bins | The bell curve drawn over the piles | **Built** (`sim: galton`) |
-| 2 | **Should you switch doors?** | Monty Hall, 1,000 games played fast; "switch" and "stay" win counters race | Switch wins 2/3 of the time | Planned |
-| 3 | **Can random dots find π?** | Dots rain into a square; inside the circle turn gold; the estimate updates | The estimate settles on 3.14159… | Planned |
+| 2 | **Should you switch doors?** | Monty Hall, 1,000 games played fast; "switch" and "stay" win counters race | Switch wins 2/3 of the time | **Built** (`sim: monty_hall`) |
+| 3 | **Can random dots find π?** | Dots rain into a square; inside the circle turn gold; the estimate updates | The estimate settles on 3.14159… | **Built** (`sim: monte_carlo_pi`) |
 | 4 | **Two balls, 0.001 apart. Same path?** | Two balls bounce in a circle, together at first | They split completely: chaos | Planned |
 | 5 | **100 pendulums, almost identical** | Double pendulums released a hair apart, in a rainbow | They fan out into chaos | Planned |
 | 6 | **15 pendulums, one release** | Pendulum wave: snakes, lines, chaos, then back in sync | All 15 line up again at 60 s | Planned |
 | 7 | **What do random dots draw?** | The chaos game: jump halfway to a random corner, again and again | A Sierpinski triangle appears | Planned |
-| 8 | **How many people until two share a birthday?** | People walk into a room until a match; repeated 500 times | Usually just 23 people | Planned |
+| 8 | **How many people until two share a birthday?** | People walk into a room until a match; repeated 500 times | Usually just 23 people | **Built** (`sim: birthday`) |
 | 9 | **Will a lost walker ever get home?** | Random walks on a grid, 2D vs 3D side by side | 2D always returns; 3D often never | Planned |
 | 10 | **Light in a coffee cup** | Rays reflect inside a circle | A glowing cardioid (the cup caustic) | Planned |
 | 11 | **Which sort finishes first?** | Bubble, quick and merge sort race on the same bars, with sound | Quick sort wins by miles | Planned |
