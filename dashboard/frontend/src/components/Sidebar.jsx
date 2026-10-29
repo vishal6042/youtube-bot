@@ -17,7 +17,11 @@ export const NAV = [
     { id: "__uploads", icon: "published", label: "Published", count: "uploaded" },
     { id: "__playlists", icon: "playlists", label: "Playlists" },
   ] },
-  { group: "Learn", items: [{ id: "__analytics", icon: "analytics", label: "Analytics" }] },
+  { group: "Learn", items: [
+    { id: "__allvideos", icon: "published", label: "All videos" },
+    { id: "__lfstats", icon: "screen", label: "Long-form results" },
+    { id: "__analytics", icon: "analytics", label: "Analytics" },
+  ] },
   { group: "Library", items: [
     { id: "__music", icon: "music", label: "Music" },
     { id: "__settings", icon: "settings", label: "Settings" },

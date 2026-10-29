@@ -198,3 +198,7 @@ textarea.input { resize: vertical; line-height: 1.5; }
    so the loop has no visible seam. */
 @keyframes bar-flow { from { background-position: 160% 0, 0 0, 0 0; } to { background-position: -60% 0, 67.8px 0, 0 0; } }
 @keyframes bar-head { 0%, 100% { transform: scale(.8); opacity: .85; } 50% { transform: scale(1.25); opacity: 1; } }
+
+/* Titles that open on YouTube: plain text until hovered. */
+.quiet-link { color: inherit; text-decoration: none; }
+.quiet-link:hover { color: var(--go); text-decoration: underline; }

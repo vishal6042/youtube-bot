@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import Overview from "./components/Overview.jsx";
 import IdeasPage from "./components/IdeasPage.jsx";
@@ -10,6 +10,8 @@ import UploadPage from "./components/UploadPage.jsx";
 import PublishedPage from "./components/PublishedPage.jsx";
 import PlaylistsPage from "./components/PlaylistsPage.jsx";
 import AnalyticsPage from "./components/AnalyticsPage.jsx";
+import AllVideosPage from "./components/AllVideosPage.jsx";
+import LongformStatsPage from "./components/LongformStatsPage.jsx";
 import MusicPage from "./components/MusicPage.jsx";
 import SettingsPage from "./components/SettingsPage.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -525,6 +527,8 @@ export default function App() {
           />
         )}
 
+        {state && view === "__lfstats" && <LongformStatsPage setView={setView} />}
+        {state && view === "__allvideos" && <AllVideosPage />}
         {state && view === "__analytics" && (
           <AnalyticsPage onWatch={rowHandlers.onWatch} toast={toast} />
         )}

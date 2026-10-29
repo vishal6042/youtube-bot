@@ -1678,6 +1678,152 @@ def api_uploads() -> dict[str, Any]:
     }
 
 
+def _next_quota_reset() -> str:
+    """When the YouTube upload quota resets (midnight US/Pacific), in local time."""
+    from zoneinfo import ZoneInfo
+
+    pac = dt.datetime.now(ZoneInfo("America/Los_Angeles"))
+    nxt = (pac + dt.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return nxt.astimezone().replace(tzinfo=None).isoformat(timespec="minutes")
+
+
+@app.get("/api/perf")
+def api_perf() -> dict[str, Any]:
+    """Channel performance for the Overview, Long-form results and All videos screens.
+
+    Built from stored snapshots only (every YouTube sync appends one), so it
+    costs no quota. "Last 7 days" compares with the newest snapshot that is at
+    least a week old; a video younger than that counts all its views.
+    """
+    from graph_bot import library
+    from graph_bot.analytics.importer import VIDEO_ID_RE
+
+    rows = api_uploads()["uploads"]
+    try:
+        hist = store.video_views_history()
+        chan = store.channel_stats_history()
+        watch = store.watch_stats()
+    except Exception:  # Postgres down: show what the files know
+        hist, chan, watch = {}, [], {}
+    now = dt.datetime.now()
+    now_s = now.isoformat(timespec="seconds")
+    week_ago = (now - dt.timedelta(days=7)).isoformat(timespec="seconds")
+    day_ago = (now - dt.timedelta(days=1)).isoformat(timespec="seconds")
+
+    def views_at(vid: str | None, iso: str) -> int | None:
+        best = None
+        for at, v in hist.get(vid or "", []):
+            if at <= iso:
+                best = v
+            else:
+                break
+        return best
+
+    videos: list[dict[str, Any]] = []
+    for r in rows:
+        m = VIDEO_ID_RE.search(r.get("url") or "")
+        vid = m.group(1) if m else None
+        live = r.get("live") or {}
+        kind = "video" if r.get("kind") == "video" else "short"
+        views = live.get("views")
+        privacy = live.get("privacy_status")
+        sched = live.get("publish_at")
+        if views is None:
+            status = "waiting"
+        elif privacy == "public":
+            status = "live"
+        elif sched and sched > now_s:
+            status = "scheduled"
+        else:
+            status = privacy or "unknown"
+        before = views_at(vid, week_ago)
+        videos.append({
+            "key": r["key"], "video_id": vid, "url": r.get("url"), "kind": kind,
+            "title": r.get("title"), "series": r.get("series"), "playlist": r.get("playlist"),
+            "duration_sec": r.get("duration_sec"), "uploaded_at": r.get("uploaded_at"),
+            "posted_at": live.get("published_at") or r.get("uploaded_at"),
+            "publish_at": sched, "status": status,
+            "views": views, "likes": live.get("likes"), "comments": live.get("comments"),
+            "gain_7d": None if views is None else views - (before or 0),
+            "has_thumb": r.get("has_thumb"),
+        })
+
+    # ---- Overview ----
+    today = now.date().isoformat()
+    up_today = [v for v in videos if (v["uploaded_at"] or "")[:10] == today]
+    latest_c = chan[-1] if chan else None
+
+    def chan_at(iso: str) -> dict[str, Any] | None:
+        best = None
+        for c in chan:
+            if c["fetched_at"] <= iso:
+                best = c
+        return best
+
+    wk, dy = chan_at(week_ago), chan_at(day_ago)
+    growth: dict[str, int] = {}
+    for c in chan:   # last snapshot of each day
+        growth[c["fetched_at"][:10]] = c["views"]
+    upcoming = sorted((v for v in videos if v["status"] == "scheduled"), key=lambda v: v["publish_at"])
+    with_stats = [v for v in videos if v["views"] is not None]
+    overview = {
+        "today": {
+            "uploaded": len(up_today),
+            "shorts": sum(1 for v in up_today if v["kind"] == "short"),
+            "videos": sum(1 for v in up_today if v["kind"] == "video"),
+            "quota_resets_at": _next_quota_reset(),
+            "next_live": upcoming[0] if upcoming else None,
+            "private": sum(1 for v in videos if v["status"] == "private"),
+            "scheduled": len(upcoming),
+        },
+        "channel": {
+            "fetched_at": latest_c and latest_c["fetched_at"],
+            "views": latest_c and latest_c["views"],
+            "views_7d": (latest_c["views"] - wk["views"]) if latest_c and wk else None,
+            "subscribers": latest_c and latest_c["subscribers"],
+            "subs_1d": (latest_c["subscribers"] - dy["subscribers"]) if latest_c and dy else None,
+            "likes": sum(v["likes"] or 0 for v in with_stats),
+            "comments": sum(v["comments"] or 0 for v in with_stats),
+            "tracked_views": sum(v["views"] or 0 for v in with_stats),
+        },
+        "growth": [{"day": d, "views": n} for d, n in sorted(growth.items())],
+        "rising": sorted((v for v in with_stats if (v["gain_7d"] or 0) > 0),
+                         key=lambda v: -v["gain_7d"])[:5],
+        "latest": videos[:8],
+    }
+
+    # ---- Long-form videos, each with its Shorts ----
+    longform_out = []
+    for v in videos:
+        if v["kind"] != "video":
+            continue
+        ep = v["key"][3:]
+        shorts = [s for s in videos if s["key"].startswith(v["key"] + "__")]
+        planned = len(library.video_shorts(ep))
+        milestones = {}
+        if v["posted_at"] and v["video_id"]:
+            try:
+                t0 = dt.datetime.fromisoformat(v["posted_at"][:19])
+                for days in (1, 3, 7):
+                    at = t0 + dt.timedelta(days=days)
+                    if at <= now:
+                        milestones[str(days)] = views_at(v["video_id"], at.isoformat(timespec="seconds"))
+            except ValueError:
+                pass
+        w = watch.get(v["video_id"] or "", {})
+        s_views = sum(s["views"] or 0 for s in shorts)
+        longform_out.append({
+            **v, "episode": ep, "thumbnail": f"/api/longform/{ep}/thumbnail",
+            "avg_view_sec": w.get("avg_view_sec"), "avg_pct_viewed": w.get("avg_pct_viewed"),
+            "milestones": milestones,
+            "shorts": sorted(shorts, key=lambda s: -(s["views"] or 0)),
+            "shorts_planned": planned, "shorts_views": s_views,
+            "shorts_likes": sum(s["likes"] or 0 for s in shorts),
+            "reach": (v["views"] or 0) + s_views,
+        })
+    return {"generated_at": now_s, "overview": overview, "videos": videos, "longform": longform_out}
+
+
 class LinkReq(BaseModel):
     key: str
     url: str | None = None

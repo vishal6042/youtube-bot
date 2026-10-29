@@ -95,6 +95,9 @@ def pull() -> dict[str, Any]:
                 "likes": int(vs.get("likeCount") or 0),
                 "comments": int(vs.get("commentCount") or 0),
                 "privacy_status": item.get("status", {}).get("privacyStatus"),
+                # Same response, no extra quota: when it went (or goes) live.
+                "published_at": item.get("snippet", {}).get("publishedAt"),
+                "publish_at": item.get("status", {}).get("publishAt"),
             })
 
     # ---- persist snapshots + remember playlist ids ----

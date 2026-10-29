@@ -1,10 +1,9 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api.js";
-import {
-  Banner, Bar, Btn, Chip, Icon, PageHeader, PlaylistChip, Stat,
-  fmtCompact, fmtDuration, fmtNum, fmtWhen,
-} from "../ui.jsx";
+import { Banner, Btn, Chip, Icon, PageHeader, fmtDuration, fmtWhen } from "../ui.jsx";
 import LiveRun from "./LiveRun.jsx";
+import PerfOverview from "./perf/PerfOverview.jsx";
+import { usePerf } from "./perf/perf.jsx";
 import LongformLive from "./LongformLive.jsx";
 import Transmission from "./upload/Transmission.jsx";
 
@@ -20,14 +19,10 @@ const plural = (n, one, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 export default function Overview({
   state, ideasCount, lines, titles, setView, onOpenSearch, onCancel, onCancelQueued,
 }) {
-  const [yt, setYt] = useState(null);
   const [uploads, setUploads] = useState(null);
   const [longform, setLongform] = useState(null);
-
-  // Stored snapshots only: neither call spends YouTube quota.
-  useEffect(() => {
-    api("/api/yt/stats").then((r) => setYt(r.channel)).catch(() => {});
-  }, []);
+  // Channel performance (stored snapshots only: no YouTube quota).
+  const { perf, error: perfError } = usePerf([state.counts.uploaded]);
   useEffect(() => {
     api("/api/uploads").then((r) => setUploads(r.uploads || [])).catch(() => setUploads([]));
   }, [state.counts.uploaded]);
@@ -49,20 +44,8 @@ export default function Overview({
   const rendering = (job ? 1 : 0) + queue.length;
   const slots = quota?.slots_left ?? null;
 
-  const latest = useMemo(() => {
-    if (!uploads) return [];
-    // A video is judged against its own playlist, not the channel.
-    const bySeries = {};
-    for (const u of uploads) {
-      if (u.live?.views != null) (bySeries[u.series] ||= []).push(u.live.views);
-    }
-    return [...uploads]
-      .sort((a, b) => (b.uploaded_at || "").localeCompare(a.uploaded_at || ""))
-      .slice(0, 5)
-      .map((u) => ({ ...u, med: median(bySeries[u.series] || []) }));
-  }, [uploads]);
-
-  const privateCount = (uploads || []).filter((u) => u.live?.privacy_status === "private").length;
+  // Scheduled videos are Private until they go live; only unscheduled ones need the user.
+  const privateCount = perf?.overview?.today?.private ?? 0;
   const missingPlaylists = state.series.filter(
     (s) => !s.playlist_exists && s.total > 0 && s.uploaded < s.total
   );
@@ -132,6 +115,9 @@ export default function Overview({
         <Btn kind="primary" icon="play" onClick={() => setView("__launch")}>New render</Btn>
       </PageHeader>
 
+      <PerfOverview perf={perf} error={perfError} quota={quota} setView={setView} />
+
+      <h2 style={{ fontSize: 18, marginTop: 10 }}>Production</h2>
       <section className="cols c2" aria-label="What to do next">
         {cards.map((c, i) => (
           <div key={c.to} className="card lift stack" style={{ gap: 10, borderColor: i === 0 ? "rgba(200,245,96,.4)" : undefined }}>
@@ -176,52 +162,7 @@ export default function Overview({
         </div>
       </section>
 
-      <section className="cols c4" aria-label="Channel">
-        <Stat label="Subscribers" value={yt ? fmtNum(yt.subscribers) : ""} note={yt ? `as of ${fmtWhen(yt.fetched_at)}` : "sync to load"} />
-        <Stat label="Total views" value={yt ? fmtCompact(yt.views) : ""} note="all videos" />
-        <Stat label="Videos on YouTube" value={yt ? fmtNum(yt.video_count) : ""} note={`${counts.uploaded} posted from here`} />
-        <Stat label="Uploads today" value={quota ? `${quota.uploads_today} of ${quota.slots_total}` : ""}
-              note={slots != null ? `${plural(slots, "slot")} left` : ""} />
-      </section>
-
-      <div className="split">
-        <section className="card wide" aria-label="Latest posts">
-          <div className="card-head">
-            <h2>How the latest posts did</h2>
-            <span className="spacer" />
-            <Btn kind="ghost" size="sm" onClick={() => setView("__analytics")}>Open analytics</Btn>
-          </div>
-          <div className="scroll">
-            <table className="tbl">
-              <thead>
-                <tr><th>Video</th><th>Playlist</th><th>Posted</th><th className="r">Views</th>
-                  <th style={{ width: 160 }}>vs playlist median</th></tr>
-              </thead>
-              <tbody>
-                {latest.map((u) => {
-                  const v = u.live?.views;
-                  const ratio = v != null && u.med ? v / u.med : null;
-                  return (
-                    <tr key={u.key}>
-                      <td className="t">{u.title}</td>
-                      <td><PlaylistChip series={u.series} name={u.playlist} /></td>
-                      <td className="muted">{fmtWhen(u.uploaded_at, { time: false })}</td>
-                      <td className="r num">{v != null ? fmtNum(v) : <span className="faint">no data yet</span>}</td>
-                      <td>
-                        {ratio != null && (
-                          <Bar pct={ratio * 100}
-                               color={ratio >= 1 ? undefined : ratio >= 0.5 ? "var(--warn)" : "var(--bad)"} />
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <div className="rail">
+      <div className="cols c2" style={{ alignItems: "start" }}>
           {!job && (
             <section className="card" aria-label="Render status">
               <div className="card-head"><h2>Render</h2><Chip tone="idle">Idle</Chip></div>
@@ -255,8 +196,8 @@ export default function Overview({
                 ))}
                 {privateCount > 0 && (
                   <Banner title={`${plural(privateCount, "video is", "videos are")} still Private`}
-                          actions={<Btn size="sm" onClick={() => setView("__uploads")}>Review</Btn>}>
-                    Nobody can see them until you switch them to Public in YouTube Studio.
+                          actions={<Btn size="sm" onClick={() => setView("__allvideos")}>Review</Btn>}>
+                    They have no schedule, so nobody can see them until you switch them to Public in YouTube Studio.
                   </Banner>
                 )}
                 {stopped && (
@@ -272,7 +213,6 @@ export default function Overview({
               </div>
             )}
           </section>
-        </div>
       </div>
     </>
   );

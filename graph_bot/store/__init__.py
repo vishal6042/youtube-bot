@@ -576,17 +576,49 @@ def save_channel_stats(subscribers: int | None, views: int | None,
 
 
 def save_video_stats(rows: list[dict[str, Any]]) -> int:
-    """rows: [{video_id, views, likes, comments, privacy_status}]"""
+    """rows: [{video_id, views, likes, comments, privacy_status, published_at?, publish_at?}]"""
     if not rows:
         return 0
     with connect() as conn:
         conn.cursor().executemany(
-            "INSERT INTO video_stats_live (video_id, views, likes, comments, privacy_status)"
-            " VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO video_stats_live (video_id, views, likes, comments, privacy_status,"
+            " published_at, publish_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
             [(r["video_id"], r.get("views"), r.get("likes"), r.get("comments"),
-              r.get("privacy_status")) for r in rows],
+              r.get("privacy_status"), r.get("published_at"), r.get("publish_at")) for r in rows],
         )
     return len(rows)
+
+
+def video_views_history() -> dict[str, list[tuple[str, int]]]:
+    """video_id -> [(fetched_at ISO, views)], oldest first: every stats snapshot."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT video_id, fetched_at, views FROM video_stats_live ORDER BY video_id, fetched_at"
+        ).fetchall()
+    out: dict[str, list[tuple[str, int]]] = {}
+    for vid, at, views in rows:
+        out.setdefault(vid, []).append((_iso(at), int(views or 0)))
+    return out
+
+
+def channel_stats_history() -> list[dict[str, Any]]:
+    """Every channel snapshot, oldest first."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT fetched_at, subscribers, views, video_count FROM channel_stats_live ORDER BY fetched_at"
+        ).fetchall()
+    return [{"fetched_at": _iso(at), "subscribers": s, "views": v, "video_count": c} for at, s, v, c in rows]
+
+
+def watch_stats() -> dict[str, dict[str, Any]]:
+    """video_id -> average view length and share watched, from the newest analytics import."""
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT ON (video_id) video_id, avg_view_sec, avg_pct_viewed FROM video_period_stats"
+            " WHERE avg_view_sec IS NOT NULL ORDER BY video_id, range_end DESC"
+        ).fetchall()
+    return {vid: {"avg_view_sec": float(s) if s is not None else None,
+                  "avg_pct_viewed": float(p) if p is not None else None} for vid, s, p in rows}
 
 
 def latest_channel_stats() -> dict[str, Any] | None:
@@ -607,13 +639,14 @@ def latest_video_stats() -> dict[str, dict[str, Any]]:
     with connect() as conn:
         rows = conn.execute(
             "SELECT DISTINCT ON (video_id) video_id, fetched_at, views, likes,"
-            " comments, privacy_status FROM video_stats_live"
+            " comments, privacy_status, published_at, publish_at FROM video_stats_live"
             " ORDER BY video_id, fetched_at DESC"
         ).fetchall()
     return {
         vid: {"fetched_at": _iso(at), "views": views, "likes": likes,
-              "comments": comments, "privacy_status": privacy}
-        for vid, at, views, likes, comments, privacy in rows
+              "comments": comments, "privacy_status": privacy,
+              "published_at": _iso(pub), "publish_at": _iso(sched)}
+        for vid, at, views, likes, comments, privacy, pub, sched in rows
     }
 
 

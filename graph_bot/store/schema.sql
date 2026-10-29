@@ -144,3 +144,7 @@ CREATE TABLE IF NOT EXISTS video_stats_live (
 );
 CREATE INDEX IF NOT EXISTS video_stats_live_latest_idx
     ON video_stats_live (video_id, fetched_at DESC);
+-- When YouTube says the video was (or will be) published: snippet.publishedAt,
+-- and status.publishAt for a scheduled Private video. Added 2026-10-30.
+ALTER TABLE video_stats_live ADD COLUMN IF NOT EXISTS published_at timestamptz;
+ALTER TABLE video_stats_live ADD COLUMN IF NOT EXISTS publish_at timestamptz;
