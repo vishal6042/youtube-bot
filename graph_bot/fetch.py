@@ -31,6 +31,12 @@ _WB_AGGREGATES = {
     "INX", "LAC", "LCN", "LDC", "LIC", "LMC", "LMY", "LTE", "MEA", "MIC",
     "MNA", "NAC", "OED", "OSS", "PRE", "PSS", "PST", "SAS", "SSA", "SSF",
     "SST", "TEA", "TEC", "TLA", "TMN", "TSA", "TSS", "UMC", "WLD",
+    # Groups the Bank added later; FCV (fragile and conflict situations)
+    # appeared in October 2026 and ranked as a "country" in bar races.
+    "AFR", "BEA", "BEC", "BHI", "BLA", "BMN", "BSS", "CAA", "CEA", "CEU",
+    "CLA", "CME", "CSA", "DEA", "DEC", "DLA", "DMN", "DNS", "DSA", "DSF",
+    "DSS", "FCV", "FXS", "IBB", "MDE", "NAF", "NRS", "NXS", "RRS", "SXZ",
+    "XZN",
 }
 
 

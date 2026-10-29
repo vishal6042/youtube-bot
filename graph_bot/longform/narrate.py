@@ -18,13 +18,47 @@ DEFAULT_VOICE = "en-IN-NeerjaNeural"
 _TICKS = 10_000_000  # edge-tts reports offsets in 100-nanosecond units
 
 
+# edge-tts always asks for 48 kbps mono MP3, which sounds thin and smeared
+# under music. The service also serves 96 kbps at the same 24 kHz (tested
+# 2026-10-29; 48 kHz, WAV and Opus are refused), so the request is rewritten to
+# that. The library times multi-part text from the bitrate, so it is told too.
+_DEFAULT_FMT = "audio-24khz-48kbitrate-mono-mp3"
+HQ_FMT = "audio-24khz-96kbitrate-mono-mp3"
+HQ_BITRATE = 96_000
+
+
+class _HigherBitrate:
+    """While active, every speech.config the library sends asks for HQ_FMT."""
+
+    def __enter__(self):
+        import aiohttp
+        from edge_tts import communicate
+
+        self._ws = aiohttp.ClientWebSocketResponse
+        self._orig = self._ws.send_str
+        self._mod, self._rate = communicate, communicate.MP3_BITRATE_BPS
+        orig = self._orig
+
+        async def send_str(ws, data, *a, **k):
+            return await orig(ws, data.replace(_DEFAULT_FMT, HQ_FMT), *a, **k)
+
+        self._ws.send_str = send_str
+        communicate.MP3_BITRATE_BPS = HQ_BITRATE
+        return self
+
+    def __exit__(self, *exc):
+        self._ws.send_str = self._orig
+        self._mod.MP3_BITRATE_BPS = self._rate
+        return False
+
+
 async def _synth(text: str, voice: str, out_path: Path, rate: str,
                  boundary: str = "SentenceBoundary") -> list[dict[str, Any]]:
     import edge_tts
 
     cues: list[dict[str, Any]] = []
     comm = edge_tts.Communicate(text, voice, rate=rate, boundary=boundary)
-    with out_path.open("wb") as fh:
+    with _HigherBitrate(), out_path.open("wb") as fh:
         async for chunk in comm.stream():
             if chunk["type"] == "audio":
                 fh.write(chunk["data"])

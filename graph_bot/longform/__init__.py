@@ -26,7 +26,9 @@ OUT_ROOT = PROJECT_ROOT / "output" / "longform"
 # neural voices read documentary copy at about this speed.
 WORDS_PER_MINUTE = 150
 
-MODES = ("bar_race", "bump_race", "line_grow", "line_multi")
+MODES = ("bar_race", "bump_race", "line_grow", "line_multi", "scorecard", "podium", "hook")
+# Animated scenes drawn from the script itself (no data chart), timed to the narration.
+SCENES = ("scorecard", "podium", "hook")
 _KEY_RE = re.compile(r"^[a-z0-9_]+$")
 
 
@@ -95,6 +97,11 @@ def validate(ep: dict[str, Any]) -> None:
         chart = ch.get("chart") or {}
         if chart.get("mode") not in MODES:
             raise EpisodeError(f"Chapter {i} ({cid}): chart mode must be one of {', '.join(MODES)}")
+        if chart["mode"] in SCENES:
+            need = {"scorecard": "tiers", "podium": "podium", "hook": "cards"}[chart["mode"]]
+            if not chart.get(need):
+                raise EpisodeError(f"Chapter {i} ({cid}): a {chart['mode']} scene needs `{need}:`")
+            continue
         if not chart.get("code"):
             raise EpisodeError(f"Chapter {i} ({cid}): the chart needs a World Bank indicator code")
         if chart["mode"] == "line_multi" and len(chart.get("entities") or []) < 2:
@@ -109,7 +116,7 @@ def save(key: str, ep: dict[str, Any]) -> None:
     validate(ep)
     path = episode_path(key)
     head = _header_comments(path)
-    order = ["key", "title", "yt_title", "series", "voice", "voice_rate", "music_mood", "target_minutes",
+    order = ["key", "title", "yt_title", "series", "style", "voice", "voice_rate", "music_mood", "target_minutes",
              "reviewed", "chapters"]
     doc = {k: ep[k] for k in order if k in ep}
     doc.update({k: v for k, v in ep.items() if k not in doc})

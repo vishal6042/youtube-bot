@@ -25,7 +25,7 @@ from .. import fetch as fetch_mod
 from .. import transform
 from ..config import load_settings
 from ..render import ffmpeg_exe, h264_args, render
-from . import EpisodeError, load, out_dir, validate, words
+from . import SCENES, EpisodeError, load, out_dir, validate, words
 from .history import RenderRecord
 from .narrate import DEFAULT_VOICE, audio_seconds, speak
 
@@ -65,6 +65,17 @@ INDICATORS: dict[str, dict[str, Any]] = {
                        "value_scale": 1e6, "unit_suffix": "M", "value_decimals": 1},
     "NV.IND.MANF.ZS": {"subtitle": "Manufacturing as a share of the economy",
                        "unit_suffix": "%", "value_decimals": 1},
+    "SP.POP.TOTL": {"subtitle": "Population",
+                    "value_scale": 1e9, "unit_suffix": "B", "value_decimals": 2},
+    "SP.DYN.LE00.IN": {"subtitle": "Life expectancy at birth (years)",
+                       "unit_suffix": " yrs", "value_decimals": 1},
+    "IS.AIR.PSGR": {"subtitle": "Air passengers carried by the country's airlines",
+                    "value_fmt": "compact"},
+    "IT.CEL.SETS": {"subtitle": "Mobile phone subscriptions", "value_fmt": "compact"},
+    "BX.GSR.CCIS.CD": {"subtitle": "Exports of IT and communication services (US dollars)",
+                       "value_scale": 1e9, "unit_suffix": "B", "value_decimals": 0},
+    "BX.TRF.PWKR.CD.DT": {"subtitle": "Money sent home by workers abroad (remittances, US dollars)",
+                          "value_scale": 1e9, "unit_suffix": "B", "value_decimals": 1},
 }
 
 Progress = Callable[[dict[str, Any]], None]
@@ -98,6 +109,8 @@ def _covered(df: pd.DataFrame, lo: int, hi: int) -> list[str]:
 def chapter_topic(ep: dict[str, Any], ch: dict[str, Any], settings: dict[str, Any]) -> tuple[dict[str, Any], pd.DataFrame]:
     """The render-ready topic dict and data frame for one chapter."""
     chart = dict(ch.get("chart") or {})
+    if chart.get("mode") in SCENES:
+        raise EpisodeError(f"Chapter '{ch['id']}' is an animated scene, not a data chart")
     code = chart["code"]
     mode = chart["mode"]
     df = _indicator(code, settings)
@@ -155,8 +168,18 @@ def chapter_topic(ep: dict[str, Any], ch: dict[str, Any], settings: dict[str, An
 
 
 def _chapter_hash(ep: dict[str, Any], ch: dict[str, Any]) -> str:
-    blob = json.dumps({"n": " ".join((ch.get("narration") or "").split()), "c": ch.get("chart"),
-                       "h": ch.get("heading"), "v": ep.get("voice"), "r": ep.get("voice_rate"), "fmt": 6}, sort_keys=True)
+    parts = {"n": " ".join((ch.get("narration") or "").split()), "c": ch.get("chart"),
+             "h": ch.get("heading"), "v": ep.get("voice"), "r": ep.get("voice_rate"), "fmt": 6}
+    mode = (ch.get("chart") or {}).get("mode")
+    if _neon(ep, ch):
+        from .neon import VERSION as NEON_VERSION
+
+        parts["neon"] = NEON_VERSION
+    if mode in SCENES:
+        # The drawing code changes more often than the script, so its version
+        # is part of what the chapter was made from.
+        parts["sc"] = _scene_module(mode).VERSION
+    blob = json.dumps(parts, sort_keys=True)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
 
@@ -177,6 +200,11 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
     total = LEAD_IN + voice_secs + LEAD_OUT
     tell("chart", voice_secs=round(voice_secs, 1), frame=0, frames=0)
 
+    if (ch.get("chart") or {}).get("mode") in SCENES:
+        chart_secs = _render_scene(ep, ch, voice_mp3, total, chart_mp4, settings)
+        return _combine(ep, ch, voice_mp3, chart_mp4, final_mp4, voice_secs, total, chart_secs,
+                        cues, began, settings, tell)
+
     topic, df = chapter_topic(ep, ch, settings)
     rs = copy.deepcopy(settings)
     last = [0.0]
@@ -194,8 +222,59 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
         # The renderer adds a 1s end hold; aim the motion at the rest.
         target_seconds=max(4.0, total - 1.0))
     mode, data = transform.prepare(df, topic, rs)
-    chart_secs = render(mode, data, topic, rs, chart_mp4)
+    if _neon(ep, ch):
+        from . import neon
 
+        footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or "Data in Motion"
+        prefix = INDICATORS.get((ch.get("chart") or {}).get("code"), {}).get("prefix", "")
+        chart_secs = neon.render(mode, data, topic, rs, chart_mp4, heading=ch.get("heading") or "",
+                                 prefix=prefix, footer=footer, encode_args=h264_args(settings))
+    else:
+        chart_secs = render(mode, data, topic, rs, chart_mp4)
+
+    return _combine(ep, ch, voice_mp3, chart_mp4, final_mp4, voice_secs, total, chart_secs,
+                    cues, began, settings, tell)
+
+
+def _neon(ep: dict[str, Any], ch: dict[str, Any]) -> bool:
+    """Whether this chapter is drawn in the neon look (episode ``style: neon``)."""
+    return ep.get("style") == "neon" and (ch.get("chart") or {}).get("mode") in ("bar_race", "line_multi")
+
+
+def _scene_module(mode: str):
+    import importlib
+
+    return importlib.import_module(f".{mode}", __package__)
+
+
+def _render_scene(ep: dict[str, Any], ch: dict[str, Any], voice_mp3: Path, total: float,
+                  chart_mp4: Path, settings: dict[str, Any]) -> float:
+    """An animated scene (scorecard.py, podium.py, hook.py), timed from the
+    narration's word timings.
+
+    The chapter's audio keeps sentence cues for the subtitles; word timings
+    come from a second, identical request whose audio is thrown away.
+    """
+    from .scorecard import render_scorecard
+
+    probe = voice_mp3.with_suffix(".words.mp3")
+    _, word_cues = speak(ch.get("narration", ""), ep.get("voice") or DEFAULT_VOICE, probe, settings,
+                         rate=ep.get("voice_rate") or "+0%", words=True)
+    probe.unlink(missing_ok=True)
+    footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or "Data in Motion"
+    chart = ch["chart"]
+    if chart["mode"] == "scorecard":
+        return render_scorecard(chart, ch.get("heading") or "", word_cues, LEAD_IN, total, chart_mp4,
+                                ffmpeg_exe(settings), footer=footer, encode_args=h264_args(settings))
+    render = getattr(_scene_module(chart["mode"]), f"render_{chart['mode']}")
+    return render(chart, word_cues, LEAD_IN, total, chart_mp4, ffmpeg_exe(settings), footer=footer,
+                  source=chart.get("source", "World Bank"), encode_args=h264_args(settings))
+
+
+def _combine(ep: dict[str, Any], ch: dict[str, Any], voice_mp3: Path, chart_mp4: Path, final_mp4: Path,
+             voice_secs: float, total: float, chart_secs: float, cues: list[dict[str, Any]],
+             began: float, settings: dict[str, Any], tell: Callable[..., None]) -> dict[str, Any]:
+    cid = ch["id"]
     # The chart's pace is clamped per year, so it can land short or long. Hold
     # the last frame if short; if long, the voice simply finishes first.
     total = max(total, chart_secs)

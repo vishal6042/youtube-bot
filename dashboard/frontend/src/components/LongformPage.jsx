@@ -715,6 +715,12 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
                   </span>}
             </div>
 
+            {["scorecard", "podium", "hook"].includes(ch.chart.mode) ? (
+              <p className="muted" style={{ fontSize: 13 }}>
+                This chapter is an animated scene: everything in it appears as the narrator
+                says its trigger word. The scene is set in the script file, not here.
+              </p>
+            ) : (<>
             <div className="rowf" style={{ alignItems: "flex-end" }}>
               <label className="field" style={{ flex: "1 1 150px" }}>Chart
                 <Select value={ch.chart.mode} onChange={setMode} options={MODES} />
@@ -753,6 +759,8 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
                 </>
               )}
             </div>
+
+            </>)}
 
             <label className="field">What the narrator says
               <textarea className="input lf-narration" rows="8" value={ch.narration || ""}

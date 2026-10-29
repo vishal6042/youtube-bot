@@ -1,0 +1,395 @@
+# Long-form episode: Where Does India Rank?  DRAFT SCRIPT, written 2026-10-29.
+#
+# A countdown through ten world rankings, from India's worst place to its best.
+# Every number in the narration comes from the World Bank API as fetched on
+# 2026-10-29 (NY.GDP.PCAP.CD, SP.DYN.LE00.IN, IP.PAT.RESD, IS.AIR.PSGR,
+# NY.GDP.MKTP.PP.CD, NY.GDP.MKTP.CD, IP.JRN.ARTC.SC, IT.CEL.SETS,
+# BX.GSR.CCIS.CD, BX.TRF.PWKR.CD.DT, SP.POP.TOTL). Ranks are among every
+# country with a figure in that year (aggregates such as "Fragility, Conflict
+# and Violence situations" excluded). 2025 figures are first estimates.
+#
+# Each chart's final year is the latest year the Bank has for that measure:
+# air passengers and science papers stop in 2023, mobile phones and patents in
+# 2024. Lines marked `check:` state something that is NOT in that data.
+#
+# Dropped while drafting: military spending (Russia has no 2025 figure, so the
+# chart would show India 4th when it is 5th) and cereal output (India has been
+# 3rd every year since 1961, so there is no climb to show).
+
+key: india_rank
+title: Where Does India Rank? 10 World Rankings, Worst to Best
+yt_title: 'Where Does India Rank? 10 World Rankings, From #144 to #1'
+series: india_in_data
+style: neon
+voice: en-GB-SoniaNeural
+voice_rate: +5%
+music_mood: majestic
+target_minutes: 6
+reviewed: true
+chapters:
+- id: cold_open
+  heading: Where Does India Rank?
+  chart:
+    mode: hook
+    source: World Bank
+    globe:
+      lon0: 80
+      lat0: 16
+    cards:
+    - at: people
+      rank: '#1'
+      tone: gold
+      icon: users
+      label: MOST PEOPLE ON EARTH
+      value: 1.46 billion
+    - at: third
+      rank: '#3'
+      tone: bronze
+      icon: coins
+      label: ECONOMY BY BUYING POWER
+      value: $17.2 trillion
+    - at: hundred
+      rank: '#144'
+      tone: red
+      icon: trending-down
+      label: INCOME PER PERSON
+      value: $2,702 a year
+    link:
+      at: three
+    ranks:
+      at: ten
+      title: 10 WORLD RANKINGS
+      chips:
+      - '#144'
+      - '#137'
+      - '#5'
+      - '#4'
+      - '#3'
+      - '#3'
+      - '#2'
+      - '#2'
+      - '#1'
+      - '#1'
+    sweep:
+      at: worst
+      from: WORST
+      to: BEST
+    reveal:
+      at: one
+      known: PEOPLE
+      mystery: '?'
+  narration: India has more people than any country on Earth. It is the third biggest economy
+    by what money can buy. And it ranks a hundred and forty-fourth for income per person.
+    All three are true at the same time. So we took ten world rankings, from the World Bank's
+    own figures, and lined them up from India's worst place to its best. One of its number
+    ones is not the one you think.
+  short:
+    skip: true
+- id: income_per_person
+  heading: '#144 · Income per person'
+  chart:
+    mode: bar_race
+    code: NY.GDP.PCAP.CD
+    highlight: India
+    year_min: 2000
+    year_max: 2025
+    entities:
+    - United States
+    - Japan
+    - China
+    - Brazil
+    - Vietnam
+    - Indonesia
+    - Philippines
+    - India
+    - Bangladesh
+    - Pakistan
+  narration: Start at the bottom of the list. In 2000, the average Indian produced 443 dollars
+    of output a year. By 2025 it was 2,702, about six times as much. But that is still a hundred
+    and forty-fourth out of 186 countries. Bangladesh pulled ahead of India in 2019 and stayed
+    ahead for six years, until India edged back in front in 2025. The average American produces
+    thirty-three times as much.
+  short:
+    title: 'India Ranks #144 in Income Per Person'
+- id: life_expectancy
+  heading: '#137 · How long people live'
+  chart:
+    mode: line_multi
+    code: SP.DYN.LE00.IN
+    entities:
+    - Japan
+    - China
+    - Bangladesh
+    - India
+    highlight: India
+    year_min: 1973
+    year_max: 2024
+  narration: Next, how long people live. In 1973, a baby born in India could expect to live
+    about fifty years. Today it is seventy-two, more than twenty-two years longer. You can
+    see the dip in 2021, when Covid took more than three years off. But a child born in Bangladesh
+    can now expect to live almost three years longer than one born in India, and in the world
+    ranking India is a hundred and thirty-seventh.
+  short:
+    title: Indians Now Live 22 Years Longer Than in 1973
+- id: patents
+  heading: '#5 · New inventions'
+  chart:
+    mode: bar_race
+    code: IP.PAT.RESD
+    highlight: India
+    year_min: 1990
+    year_max: 2024
+    top_n: 10
+  narration: Now the jump. In 1990, Indian inventors filed about eleven hundred patent applications
+    at home, twenty-first in the world. India broke into the top ten in 2011, and in 2022
+    it passed Germany to become fifth. In 2024 Indians filed more than sixty-three thousand.
+    China, first by a huge distance, filed one point six seven million.
+  short:
+    title: 'India Is Now #5 in the World for Patents'
+- id: air_travel
+  heading: '#4 · Flying'
+  chart:
+    mode: bar_race
+    code: IS.AIR.PSGR
+    highlight: India
+    year_min: 2000
+    year_max: 2023
+    top_n: 10
+  narration: Then the sky. In 2000, Indian airlines carried seventeen million passengers,
+    seventeenth in the world. By 2023 they carried a hundred and eighty million, more than
+    ten times as many, and India was fourth, behind only the United States, China and, surprisingly,
+    Ireland, which is home to Europe's biggest budget airline.
+  check: Ireland ranks third because Ryanair, Europe's biggest budget airline, is registered
+    there (the data counts passengers carried by each country's airlines).
+  short:
+    title: India Now Flies More People Than Japan or the UK
+- id: buying_power
+  heading: '#3 · The economy, by buying power'
+  chart:
+    mode: line_multi
+    code: NY.GDP.MKTP.PP.CD
+    highlight: India
+    entities:
+    - China
+    - United States
+    - India
+    - Japan
+    - Germany
+    year_min: 1990
+    year_max: 2025
+  narration: Measured in dollars at market exchange rates, India's economy is sixth in the
+    world, a whisker behind Britain. But a dollar buys a lot more in India than in London.
+    Count what money actually buys, and India passed Germany in 2003, Japan in 2009, and now
+    sits third, at seventeen trillion dollars, behind only China and the United States.
+  short:
+    title: 'By Buying Power, India Is Already the #3 Economy'
+- id: science
+  heading: '#3 · Science papers'
+  chart:
+    mode: bar_race
+    code: IP.JRN.ARTC.SC
+    highlight: India
+    year_min: 2000
+    year_max: 2023
+    top_n: 10
+  narration: Science tells a similar story. In 2000, Indian researchers published about twenty-one
+    thousand scientific papers, twelfth in the world. India passed Britain and Japan in 2016
+    and Germany in 2017, and it has been third ever since. In 2023 it published more than
+    two hundred and twenty-eight thousand papers, more than Germany and Britain put together.
+  short:
+    title: India Now Publishes More Science Than Germany and the UK Combined
+- id: mobile_phones
+  heading: '#2 · Mobile phones'
+  chart:
+    mode: bar_race
+    code: IT.CEL.SETS
+    highlight: India
+    year_min: 2000
+    year_max: 2024
+    top_n: 10
+  narration: Into the top two. In 2000, India had three and a half million mobile phone connections,
+    thirty-third in the world, behind countries a tiny fraction of its size. By 2008 it was
+    second. Today it has more than one point one five billion, almost three times as many
+    as the United States. Only China has more.
+  short:
+    title: India Went From 3.5 Million Phones to 1.15 Billion
+- id: it_services
+  heading: '#2 · Selling IT to the world'
+  chart:
+    mode: bar_race
+    code: BX.GSR.CCIS.CD
+    highlight: India
+    year_min: 2005
+    year_max: 2025
+    top_n: 10
+  narration: This is the one India is famous for. In 2005, India already sold more computer
+    and IT services abroad than any other country, twenty-three billion dollars of them. It
+    stayed first until 2017, when Ireland passed it, largely because American tech giants
+    run much of their international business from Ireland. In 2025, India exported two hundred
+    billion dollars of IT services, about twice the American figure.
+  check: Ireland's lead comes mainly from multinational tech companies booking their non-US
+    sales through Irish subsidiaries.
+  short:
+    title: India Sells $200 Billion of IT to the World a Year
+- id: money_home
+  heading: '#1 · Money sent home'
+  chart:
+    mode: bar_race
+    code: BX.TRF.PWKR.CD.DT
+    highlight: India
+    year_min: 1990
+    year_max: 2025
+    top_n: 10
+  narration: Now the first of India's number ones, and the one most people miss. Every year,
+    Indians working abroad send money home to their families. In 1990 it was under two and
+    a half billion dollars. India has been first in the world every year since 2006. In 2025
+    the figure was a hundred and fifty-one billion dollars, more than twice as much as Mexico,
+    the next country on the list.
+  short:
+    title: 'India Is #1 in the World for Money Sent Home'
+- id: population
+  heading: '#1 · People'
+  chart:
+    mode: line_multi
+    code: SP.POP.TOTL
+    highlight: India
+    entities:
+    - India
+    - China
+    - United States
+    year_min: 1960
+    year_max: 2025
+  narration: And the number one everyone knows. In 1960, India had four hundred and thirty-six
+    million people, two hundred and thirty million fewer than China. By the World Bank's figures,
+    India passed China in 2021, and the gap has widened every year since. In 2025, India had
+    one point four six billion people. More than one person in every six on the planet is
+    Indian.
+  check: The UN dates the moment India passed China to 2023; the World Bank's revised figures
+    put it in 2021. The world total in the same data is 8.19 billion, so India is 17.9%.
+  short:
+    title: The Year India Passed China in Population
+- id: outro
+  heading: What it adds up to
+  chart:
+    mode: podium
+    source: World Bank
+    globe:
+      lon0: 80
+      lat0: 16
+    arcs:
+      at: money
+    podium:
+    - rank: 1
+      tone: gold
+      at: first
+      icons:
+      - users
+      - hand-coins
+      label: Population
+      sub: Money sent home
+    - rank: 2
+      tone: silver
+      at: second
+      icons:
+      - smartphone
+      - cloud
+      label: Mobile phones
+      sub: IT services
+    - rank: 3
+      tone: bronze
+      at: third
+      icons:
+      - book-open
+      - flask-conical
+      label: Science papers
+      sub: Buying power
+    bars:
+    - tone: teal
+      at: top
+      icon: trophy
+      title: TOP 5
+      items:
+      - icon: plane
+        rank: '#4'
+        label: Flying
+      - icon: lightbulb
+        rank: '#5'
+        label: Inventions
+    - tone: red
+      at: still
+      icon: trending-down
+      title: STILL LOW
+      items:
+      - icon: heart-pulse
+        rank: '#137'
+        label: Life expectancy
+      - icon: coins
+        rank: '#144'
+        label: Income per person
+    finale:
+      at: india
+      lines:
+      - INDIA IS A GIANT
+      - THAT IS STILL GETTING RICH
+      - one person at a time
+      accent:
+      - INDIA
+      - GIANT
+      question:
+        at: which
+        text: Which ranking surprised you most? Tell us in the comments.
+      subscribe:
+        at: subscribe
+      share:
+        at: share
+  narration: So, first in people and in money sent home. Second in phones and IT. Third in
+    science and buying power. Top five in flying and inventing. And still a hundred and thirty-seventh
+    for how long people live and a hundred and forty-fourth for income per person. India is
+    a giant that is still getting rich, one person at a time. Which ranking surprised you
+    most? Tell us in the comments. And if you enjoyed this, subscribe for more of the world
+    in numbers, and share it with a friend who thinks they know where India ranks.
+  short:
+    skip: true
+shorts_outro: All ten of India's world rankings are in the full video on the channel.
+thumbnail:
+  style: neon
+  kicker: WHERE DOES
+  headline:
+  - INDIA
+  - RANK?
+  accent: '#ff9933'
+  big_lines:
+  - 0
+  - 1
+  accent_lines:
+  - 0
+  top: 84
+  glow: '#7a3c08'
+  glow2: '#0b4a2a'
+  stripe:
+  - '#ff9933'
+  - '#ffffff'
+  - '#138808'
+  footnote: 10 world rankings, worst to best
+  ranks:
+  - rank: '#1'
+    label: POPULATION
+    tone: gold
+  - rank: '#1'
+    label: MONEY SENT HOME
+    tone: gold
+  - rank: '#2'
+    label: MOBILE PHONES
+    tone: silver
+  - rank: '#3'
+    label: SCIENCE
+    tone: bronze
+  - gap: true
+  - rank: '#144'
+    label: INCOME PER PERSON
+    tone: red
+hashtags:
+- India
+- IndiaInData
+- WorldRankings
+- Economy

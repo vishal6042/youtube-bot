@@ -529,6 +529,15 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
     series = {n: [float(v) for v in wide[n].values] for n in names}
     ymax = max(max(v) for v in series.values())
     line_colors = {n: PALETTE[i * 5 % len(PALETTE)] for i, n in enumerate(names)}
+    # A long-form chapter's protagonist (`highlight:`) gets the same orange it
+    # has in the bar races, a thicker line and a glow; the others take cool
+    # colours so no second line looks like it.
+    hero = topic.get("highlight") if topic.get("highlight") in names else None
+    if hero:
+        cool = ["#4cc9f0", "#9d4edd", "#5ee0c8", "#f72585", "#a0c4ff", "#7ed957"]
+        others = [n for n in names if n != hero]
+        line_colors = {n: cool[i % len(cool)] for i, n in enumerate(others)}
+        line_colors[hero] = HIGHLIGHT
 
     flag_imgs: dict[str, Any] = {}
     if topic.get("flags", True):
@@ -568,9 +577,14 @@ def _render_multi_line(wide: pd.DataFrame, topic: dict[str, Any], settings: dict
             col = line_colors[n]
             line_x = curve_x[: k + 1]
             line_y = curves[n][: k + 1]
-            ax.fill_between(line_x, line_y, color=col, alpha=0.10)
-            ax.plot(line_x, line_y, color=col, linewidth=5,
-                    solid_capstyle="round", zorder=4)
+            is_hero = n == hero
+            ax.fill_between(line_x, line_y, color=col, alpha=0.16 if is_hero else 0.08)
+            if is_hero:
+                for lw, a in ((18, 0.07), (12, 0.14)):
+                    ax.plot(line_x, line_y, color=col, linewidth=lw, alpha=a,
+                            solid_capstyle="round", zorder=4)
+            ax.plot(line_x, line_y, color=col, linewidth=7 if is_hero else 4.5,
+                    solid_capstyle="round", zorder=4.5 if is_hero else 4)
             ax.scatter([cx], [cvals[n]], color=FG, s=80, zorder=5,
                        edgecolors=col, linewidths=2.5)
 
