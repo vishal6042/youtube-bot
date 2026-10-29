@@ -388,6 +388,11 @@ thumbnail:
   - rank: '#144'
     label: INCOME PER PERSON
     tone: red
+# Quoted in the narration (India 6th at market exchange rates) but not charted.
+extra_sources: [NY.GDP.MKTP.CD]
+# data.worldbank.org/indicator/IP.JRN.ARTC.SC returned 5xx errors on 2026-10-30; Data360 has the same series.
+source_links:
+  IP.JRN.ARTC.SC: https://data360.worldbank.org/en/indicator/WB_WDI_IP_JRN_ARTC_SC
 hashtags:
 - India
 - IndiaInData

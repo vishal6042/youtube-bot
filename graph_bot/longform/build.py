@@ -324,9 +324,30 @@ def _write_text_assets(ep: dict[str, Any], built: list[tuple[dict[str, Any], dic
         f"{ep['title']}\n\n"
         "Chapters\n" + "\n".join(stamps) + "\n\n"
         f"Data: {', '.join(sources)}. Latest-year figures are first estimates and get revised.\n"
+        + _source_links(ep) +
         "Narration is a synthetic voice; the script is written and checked by the channel.\n\n"
         "Data in Motion: the world's numbers, animated.\n",
         encoding="utf-8")
+
+
+def _source_links(ep: dict[str, Any]) -> str:
+    """One link per dataset the episode charts, in chapter order, so viewers
+    can check every number; plus the map's credit when a scene draws the globe."""
+    lines, seen = [], set()
+    # Datasets the narration quotes without charting them come from `extra_sources:`.
+    codes = [(ch.get("chart") or {}).get("code") for ch in ep.get("chapters") or []]
+    for code in codes + list(ep.get("extra_sources") or []):
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        label = INDICATORS.get(code, {}).get("subtitle") or code
+        # `source_links:` replaces a dataset's page when the standard one is broken.
+        url = (ep.get("source_links") or {}).get(code) or f"https://data.worldbank.org/indicator/{code}"
+        lines.append(f"{label}: {url}")
+    if any((c.get("chart") or {}).get("mode") in ("hook", "podium") for c in ep.get("chapters") or []):
+        lines.append("Map: Natural Earth, with India's boundaries as India officially recognises them: "
+                     "https://www.naturalearthdata.com")
+    return ("\nSources\n" + "\n".join(lines) + "\n\n") if lines else "\n"
 
 
 def build(key: str, *, only: list[str] | None = None, force: bool = False,
