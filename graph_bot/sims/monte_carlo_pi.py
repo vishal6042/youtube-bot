@@ -21,14 +21,15 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from . import canvas as cv
 from . import sound as snd
+from . import voice
 from .canvas import BG, CYAN, GOLD, MUTED, WHITE, W, mix, scale
 
 FPS = 60
 N_DOTS = 100_000
-CX, CY = 520, 780          # a little left of centre: YouTube's buttons sit on the right
-S = 760                    # square side
+CX, CY = 520, 800          # a little left of centre: YouTube's buttons sit on the right
+S = 740                    # square side
 R = S / 2                  # circle radius
-X0, Y0 = CX - R, CY - R    # square's top-left (140, 400)
+X0, Y0 = CX - R, CY - R    # square's top-left (150, 430)
 M = 14                     # dot-layer margin around the square
 RW = S + 2 * M             # dot-layer size (divisible by 4 for the glow)
 P = 40                     # line-work margin around the square
@@ -38,7 +39,7 @@ DRAW_ON = (0.15, 1.15)     # square and circle trace themselves
 FIRST = np.cumsum([1.55, .5, .42, .36, .31, .27, .24, .21, .19, .17])   # the solo dots
 T_END = 22.0               # dots stop arriving (smoothly) here
 T_PAY = 22.6               # payoff
-TOTAL = 27.8
+MIN_TOTAL = 27.8           # the voice-over may make it a little longer
 
 # Dot size shrinks as the count grows (zooming out), then stays fixed.
 S_BIG, S_MIN, S_EXP = 9.0, 1.7, 0.18
@@ -53,6 +54,21 @@ TITLE = "Can random dots find π?"
 PAYOFF = "Random dots found π"
 PAYOFF_SUB = "The real π: 3.14159…"
 PI_STR = "3.14159265"
+
+# Voice-over with on-screen captions: what you're looking at, why it gives π,
+# and the result. Each caption is (text shown, how many spoken words it covers).
+SAY_SEE = ("Random dots land in a square. Gold ones fall inside the circle.",
+           [("Random dots land in a square", 6), ("Gold ones fall inside the circle", 6)])
+SAY_WHY = ("The circle covers pi over four of the square. "
+           "So four times the share of dots inside should be pi.",
+           [("The circle covers π/4", 6), ("of the square", 3),
+            ("So 4 × the share", 5), ("of dots inside should be π", 6)])
+SAY_END = ("One hundred thousand random dots, and out comes pi, to four decimal places.",
+           [("100,000 random dots", 5), ("and out comes π", 4), ("to 4 decimal places", 4)])
+VOICE = "en-GB-SoniaNeural"   # British Sonia, as in the long-form videos
+SEE_AT, WHY_AT = 0.35, 4.5
+CAP_Y = 352                # captions: between the counter and the square
+HL_CHUNK = 2               # the formula line lights up from this caption of SAY_WHY
 
 
 
@@ -287,7 +303,36 @@ def _ring(radius: float, color, alpha: float, width: float = 2.0) -> Image.Image
 # --------------------------------------------------------------------------- #
 # Sound
 # --------------------------------------------------------------------------- #
-def _soundtrack(sim: dict, total: float, path: Path) -> None:
+def _captions(at: float, line: voice.Line, chunks) -> list[tuple[float, float, str]]:
+    """(start, end, text) for each caption of a spoken line, timed to its words.
+    If the voice's word list doesn't match the counts, share the line out by word count."""
+    counts = [c for _, c in chunks]
+    if len(line.words) == sum(counts):
+        starts = [float(line.words[sum(counts[:i])]["start"]) for i in range(len(chunks))]
+        last = float(line.words[-1]["end"])
+    else:
+        starts = [line.secs * sum(counts[:i]) / sum(counts) for i in range(len(chunks))]
+        last = line.secs
+    ends = starts[1:] + [last + 0.35]
+    n = len(chunks)
+    # The last caption of a line fades out; the others hand straight over.
+    return [(at + s, at + e, txt, i == n - 1)
+            for i, (s, e, (txt, _)) in enumerate(zip(starts, ends, chunks))]
+
+
+def _caption_parts(text: str, f: float):
+    """Numbers, π and × in gold, the rest white, faded by f."""
+    parts: list[tuple[str, tuple]] = []
+    for ch in text:
+        col = GOLD if (ch.isdigit() or ch in "π×/") else WHITE
+        if parts and parts[-1][1] == col:
+            parts[-1] = (parts[-1][0] + ch, col)
+        else:
+            parts.append((ch, col))
+    return [(s, scale(c, f)) for s, c in parts]
+
+
+def _soundtrack(sim: dict, total: float, path: Path, clips=()) -> None:
     mixer = snd.Mixer(total)
     rng = np.random.default_rng(1234)
     t, x, y, inside = sim["t"], sim["x"], sim["y"], sim["inside"]
@@ -314,6 +359,8 @@ def _soundtrack(sim: dict, total: float, path: Path) -> None:
         mixer.add(T_PAY + j * 0.2, snd.pluck(snd.scale_freq(n), dur=1.4), 0.9)
     mixer.add(T_PAY + 1.2, snd.chord([snd.scale_freq(i) for i in (5, 7, 9, 10)],
                                      dur=total - T_PAY), 1.4)
+    if clips:
+        voice.voice_over(mixer, list(clips), bed=0.6)
     mixer.write(path, total)
 
 
@@ -333,11 +380,22 @@ def _readout_parts(e: float, n: int):
 def render(out_path: Path, ffmpeg: str, seed: int = 7, progress=None) -> float:
     sim = simulate(seed)
     xs, ys, inside, times, est, cum = (sim[k] for k in ("x", "y", "inside", "t", "est", "cum"))
-    n_frames = int(TOTAL * FPS)
+
+    see, why, end = (voice.say(s[0], ffmpeg, voice=VOICE) for s in (SAY_SEE, SAY_WHY, SAY_END))
+    why_at = max(WHY_AT, SEE_AT + see.secs + 0.4)
+    end_at = T_PAY + 0.5
+    total = max(MIN_TOTAL, end_at + end.secs + 1.6)
+    clips = [(SEE_AT, see), (why_at, why), (end_at, end)]
+    caps = (_captions(SEE_AT, see, SAY_SEE[1]) + _captions(why_at, why, SAY_WHY[1])
+            + _captions(end_at, end, SAY_END[1]))
+    hl_from = _captions(why_at, why, SAY_WHY[1])[HL_CHUNK][0]
+    hl_to = why_at + why.secs + 0.6
+    n_frames = int(total * FPS)
 
     titled = cv.title(Image.new("RGB", (W, cv.H), BG), TITLE)
     count_f, read_f, form_f = cv.font(50), cv.font(92), cv.font(30, bold=False)
     pay_f, sub_f, pi_f = cv.font(46), cv.font(30, bold=False), cv.font(30)
+    cap_f = cv.font(42)
     read_w = sum(read_f.getlength(s) for s in ("π ≈ ", "0.00000"))
     read_x = CX - read_w / 2
 
@@ -433,11 +491,27 @@ def render(out_path: Path, ffmpeg: str, seed: int = 7, progress=None) -> float:
             # ---- readout ----
             e = float(est[n - 1]) if n else 0.0
             _text_parts(img, CX, READ_Y, _readout_parts(e, n), read_f, glow=0.45, left=read_x if n else None)
-            ImageDraw.Draw(img).text((CX, FORM_Y), "4 × (dots in circle ÷ all dots)", font=form_f,
-                                     fill=MUTED, anchor="mm")
+            # The formula lights up while the voice explains it, then hands over
+            # to the real value of π at the payoff.
+            a = min(1.0, max(0.0, (t - T_PAY - 1.0) / 0.5))
+            hl = min(cv.ease((t - hl_from) / 0.3), cv.ease((hl_to - t) / 0.4))
+            if a < 1:
+                fc = mix(MUTED, WHITE, hl)
+                _text_parts(img, CX, FORM_Y, [("4 × (dots in circle ÷ all dots)", scale(fc, 1 - a))],
+                            form_f, glow=0.5 * hl * (1 - a))
+            if a > 0:
+                _text_parts(img, CX, FORM_Y, [(PAYOFF_SUB, scale(MUTED, a))], sub_f)
+
+            # ---- captions ----
+            for c0, c1, txt, last in caps:
+                if c0 <= t < c1 + (0.2 if last else 0):
+                    f = cv.ease((t - c0) / 0.1)
+                    if last:
+                        f = min(f, cv.ease((c1 + 0.2 - t) / 0.2))
+                    _text_parts(img, W / 2, CAP_Y, _caption_parts(txt, f), cap_f, glow=0.3 * f)
+                    break
 
             # ---- counter hands over to the payoff ----
-            a = min(1.0, max(0.0, (t - T_PAY - 1.0) / 0.5))
             if a < 1:
                 ins = int(cum[n - 1]) if n else 0
                 f = 1 - a
@@ -447,14 +521,12 @@ def render(out_path: Path, ffmpeg: str, seed: int = 7, progress=None) -> float:
                             count_f, glow=0.25 * f)
             if a > 0:
                 _text_parts(img, W / 2, cv.LINE_Y, [(PAYOFF, scale(GOLD, a))], pay_f, glow=0.5 * a)
-                ImageDraw.Draw(img).text((W / 2, cv.SUB_Y), PAYOFF_SUB, font=sub_f,
-                                         fill=scale(MUTED, a), anchor="mm")
 
             enc.write(np.asarray(img))
             if progress and fi % 60 == 0:
                 progress(fi, n_frames)
         enc.close()
         wav = Path(tmp) / "sound.wav"
-        _soundtrack(sim, TOTAL, wav)
+        _soundtrack(sim, total, wav, clips)
         cv.mux(silent, wav, Path(out_path), ffmpeg)
-    return TOTAL
+    return total

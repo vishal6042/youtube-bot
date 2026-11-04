@@ -1684,6 +1684,6 @@ topics:
     cta: "🔔 New Math in Motion every few days — subscribe for more!"
     prompt: "💬 How many digits did you expect it to get? Tell me 👇"
     # Thumbnail: the golden disc and the final estimate.
-    thumb_at: 0.93
+    thumb_at: 0.98
     thumb_crop: [0.18, 0.2]
     hashtags: ["math", "pi", "probability", "montecarlo", "satisfying"]
