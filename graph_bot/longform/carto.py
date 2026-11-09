@@ -368,12 +368,131 @@ class NightMap:
         base = Image.alpha_composite(base, to_img(bs))
         return finish(np.asarray(base.convert("RGB")).astype(np.float32) / 255, 5, 0.5)
 
-    def _make_lights(self) -> Image.Image:
+    def lights_of(self, name: str) -> Image.Image:
+        """One country's city lights, so a scene can light the countries one by one."""
+        return _cached("lights_" + name, self.params, lambda: self._make_lights(only=name))
+
+    def edge(self, name: str) -> Image.Image:
+        """A country picked out: a faint wash of its colour and a glowing outline.
+        Pakistan's wash and outline stop at India's boundary."""
+        return _cached("edge_" + name, self.params, lambda: self._make_edge(name))
+
+    def flag_of(self, name: str, at: tuple[float, float] | None = None, fit: float = 0.8) -> Image.Image:
+        """The country filled with its flag (India's official boundary; a neighbour's
+        flag stops at it), with the map's relief showing through like cloth laid
+        over the land. The emblem (chakra, crescent and star, red disc) sits in the
+        middle of the country, sized to fit inside it; ``at`` (lon, lat) moves it.
+        Full strength: a scene sets how much of it to show."""
+        key = {**self.params, "flag_at": list(at) if at else None, "fit": fit}
+        return _cached("flag2_" + name, key, lambda: self._make_flag(name, at, fit))
+
+    def _make_flag(self, name: str, at: tuple[float, float] | None = None, fit: float = 0.8) -> Image.Image:
+        from scipy import ndimage
+        from . import flags
+
+        ms = cairo.ImageSurface(cairo.FORMAT_ARGB32, PW, PH)
+        c = cairo.Context(ms)
+        c.set_antialias(cairo.ANTIALIAS_BEST)
+
+        def path(n: str) -> None:
+            for r in rings(n):
+                pts = [self._pproj(lo, la) for lo, la in r]
+                c.move_to(*pts[0])
+                for q in pts[1:]:
+                    c.line_to(*q)
+                c.close_path()
+
+        path(name)
+        c.set_source_rgba(0, 0, 0, 1)
+        c.fill()
+        if name != "India":
+            c.set_operator(cairo.OPERATOR_CLEAR)
+            path("India")
+            c.fill()
+        ms.flush()
+        mask = np.frombuffer(ms.get_data(), np.uint8).reshape(PH, ms.get_stride() // 4, 4)[:, :PW, 3]
+        mask = mask.astype(np.float32) / 255
+        inside = mask > 0.5
+        ys, xs = np.nonzero(inside)
+        # the emblem's centre: roomy (far from the border) but near the middle of the
+        # shape, so it reads as centred rather than pushed into one lobe
+        dist = ndimage.distance_transform_edt(inside)
+        if at:
+            ex, ey = self._pproj(*at)
+            r_in = float(dist[int(min(max(ey, 0), PH - 1)), int(min(max(ex, 0), PW - 1))])
+        else:
+            yy, xx = np.mgrid[0:PH, 0:PW].astype(np.float32)
+            cy_, cx_ = ys.mean(), xs.mean()
+            score = dist - 0.35 * np.hypot(xx - cx_, yy - cy_)
+            iy, ix = np.unravel_index(np.argmax(np.where(inside, score, -1e9)), score.shape)
+            ex, ey, r_in = float(ix), float(iy), float(dist[iy, ix])
+        # size: the emblem fits inside the country; India's bands span the country
+        fh = fit * r_in / flags.EMBLEM_R[name]
+        if name == "India":
+            fh = min(fh, float(ys.max() - ys.min()))
+        fs = cairo.ImageSurface(cairo.FORMAT_ARGB32, PW, PH)
+        fc = cairo.Context(fs)
+        fc.set_antialias(cairo.ANTIALIAS_BEST)
+        flags.field(fc, name, ex, ey, fh, PW, PH)
+        fs.flush()
+        f = np.frombuffer(fs.get_data(), np.uint8).reshape(PH, fs.get_stride() // 4, 4)[:, :PW, [2, 1, 0]]
+        rgb = f.astype(np.float32) / 255
+        # relief from the map underneath, and a few soft folds
+        base = np.asarray(self.plate().convert("L")).astype(np.float32)
+        inside = mask > 0.5
+        lum = base / max(1.0, float(base[inside].mean()))
+        shade = 0.78 + 0.22 * np.clip(lum, 0.4, 1.8)
+        yy, xx = np.mgrid[0:PH, 0:PW].astype(np.float32)
+        u = (xx * 0.8 + yy * 0.6) / (210 * PS)
+        shade *= 1 + 0.06 * np.sin(2 * np.pi * u) + 0.03 * np.sin(2 * np.pi * u * 2.3 + 1.1)
+        rgb = np.clip(rgb * shade[..., None], 0, 1)
+        out = np.dstack([rgb * 255, mask * 255]).astype(np.uint8)
+        return Image.fromarray(out, "RGBA")
+
+    def _make_edge(self, name: str) -> Image.Image:
+        s = self.s * PS
+        es = cairo.ImageSurface(cairo.FORMAT_ARGB32, PW, PH)
+        c = cairo.Context(es)
+        c.set_antialias(cairo.ANTIALIAS_BEST)
+        c.set_line_join(cairo.LINE_JOIN_ROUND)
+        rgb = COL_LIGHT[name]
+
+        def path(n: str) -> None:
+            for r in rings(n):
+                pts = [self._pproj(lo, la) for lo, la in r]
+                c.move_to(*pts[0])
+                for q in pts[1:]:
+                    c.line_to(*q)
+                c.close_path()
+
+        path(name)
+        c.set_source_rgba(*rgb, 0.17)
+        c.fill()
+        if name != "India":
+            c.set_operator(cairo.OPERATOR_CLEAR)
+            path("India")
+            c.fill()
+            c.set_operator(cairo.OPERATOR_OVER)
+        for r in rings(name):
+            pts = [self._pproj(lo, la) for lo, la in r]
+            skip = np.r_[in_india(r), in_india(r[:1])] if name == "Pakistan" else None
+            _trace(c, pts + [pts[0]], skip)
+        c.set_source_rgba(*rgb, 1.0)
+        c.set_line_width(2.4 * s / 25)
+        c.stroke()
+        img = to_img(es)
+        out = img.filter(ImageFilter.GaussianBlur(7 * s / 25))
+        out.alpha_composite(img)
+        return out
+
+    def _make_lights(self, only: str | None = None) -> Image.Image:
         s = self.s * PS
         ls = cairo.ImageSurface(cairo.FORMAT_ARGB32, PW, PH)
         lc = cairo.Context(ls)
         rng = np.random.default_rng(11)
-        for _, pts in light_points():
+        for n, pts in light_points():
+            if only and n != only:
+                continue
             for lo, la in pts:
                 x, y = self._pproj(lo, la)
                 lc.arc(x, y, rng.uniform(0.5, 1.3) * s / 25, 0, 2 * math.pi)
@@ -490,6 +609,7 @@ TERRAIN_VIEWS = {
 
 NIGHT_VIEWS = {
     "wide": dict(s=25.0, cx=80.0, cy=22.5, ox=1270, oy=560),
+    "centre": dict(s=27.0, cx=80.5, cy=23.0, ox=960, oy=540),
     "east": dict(s=44.0, cx=86.0, cy=23.5, ox=1330, oy=560, tints={"India": 0.2, "Pakistan": 0.22, "Bangladesh": 0.75}),
 }
 

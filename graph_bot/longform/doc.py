@@ -10,6 +10,9 @@ One chapter mode, ``doc``, with a ``kind:`` per composition:
   district  light  isometric factory districts, one building per $1bn
   bars      light  big horizontal bars with country silhouettes
   ledger    light  who leads what, with silhouettes and counts
+  track     light  a race on a running track: each country's economy runs year by year
+  people    light  10 x 10 grids of figures, one per country (out of every 100 ...)
+  lifeline  dark   an age ruler; lines grow from then to now (life expectancy)
   close     dark   the closing line on the night map, question, subscribe/share
 
 Every moving part is keyed to a word of the narration (``at:``), found in the
@@ -33,7 +36,7 @@ from . import carto
 from . import fx
 from .fx import FPS, H, W, clamp, ease_in_out, ease_out
 
-VERSION = 2
+VERSION = 5
 
 IVORY = (242, 236, 224)
 CHAR = (14, 16, 19)
@@ -109,9 +112,27 @@ def T(s: str, kind: str, size: int, color: tuple, track: float | None = None) ->
     return Spr(img, pad, pad + asc, w)
 
 
+def paste(frame: Image.Image, img: Image.Image, x: float, y: float) -> None:
+    """Composite at a fractional position. Things pinned to a moving map must not
+    snap to whole pixels, or they judder against the map gliding underneath."""
+    ix, iy = math.floor(x), math.floor(y)
+    fx_, fy_ = x - ix, y - iy
+    if fx_ > 0.01 or fy_ > 0.01:
+        pm = img.convert("RGBa")  # premultiplied, so edges do not pick up dark fringes
+        pm = pm.transform((img.width + 1, img.height + 1), Image.AFFINE, (1, 0, -fx_, 0, 1, -fy_), Image.BILINEAR)
+        img = pm.convert("RGBA")
+    l, t_ = max(0, -ix), max(0, -iy)
+    if l or t_:
+        if l >= img.width or t_ >= img.height:
+            return
+        img = img.crop((l, t_, img.width, img.height))
+    frame.alpha_composite(img, (ix + l, iy + t_))
+
+
 def put(frame: Image.Image, sp: Spr, x: float, y: float, align: str = "l", a: float = 1.0,
-        s: float = 1.0) -> None:
-    """Draw a sprite with its baseline at y, aligned at x (l / c / r)."""
+        s: float = 1.0, sub: bool = False) -> None:
+    """Draw a sprite with its baseline at y, aligned at x (l / c / r). ``sub`` places it
+    at the exact fractional position (for labels that follow a moving map)."""
     if a <= 0.003:
         return
     img = sp.img
@@ -121,7 +142,10 @@ def put(frame: Image.Image, sp: Spr, x: float, y: float, align: str = "l", a: fl
         ox, base, w = ox * s, base * s, w * s
     left = x - {"l": 0, "c": w / 2, "r": w}[align] - ox
     img = fx.with_alpha(img, a)
-    frame.alpha_composite(img, (int(round(left)), int(round(y - base))))
+    if sub:
+        paste(frame, img, left, y - base)
+    else:
+        frame.alpha_composite(img, (int(round(left)), int(round(y - base))))
 
 
 def tokens(text: str) -> list[tuple[str, bool]]:
@@ -297,11 +321,86 @@ def split_words(cues: list[dict[str, Any]], offset: float) -> list[tuple[str, fl
     return out
 
 
+@lru_cache(maxsize=1)
+def _wipe_edge() -> Image.Image:
+    """The wipe's leading edge: a thin gold line with a soft glow."""
+    w = 48
+    xs = np.abs(np.arange(w) - (w - 1) / 2)
+    al = np.clip(1 - xs / 2.2, 0, 1) * 0.95 + np.exp(-(xs / 9) ** 2) * 0.28
+    a = np.zeros((H, w, 4), np.uint8)
+    a[..., :3] = GOLD
+    a[..., 3] = (np.clip(al, 0, 1) * 255).astype(np.uint8)[None, :]
+    return Image.fromarray(a, "RGBA")
+
+
+def with_neighbours(chart: dict[str, Any], chapters: list[dict[str, Any]], ch: dict[str, Any]) -> dict[str, Any]:
+    """A copy of a doc chart that knows its neighbours, for the transitions (and for
+    a chart that continues the one before it, where that one's camera ended)."""
+    out = dict(chart)
+    ids = [c.get("id") for c in chapters]
+    try:
+        i = ids.index(ch.get("id"))
+    except ValueError:
+        return out
+
+    def tone(c: dict[str, Any]) -> bool:
+        k = (c.get("chart") or {}).get("kind")
+        cls = KINDS.get(k) if (c.get("chart") or {}).get("mode") == "doc" else None
+        return bool(cls.dark) if cls else True
+
+    if i > 0:
+        out["_prev"] = {"dark": tone(chapters[i - 1])}
+    if i + 1 < len(chapters):
+        nc = (chapters[i + 1].get("chart") or {})
+        out["_next"] = {"dark": tone(chapters[i + 1]), "continues": bool(nc.get("continues"))}
+    # a continued chart picks the camera up where the previous chapter left it
+    n, j = 0, i
+    while j > 0 and (chapters[j].get("chart") or {}).get("continues"):
+        n += 1
+        j -= 1
+    if n and not out.get("push"):
+        out["_push"] = (1.0 + PUSH * n, 1.0 + PUSH * (n + 1))
+    return out
+
+
+@lru_cache(maxsize=64)
+def halo(sp: Spr, rgb=(8, 9, 11), r: float = 9.0) -> Spr:
+    """A blurred dark copy of a text sprite, drawn behind it to lift it off a busy map."""
+    from PIL import ImageFilter
+
+    pad = int(r * 2.5)
+    a = sp.img.getchannel("A")
+    big = Image.new("L", (a.width + 2 * pad, a.height + 2 * pad), 0)
+    big.paste(a, (pad, pad))
+    big = big.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(r))
+    big = big.point(lambda v: min(255, int(v * 1.6)))
+    img = Image.new("RGBA", big.size, (*rgb, 0))
+    img.putalpha(big)
+    return Spr(img, sp.ox + pad, sp.base + pad, sp.w)
+
+
+def with_flags(nmap: "carto.NightMap", plate: Image.Image, chart: dict[str, Any]) -> Image.Image:
+    """The night map with each country filled with its flag (``flags: 0.6`` sets how
+    strongly; ``flag_countries`` which ones), emblems centred in each country."""
+    fa = float(chart.get("flags", 0) or 0)
+    if fa <= 0:
+        return plate
+    out = plate.copy()
+    for n in chart.get("flag_countries") or ("India", "Pakistan", "Bangladesh"):
+        out.alpha_composite(fx.with_alpha(nmap.flag_of(n, None, float(chart.get("flag_fit", 0.8))), fa))
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Scene base
 # --------------------------------------------------------------------------- #
+WIPE = 0.55      # seconds a chapter-to-chapter wipe takes on each side of the cut
+PUSH = 0.035     # how far a flat scene's camera pushes in over a chapter
+
+
 class Scene:
     dark = True
+    flat = False     # drawn on a transparent canvas over paper/charcoal, with a slow camera push
 
     def __init__(self, chart: dict[str, Any], cues: list[dict[str, Any]], offset: float, total: float,
                  data: dict[str, dict[int, float]] | None = None):
@@ -311,6 +410,9 @@ class Scene:
         self.words = split_words(cues, offset)
         self.data = data or {}
         self.ink = IVORY if self.dark else INK
+        cta = chart.get("cta") or {}
+        self.cta = cta
+        self.t_cta = self.when(cta.get("at"), -1.0) if cta else -1.0
 
     def when(self, at: Any, default: float, after: float = -1.0) -> float:
         """Time a word (or phrase, or 'word#2' for its second use) is spoken.
@@ -345,7 +447,97 @@ class Scene:
                     return self.words[i][1]
         return default
 
+    # -- the frame as it goes to the encoder ---------------------------------
+    def canvas(self) -> Image.Image:
+        """Where a flat scene draws its content: transparent, so the camera can move
+        it while the paper (whose dot grid would shimmer if scaled) stays still."""
+        return Image.new("RGBA", (W, H), (0, 0, 0, 0))
+
+    def background(self) -> Image.Image:
+        return charcoal() if self.dark else paper()
+
+    def render(self, t: float) -> Image.Image:
+        img = self.frame(t)
+        if self.flat:
+            img = self.camera(img, t)
+        self.overlay(img, t)
+        self.wipe(img, t)
+        return img
+
+    def camera(self, content: Image.Image, t: float) -> Image.Image:
+        """A slow, steady push into the content (never quite still, like a rostrum
+        camera). ``push: [1.0, 1.035]`` and ``focus: [x, y]`` override it."""
+        c = self.c
+        z0, z1 = c.get("push") or c.get("_push") or (1.0, 1.0 + PUSH)
+        fx_, fy_ = c.get("focus") or (W / 2, H * 0.55)
+        z = z0 + (z1 - z0) * clamp(t / max(0.1, self.total))
+        out = self.background().copy()
+        if abs(z - 1) < 1e-4:
+            out.alpha_composite(content)
+            return out
+        k = 1 / z
+        pm = content.convert("RGBa").transform((W, H), Image.AFFINE, (k, 0, fx_ - fx_ * k, 0, k, fy_ - fy_ * k),
+                                                Image.BICUBIC)
+        out.alpha_composite(pm.convert("RGBA"))
+        return out
+
+    def wipe(self, frame: Image.Image, t: float) -> None:
+        """A sweep in the next chapter's tone instead of a hard cut: it crosses the
+        frame left to right over the last moments of this chapter, and the next
+        chapter opens by drawing it off to the right. No wipe where a chart simply
+        carries on into the next chapter."""
+        nxt, prv = self.c.get("_next"), self.c.get("_prev")
+        edges = []
+        if nxt and not nxt.get("continues"):
+            u = (t - (self.total - 1 / FPS - WIPE)) / WIPE
+            if u > 0:
+                e = W * ease_in_out(min(1.0, u))
+                bg = charcoal() if nxt.get("dark") else paper()
+                if e >= 1:
+                    frame.paste(bg.crop((0, 0, int(e), H)), (0, 0))
+                edges.append(e)
+        if prv and not self.c.get("continues"):
+            u = t / WIPE
+            if u < 1:
+                e = W * ease_in_out(u)
+                if e < W - 1:
+                    frame.paste(self.background().crop((int(e), 0, W, H)), (int(e), 0))
+                edges.append(e)
+        for e in edges:
+            if 2 < e < W - 2:
+                glow = _wipe_edge()
+                frame.alpha_composite(glow, (int(round(e - glow.width / 2)), 0))
+
     # -- shared pieces -----------------------------------------------------
+    def overlay(self, frame: Image.Image, t: float) -> None:
+        """A call to action in the bottom-right corner, if the chapter has one:
+
+            cta: {at: subscribe, line: Enjoying the race?}
+
+        The Subscribe button pops in as the narrator asks, is "pressed" and turns
+        into Subscribed, then everything fades after about five seconds."""
+        tc = self.t_cta
+        if tc < 0 or t < tc:
+            return
+        hold = float(self.cta.get("hold", 5.0))
+        fade = 1 - ease_out((t - tc - hold) / 0.5)
+        if fade <= 0:
+            return
+        dark = self.dark
+        u = fx.ease_back(min(1.0, (t - tc) / 0.5), 1.6)
+        pressed = t - tc >= 1.5
+        press = 1 - 0.07 * math.sin(math.pi * clamp((t - tc - 1.3) / 0.25))
+        img = pill("Subscribed" if pressed else "Subscribe", not pressed, dark)
+        k = max(0.01, u * press)
+        if abs(k - 1) > 0.004:
+            img = img.resize((max(1, int(img.width * k)), max(1, int(img.height * k))), Image.BICUBIC)
+        cx, cy = W - 104 - 150, float(self.cta.get("y", H - 150))
+        paste(frame, fx.with_alpha(img, fade * min(1.0, (t - tc) / 0.2)), cx - img.width / 2, cy - img.height / 2)
+        if self.cta.get("line"):
+            a, dy = rise(t, tc + 0.15, 0.5)
+            col_ = (*IVORY, 230) if dark else (*INK, 230)
+            put(frame, T(self.cta["line"], "serif_i", 34, col_), cx, cy - 66 + dy, "c", a * fade)
+
     def kicker(self, frame: Image.Image, text: str, x: float, y: float, t: float, t0: float,
                align: str = "l") -> None:
         a, dy = rise(t, t0)
@@ -384,7 +576,7 @@ class Reveal(Scene):
         super().__init__(*a, **k)
         c = self.c
         self.map = carto.night(c.get("map", "wide"))
-        plate = self.map.plate()
+        plate = with_flags(self.map, self.map.plate(), c)
         self.lights = self.map.lights()
         self.lit = plate.copy()
         self.lit.alpha_composite(self.lights)
@@ -431,24 +623,33 @@ class Reveal(Scene):
                 cx.arc(x, y, r, -math.pi / 2, -math.pi / 2 + 2 * math.pi * u)
                 cx.stroke()
                 v = ease_out((t - self.t_ring - 0.5) / 0.5)
+                name = T(self.ring.get("label", self.ring.get("country", "")), "label", 24,
+                         col(self.ring.get("country", ""), True))
+                # leader up and right; down and right (into the sea) if the name
+                # would run off the frame
+                xe = self.cam.pt(self.total, *self.map.proj(lon, lat))[0]
+                re_ = self.ring.get("r", 60) * self.cam.zoom(self.total)
+                sy = -1 if xe + re_ * 0.7 + 84 + name.w < W - 56 else 1    # one side for the whole chapter
                 if v > 0:
-                    x0, y0 = x + r * 0.7, y - r * 0.7
+                    x0, y0 = x + r * 0.7, y + sy * r * 0.7
                     cx.move_to(x0, y0)
-                    cx.line_to(x0 + 64 * v, y0 - 60 * v)
+                    cx.line_to(x0 + 64 * v, y0 + sy * 60 * v)
                     cx.set_line_width(2.4)
                     cx.stroke()
                 frame.alpha_composite(carto.to_img(s))
                 if v > 0:
-                    name = self.ring.get("label", self.ring.get("country", ""))
-                    put(frame, T(name, "label", 24, col(self.ring.get("country", ""), True)),
-                        x + r * 0.7 + 84, y - r * 0.7 - 50, "l", v)
+                    lx = min(x + r * 0.7 + 84, W - 56 - name.w)
+                    ly = y - r * 0.7 - 50 if sy < 0 else y + r * 0.7 + 78
+                    put(frame, halo(name), lx, ly, "l", v * 0.9, sub=True)
+                    put(frame, name, lx, ly, "l", v, sub=True)
         for lb, tl in self.labels:
             u = ease_out((t - tl) / 0.6)
             if u > 0:
                 lon, lat = carto.COUNTRY_POINTS[lb["country"]]
                 x, y = self.cam.pt(t, *self.map.proj(lon, lat))
-                put(frame, T(lb.get("label", lb["country"]), "label", 24, col(lb["country"], True)),
-                    x + lb.get("dx", 0), y + lb.get("dy", 0), "c", u * 0.92)
+                name = T(lb.get("label", lb["country"]), "label", 24, col(lb["country"], True))
+                put(frame, halo(name), x + lb.get("dx", 0), y + lb.get("dy", 0), "c", u * 0.9, sub=True)
+                put(frame, name, x + lb.get("dx", 0), y + lb.get("dy", 0), "c", u * 0.92, sub=True)
         # the text panel
         X = 104
         self.kicker(frame, c.get("kicker", ""), X, 120, t, self.t_kick)
@@ -458,7 +659,7 @@ class Reveal(Scene):
             a_out = 1 - ease_out((t - nxt) / 0.35)
             a = a_in * a_out
             if a > 0:
-                put(frame, para(txt, "serif", 62, IVORY, 860, 70), X, 212 + dy, "l", a)
+                put(frame, para(txt, "serif", 62, IVORY, int(c.get("headline_w", 860)), 70), X, 212 + dy, "l", a)
         big, small = self.big, self.small
         if big:
             a, dy = rise(t, self.t_big - 0.2)
@@ -519,6 +720,21 @@ def cylinder_sprite(r: float, h: float, rgb: tuple, ring_h: float | None, ring_a
     return carto.to_img(s), x, y
 
 
+@lru_cache(maxsize=1)
+def pin_sprite() -> Image.Image:
+    """The gold map pin with its stem; its point sits 12 px right, 30 px down."""
+    sp = cairo.ImageSurface(cairo.FORMAT_ARGB32, 24, 42)
+    c = cairo.Context(sp)
+    c.set_antialias(cairo.ANTIALIAS_BEST)
+    c.set_source_rgba(*rgb1(INK))
+    c.set_line_width(2)
+    c.move_to(12, 4); c.line_to(12, 20); c.stroke()
+    c.arc(12, 30, 8, 0, 2 * math.pi)
+    c.set_source_rgba(*rgb1(GOLD)); c.fill_preserve()
+    c.set_source_rgba(*rgb1(INK)); c.stroke()
+    return carto.to_img(sp)
+
+
 @lru_cache(maxsize=4)
 def shadow_blob(r: int) -> Image.Image:
     s = cairo.ImageSurface(cairo.FORMAT_ARGB32, 8 * r, 4 * r)
@@ -553,6 +769,7 @@ class Terrain(Scene):
             x, y, _ = self.view.proj(lon, lat, cd.get("elev", 400))
             self.cards.append((cd, tt, x, y))
         after = 0.0
+        self._cw: dict[int, float] = {}
         self.cols = []
         for cl in c.get("columns") or []:
             t1 = self.when(cl.get("from_at"), after + 0.8, after=after)
@@ -578,10 +795,10 @@ class Terrain(Scene):
             h = max(2.0, v * k)
             r = cl.get("r", 24) * z
             sh = shadow_blob(int(r))
-            frame.alpha_composite(fx.with_alpha(sh, u1), (int(x + h * 0.06 - sh.width / 2), int(y + 2 - sh.height / 2)))
+            paste(frame, fx.with_alpha(sh, u1), x + h * 0.06 - sh.width / 2, y + 2 - sh.height / 2)
             ring_a = ease_out((t - t2) / 0.5)
             spr, ax, ay = cylinder_sprite(r, h, C[cl["country"]], cl["from"] * k if u2 > 0 else None, ring_a)
-            frame.alpha_composite(spr, (int(round(x - ax)), int(round(y - ay))))
+            paste(frame, spr, x - ax, y - ay)
             # value card beside the top
             top = y - h
             dark = col(cl["country"], False)
@@ -592,24 +809,27 @@ class Terrain(Scene):
             cy = top + 8
             if u2 > 0:
                 cy -= ring_a * max(0.0, cy - (y - cl["from"] * k - 92))
-            self._card(frame, x + side * (r + 26), cy, lab, num, dark, card_a, align="l" if side > 0 else "r", big=True)
+            self._card(frame, x + side * (r + 26), cy, lab, num, dark, card_a, align="l" if side > 0 else "r", big=True,
+                       min_w=self._card_w(cl, dark))
             if u2 > 0:
                 ry = y - cl["from"] * k
                 tag = T(cl.get("from_label", ""), "label", 19, INK)
                 tx = x + side * (r + 26)
                 w = tag.w + 28
                 x0 = tx if side > 0 else tx - w
-                d = ImageDraw.Draw(frame, "RGBA")
-                d.rectangle([x0, ry - 20, x0 + w, ry + 16], fill=(242, 236, 224, int(230 * ring_a)))
-                put(frame, tag, x0 + 14, ry + 6, "l", ring_a)
+                box = Image.new("RGBA", (int(math.ceil(w)) + 1, 37), (0, 0, 0, 0))
+                ImageDraw.Draw(box, "RGBA").rectangle([0, 0, w, 36], fill=(242, 236, 224, 230))
+                put(box, tag, 14, 26, "l")
+                # the tag waits until the card above has moved clear of it
+                tag_a = ease_out((t - t2 - 0.45) / 0.4)
+                if tag_a > 0:
+                    paste(frame, fx.with_alpha(box, tag_a), x0, ry - 20)
         for cd, tt, bx, by in self.cards:
             u = ease_out((t - tt) / 0.6)
             if u <= 0:
                 continue
             x, y = self.cam.pt(t, bx, by)
-            d = ImageDraw.Draw(frame, "RGBA")
-            d.ellipse([x - 8, y - 8, x + 8, y + 8], fill=(*GOLD, int(255 * u)), outline=(*INK, int(255 * u)), width=2)
-            d.line([(x, y - 10), (x, y - 26)], fill=(*INK, int(255 * u)), width=2)
+            paste(frame, fx.with_alpha(pin_sprite(), u), x - 12, y - 30)
             self._card(frame, x, y - 30 - (1 - u) * 18, cd.get("label", cd["country"]), cd["value"],
                        col(cd["country"], False), u, align="c", big=True, above=True)
         # the text block, bottom left
@@ -629,13 +849,28 @@ class Terrain(Scene):
         self.brand(frame)
         return frame
 
+    def _card_w(self, cl: dict[str, Any], rgb: tuple) -> float:
+        """One width for a column's card while its number counts, so the box does not
+        twitch as digits change: the widest label and the widest the number can be."""
+        key = id(cl)
+        if key not in self._cw:
+            labs = [cl.get("label", cl["country"]), cl.get("from_title", cl["country"])]
+            wl = max(T(lb, "label", 20, rgb).w for lb in labs)
+            wn = 0.0
+            for v in (cl["from"], cl["to"]):
+                txt = fmt(v, cl.get("prefix", ""), cl.get("suffix", ""), cl.get("decimals", 0))
+                for d in "0123456789":
+                    wn = max(wn, T(re.sub(r"\d", d, txt), "num", 64, INK).w)
+            self._cw[key] = max(wl, wn)
+        return self._cw[key]
+
     def _card(self, frame: Image.Image, x: float, y: float, label: str, value: str, rgb: tuple, a: float,
-              align: str = "c", big: bool = True, above: bool = False) -> None:
+              align: str = "c", big: bool = True, above: bool = False, min_w: float = 0) -> None:
         if a <= 0:
             return
         lab = T(label, "label", 20, rgb)
         num = T(value, "num", 64 if big else 44, INK)
-        w = max(lab.w, num.w) + 44
+        w = max(lab.w, num.w, min_w) + 44
         hgt = 118 if big else 90
         x0 = {"c": x - w / 2, "l": x, "r": x - w}[align]
         y0 = y - hgt if above else y - hgt / 2
@@ -650,7 +885,7 @@ class Terrain(Scene):
         al = "c" if align == "c" else "l"
         put(card, lab, cx, 20 + 34, al)
         put(card, num, cx - (0 if al == "c" else 3), 20 + (100 if big else 76), al)
-        frame.alpha_composite(fx.with_alpha(card, a), (int(x0 - 20), int(y0 - 20)))
+        paste(frame, fx.with_alpha(card, a), x0 - 20, y0 - 20)
 
 
 # --------------------------------------------------------------------------- #
@@ -667,6 +902,7 @@ def nice_step(span: float) -> float:
 
 class Race(Scene):
     dark = False
+    flat = True
     X0, X1, Y0, Y1 = 196, 1390, 336, 822
 
     def __init__(self, *a, **k):
@@ -764,7 +1000,7 @@ class Race(Scene):
         c = self.c
         i = min(len(self.now) - 1, int(round(t * FPS)))
         now, ymax = float(self.now[i]), float(self.ymax[i])
-        frame = paper().copy()
+        frame = self.canvas()
         s, cx = surface()
         # grid
         step = nice_step(ymax / self.scale) * self.scale
@@ -922,6 +1158,7 @@ class Race(Scene):
 # --------------------------------------------------------------------------- #
 class Kinetic(Scene):
     dark = True
+    flat = True
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -949,7 +1186,7 @@ class Kinetic(Scene):
 
     def frame(self, t: float) -> Image.Image:
         c = self.c
-        frame = charcoal().copy()
+        frame = self.canvas()
         X = 104
         first = self.heads[0][1] if self.heads else self.total
         if c.get("intro"):
@@ -1083,6 +1320,7 @@ def shadow_sprite(i: int, j: int, h: float) -> tuple[Image.Image, float, float]:
 
 class District(Scene):
     dark = False
+    flat = True
     COLS = 10
 
     def __init__(self, *a, **k):
@@ -1163,7 +1401,7 @@ class District(Scene):
         c = self.c
         f = min(len(self.year) - 1, int(round(t * FPS)))
         year = float(self.year[f])
-        frame = paper().copy()
+        frame = self.canvas()
         ga = ease_out(t / 0.6)
         for e in self.ents:
             frame.alpha_composite(fx.with_alpha(self.ground[e], ga))
@@ -1212,6 +1450,7 @@ class District(Scene):
 # --------------------------------------------------------------------------- #
 class Bars(Scene):
     dark = False
+    flat = True
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -1228,7 +1467,7 @@ class Bars(Scene):
 
     def frame(self, t: float) -> Image.Image:
         c = self.c
-        frame = paper().copy()
+        frame = self.canvas()
         a, dy = rise(t, self.t_head)
         self.kicker(frame, c.get("kicker", ""), 104, 124 + dy, t, self.t_head)
         put(frame, T(c.get("headline", ""), "serif", 80, INK), 100, 212 + dy, "l", a)
@@ -1270,6 +1509,7 @@ class Bars(Scene):
 # --------------------------------------------------------------------------- #
 class Ledger(Scene):
     dark = False
+    flat = True
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -1291,7 +1531,7 @@ class Ledger(Scene):
 
     def frame(self, t: float) -> Image.Image:
         c = self.c
-        frame = paper().copy()
+        frame = self.canvas()
         a, dy = rise(t, self.t_head)
         self.kicker(frame, c.get("kicker", ""), 104, 124 + dy, t, self.t_head)
         put(frame, T(c.get("headline", ""), "serif", 80, INK), 100, 212 + dy, "l", a)
@@ -1329,8 +1569,11 @@ class Ledger(Scene):
 # close: the last line, on the night map
 # --------------------------------------------------------------------------- #
 @lru_cache(maxsize=4)
-def pill(label: str, filled: bool) -> Image.Image:
-    sp = T(label, "label", 26, CHAR if filled else IVORY)
+def pill(label: str, filled: bool, dark: bool = True) -> Image.Image:
+    """A button. On dark scenes ivory (filled) or an ivory outline; on light
+    scenes ink (filled) or an ink outline."""
+    fg, bg = (IVORY, CHAR) if dark else (INK, IVORY)
+    sp = T(label, "label", 26, bg if filled else fg)
     w, h = int(sp.w + 96), 82
     S = 2
     s = cairo.ImageSurface(cairo.FORMAT_ARGB32, w * S, h * S)
@@ -1340,10 +1583,10 @@ def pill(label: str, filled: bool) -> Image.Image:
     c.arc(w * S - r, r, r - 2 * S, -math.pi / 2, math.pi / 2)
     c.close_path()
     if filled:
-        c.set_source_rgb(*rgb1(IVORY)[:3])
+        c.set_source_rgb(*rgb1(fg)[:3])
         c.fill()
     else:
-        c.set_source_rgba(*rgb1(IVORY, 0.9))
+        c.set_source_rgba(*rgb1(fg, 0.9))
         c.set_line_width(2.5 * S)
         c.stroke()
     img = carto.to_img(s).resize((w, h), Image.LANCZOS)
@@ -1358,7 +1601,7 @@ class Close(Scene):
         super().__init__(*a, **k)
         c = self.c
         self.map = carto.night(c.get("map", "wide"))
-        plate = self.map.plate().copy()
+        plate = with_flags(self.map, self.map.plate(), c).copy()
         plate.alpha_composite(self.map.lights())
         self.plate = plate
         self.cam = PlateCam(c.get("zoom0", 1.06), 1.0, (1270, 560), 0, self.total)
@@ -1383,6 +1626,7 @@ class Close(Scene):
         self.t_legend = self.when(c.get("legend_at"), last + 0.6, after=last)
         self.t_sub = self.when((c.get("subscribe") or {}).get("at"), self.total + 1) if c.get("subscribe") else None
         self.t_share = self.when((c.get("share") or {}).get("at"), self.total + 1) if c.get("share") else None
+        self.t_like = self.when((c.get("like") or {}).get("at"), self.total + 1) if c.get("like") else None
 
     def frame(self, t: float) -> Image.Image:
         c = self.c
@@ -1415,7 +1659,12 @@ class Close(Scene):
         if self.q:
             a, dy = rise(t, self.t_q, 0.6)
             put(frame, T(self.q.get("text", ""), "serif_i", 64, GOLD), W / 2, 738 + dy, "c", a)
-        for tt, label, filled, dx in ((self.t_sub, "Subscribe", True, -170), (self.t_share, "Share", False, 170)):
+        buttons = [(self.t_sub, "Subscribe", True), (self.t_share, "Share", False)]
+        if self.t_like is not None:
+            buttons.insert(0, (self.t_like, "Like", False))
+        step = 300 if len(buttons) == 3 else 340
+        for k, (tt, label, filled) in enumerate(buttons):
+            dx = (k - (len(buttons) - 1) / 2) * step
             if tt is None or t < tt:
                 continue
             u = fx.ease_back((t - tt) / 0.5, 1.6)
@@ -1426,8 +1675,646 @@ class Close(Scene):
 
 
 # --------------------------------------------------------------------------- #
-KINDS: dict[str, type[Scene]] = {"reveal": Reveal, "terrain": Terrain, "race": Race, "kinetic": Kinetic,
-                                 "district": District, "bars": Bars, "ledger": Ledger, "close": Close}
+class Title(Scene):
+    """The opening titles. The night map comes up out of black, each country lights
+    up as the narrator names it (city lights, a wash of its colour, its name), then
+    the title card settles over the map.
+
+    chart:
+      kind: title
+      map: wide
+      countries:
+      - {country: India, at: india, note: 1.46 billion people, dy: 60}
+      beats:                            # optional captions before the countries light
+      - {at: '1947', big: '1947', label: British India is partitioned}
+      flags: 0.72                       # optional: each country fills with its flag as it lights
+      title: The South Asia Race
+      title_at: south asia race
+      kicker: Data in Motion · India in Data
+      versus: [India, Pakistan, Bangladesh]
+      years: 1960 – 2025
+    """
+    dark = True
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        c = self.c
+        self.map = carto.night(c.get("map", "wide"))
+        self.base = self.map.plate()
+        self.cam = PlateCam(1.0, c.get("zoom", 1.09), tuple(c.get("focus", (1270, 600))), 0, self.total)
+        self.countries = []
+        after = 0.0
+        for cd in c.get("countries") or []:
+            tt = self.when(cd.get("at"), after + 1.5, after=after)
+            after = tt
+            n = cd["country"]
+            fa = float(cd.get("flag", c.get("flags", 0)) or 0)
+            fat = tuple(cd["flag_at"]) if cd.get("flag_at") else None
+            flag = fx.with_alpha(self.map.flag_of(n, fat, float(c.get("flag_fit", 0.8))), fa) if fa > 0 else None
+            self.countries.append((cd, tt, self.map.lights_of(n), self.map.edge(n), flag))
+        self.flag_rest = float(c.get("flags_under_title", 0.3))
+        self.t_title = self.when(c.get("title_at"), max(after + 2.0, self.total - 4.5), after=after)
+        # captions before the countries light: a year or a number, and a line under it
+        first = self.countries[0][1] if self.countries else self.t_title
+        self.beats = []
+        last = 0.0
+        for bt in c.get("beats") or []:
+            tb = self.when(bt.get("at"), -1, after=last)
+            if 0 <= tb < first:
+                self.beats.append((bt, tb))
+                last = tb
+        self.t_first = first
+        self.beat_shade = h_scrim(((0, 0.78), (0.26, 0.5), (0.42, 0.0), (1, 0)))
+        self.shade = radial_scrim(W / 2, H * 0.47, W * 0.62, H * 0.5, 0.8, rgb=(9, 10, 12))
+        self.black = Image.new("RGBA", (W, H), (7, 8, 10, 255))
+        self._settled: dict[int, Image.Image] = {}
+
+    def _plate(self, t: float) -> Image.Image:
+        """The map with the countries lit so far. Flags (if any) sit under each
+        outline and its city lights, and dim when the title comes in."""
+        done = 0
+        for cd, tt, *_ in self.countries:
+            if t - tt >= 1.4:
+                done += 1
+            else:
+                break
+        fk = round(1 - (1 - self.flag_rest) * ease_in_out((t - self.t_title + 0.2) / 1.2), 3)
+        key = (done, fk)
+        if key not in self._settled:
+            pl = self.base.copy()
+            for _, _, lights, edge, flag in self.countries[:done]:
+                if flag is not None:
+                    pl.alpha_composite(fx.with_alpha(flag, fk))
+                pl.alpha_composite(edge)
+                pl.alpha_composite(lights)
+            self._settled = {key: pl}
+        plate = self._settled[key]
+        rest = [(tt, lights, edge, flag) for _, tt, lights, edge, flag in self.countries[done:] if t > tt]
+        if not rest:
+            return plate
+        plate = plate.copy()
+        for tt, lights, edge, flag in rest:
+            u = ease_out((t - tt) / 1.4)
+            if flag is not None:
+                plate.alpha_composite(fx.with_alpha(flag, u * fk))
+            plate.alpha_composite(fx.with_alpha(edge, u))
+            plate.alpha_composite(fx.with_alpha(lights, u))
+        return plate
+
+    def frame(self, t: float) -> Image.Image:
+        c = self.c
+        frame = self.cam.frame(self._plate(t), t)
+        tt0 = self.t_title
+        sh = ease_in_out((t - tt0 + 0.2) / 1.2)
+        if sh > 0:
+            frame.alpha_composite(fx.with_alpha(self.shade, sh))
+        # country names on the map, gone when the title arrives
+        out = 1 - ease_out((t - tt0 + 0.3) / 0.5)
+        for cd, tt, *_ in self.countries:
+            a, dy = rise(t, tt + 0.25, 0.7)
+            a *= out
+            if a <= 0:
+                continue
+            lon, lat = carto.COUNTRY_POINTS[cd["country"]]
+            x, y = self.cam.pt(t, *self.map.proj(lon, lat))
+            x += cd.get("dx", 0)
+            y += cd.get("dy", 0) + dy
+            name = T(cd.get("label", cd["country"]).upper(), "label", 30, col(cd["country"], True))
+            note = T(cd["note"], "sans", 24, (*IVORY, 225)) if cd.get("note") else None
+            # a soft dark halo, so the name reads over a bright flag
+            put(frame, halo(name), x, y, "c", a * 0.9, sub=True)
+            put(frame, name, x, y, "c", a, sub=True)
+            if note:
+                put(frame, halo(note), x, y + 36, "c", a * 0.9, sub=True)
+                put(frame, note, x, y + 36, "c", a, sub=True)
+        # opening captions, bottom left, each until the next (the last until a country lights)
+        if self.beats:
+            sa = ease_out((t - self.beats[0][1] + 0.3) / 0.8) * (1 - ease_out((t - self.t_first + 0.15) / 0.6))
+            if sa > 0:
+                frame.alpha_composite(fx.with_alpha(self.beat_shade, sa))
+        for i, (bt, tb) in enumerate(self.beats):
+            nxt = self.beats[i + 1][1] if i + 1 < len(self.beats) else self.t_first
+            a, dy = rise(t, tb, 0.7)
+            a *= 1 - ease_out((t - nxt + 0.15) / 0.45)
+            if a <= 0:
+                continue
+            if bt.get("label"):
+                put(frame, T(bt["label"], "label", 24, GOLD), 104, 700 + dy, "l", a)
+            put(frame, T(str(bt.get("big", "")), "num", 112, IVORY), 98, 818 + dy, "l", a)
+        # the title card
+        self.kicker(frame, c.get("kicker", ""), W / 2, 380, t, tt0 + 0.15, align="c")
+        words = str(c.get("title", "")).split()
+        if words:
+            sps = [T(w, "serif", 150, IVORY) for w in words]
+            space = 150 * 0.26
+            x = W / 2 - (sum(sp.w for sp in sps) + space * (len(sps) - 1)) / 2
+            for i, sp in enumerate(sps):
+                a, dy = rise(t, tt0 + 0.35 + 0.17 * i, 0.75)
+                if a > 0:
+                    put(frame, sp, x, 560 + dy * 1.4, "l", a)
+                x += sp.w + space
+        u = ease_in_out((t - tt0 - 0.9) / 0.9)
+        if u > 0:
+            half = 230 * u
+            ImageDraw.Draw(frame, "RGBA").line([(W / 2 - half, 616), (W / 2 + half, 616)], fill=(*GOLD, 230), width=2)
+        vs = c.get("versus") or []
+        if vs:
+            a, dy = rise(t, tt0 + 1.15, 0.6)
+            if a > 0:
+                parts = []
+                for i, n in enumerate(vs):
+                    if i:
+                        parts.append(T("vs", "serif_i", 32, (*IVORY, 170)))
+                    parts.append(T(n.upper(), "label", 30, col(n, True)))
+                gap = 22
+                x = W / 2 - (sum(p_.w for p_ in parts) + gap * (len(parts) - 1)) / 2
+                for p_ in parts:
+                    put(frame, p_, x, 682 + dy, "l", a)
+                    x += p_.w + gap
+        if c.get("years"):
+            a, dy = rise(t, tt0 + 1.5, 0.6)
+            put(frame, T(str(c["years"]), "serif_i", 40, GOLD), W / 2, 752 + dy, "c", a)
+        # up out of black
+        b = 1 - ease_out(t / 1.8)
+        if b > 0:
+            frame.alpha_composite(fx.with_alpha(self.black, b))
+        self.brand(frame)
+        return frame
+
+
+# --------------------------------------------------------------------------- #
+# track: the race, run on a track
+# --------------------------------------------------------------------------- #
+def _sprite(w: int, h: int, draw: Callable[[cairo.Context], None], S: int = 4) -> Image.Image:
+    """A small antialiased cairo drawing, made big and scaled down."""
+    sf = cairo.ImageSurface(cairo.FORMAT_ARGB32, w * S, h * S)
+    c = cairo.Context(sf)
+    c.set_antialias(cairo.ANTIALIAS_BEST)
+    c.scale(S, S)
+    draw(c)
+    return carto.to_img(sf).resize((w, h), Image.LANCZOS)
+
+
+@lru_cache(maxsize=16)
+def runner_head(country: str) -> Image.Image:
+    """The front of a runner's trail: a disc in the country's colour with its
+    shape in ivory."""
+    r = 31
+
+    def draw(c):
+        c.arc(r + 3, r + 3, r, 0, 2 * math.pi)
+        c.set_source_rgb(*rgb1(C.get(country, INK))[:3])
+        c.fill_preserve()
+        c.set_source_rgba(*rgb1(IVORY, 1))
+        c.set_line_width(3.5)
+        c.stroke()
+
+    img = _sprite(2 * r + 6, 2 * r + 6, draw)
+    sil = carto.silhouette(country, 36, IVORY)
+    img.alpha_composite(sil, (int((img.width - sil.width) / 2), int((img.height - sil.height) / 2)))
+    return img
+
+
+@lru_cache(maxsize=2)
+def ghost_ring() -> Image.Image:
+    r = 31
+
+    def draw(c):
+        c.arc(r + 3, r + 3, r, 0, 2 * math.pi)
+        c.set_source_rgba(*rgb1(IVORY, 0.92))
+        c.fill_preserve()
+        c.set_source_rgba(*rgb1(INK, 0.6))
+        c.set_line_width(2.6)
+        c.set_dash([5, 5])
+        c.stroke()
+
+    return _sprite(2 * r + 6, 2 * r + 6, draw)
+
+
+class Track(Scene):
+    """Each lane is a country; its runner is the size of its economy, moving
+    as the economy grows, year by year (real growth, compounded).
+
+      rows:  [{country, growth: [yearly %, ...], rate: 7.8, at: <cue for the rate>}]
+      years: [2021, 2025]            first and last year of growth
+      run_at / run_to                cues when the run starts and ends
+      axis_max: 50                   per cent, at the right end of the track
+      ghost: {country, rate, label, at}    where a slower pace would have got it
+      double: {text, at}             a gold bracket from the ghost to the runner
+    """
+    dark = False
+    flat = True
+    X0, X1 = 560, 1600
+    LANES = (430, 600, 770)
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        c = self.c
+        self.y0, self.y1 = (c.get("years") or [2021, 2025])[:2]
+        self.n = self.y1 - self.y0 + 1
+        self.t_head = self.when(c.get("headline_at"), 0.2)
+        self.t_run = self.when(c.get("run_at"), 1.0)
+        self.t_end = max(self.t_run + 4.0, self.when(c.get("run_to"), self.t_run + 8.0, after=self.t_run))
+        self.rows = []
+        after = 0.0
+        for r in c.get("rows") or []:
+            tr = self.when(r.get("at"), after + 1.0, after=after)
+            after = tr
+            cum = [0.0]
+            idx = 1.0
+            for g in r["growth"][: self.n]:
+                idx *= 1 + g / 100
+                cum.append((idx - 1) * 100)
+            self.rows.append((r, tr, cum))
+        self.vmax = float(c.get("axis_max", 50))
+        g = c.get("ghost") or {}
+        self.ghost = g
+        self.t_ghost = self.when(g.get("at"), -1.0) if g else -1.0
+        self.ghost_v = ((1 + float(g.get("rate", 0)) / 100) ** self.n - 1) * 100 if g else 0.0
+        d = c.get("double") or {}
+        self.double = d
+        self.t_double = self.when(d.get("at"), -1.0, after=max(0.0, self.t_ghost)) if d else -1.0
+        self.sil = {r["country"]: carto.silhouette(r["country"], 84) for r, _, _ in self.rows}
+
+    def X(self, v: float) -> float:
+        return self.X0 + (self.X1 - self.X0) * v / self.vmax
+
+    def progress(self, t: float) -> float:
+        """Years run so far (0 .. n), easing in at the gun and out at the line."""
+        u = clamp((t - self.t_run) / (self.t_end - self.t_run))
+        return self.n * (0.35 * u + 0.65 * ease_in_out(u))
+
+    @staticmethod
+    def at(cum: list[float], p: float) -> float:
+        k = int(min(max(math.floor(p), 0), len(cum) - 2))
+        return cum[k] + (cum[k + 1] - cum[k]) * clamp(p - k)
+
+    def frame(self, t: float) -> Image.Image:
+        c = self.c
+        frame = self.canvas()
+        a, dy = rise(t, self.t_head)
+        self.kicker(frame, c.get("kicker", ""), 104, 124 + dy, t, self.t_head)
+        put(frame, T(c.get("headline", ""), "serif", 80, INK), 100, 212 + dy, "l", a)
+        p = self.progress(t)
+        L = self.LANES
+        half = (L[1] - L[0]) / 2
+        top, bot = L[0] - half, L[-1] + half
+        ga = ease_out((t - 0.3) / 0.8)
+        s, cx = surface()
+        # the track: lane lines, the start line, distance marks
+        for i in range(len(L) + 1):
+            y = top + i * 2 * half
+            cx.set_source_rgba(*rgb1(INK, 0.2 * ga))
+            cx.set_line_width(1.6)
+            cx.move_to(self.X0 - 30, y)
+            cx.line_to(self.X1 + 40, y)
+            cx.stroke()
+        step = 10.0
+        v = step
+        while v <= self.vmax + 1e-6:
+            x = self.X(v)
+            cx.set_source_rgba(*rgb1(INK, 0.11 * ga))
+            cx.set_line_width(1.4)
+            cx.set_dash([3, 7])
+            cx.move_to(x, top)
+            cx.line_to(x, bot)
+            cx.stroke()
+            cx.set_dash([])
+            v += step
+        cx.set_source_rgba(*rgb1(INK, 0.75 * ga))
+        cx.set_line_width(4)
+        cx.move_to(self.X0, top)
+        cx.line_to(self.X0, bot)
+        cx.stroke()
+        # trails
+        heads = []
+        for (r, tr, cum), y in zip(self.rows, L):
+            v = self.at(cum, p)
+            x = self.X(v)
+            if x > self.X0 + 1:
+                cx.set_source_rgba(*rgb1(C.get(r["country"], INK), ga))
+                cx.rectangle(self.X0, y - 9, x - self.X0, 18)
+                cx.fill()
+            heads.append((r, x, y, v))
+        # the bracket from the slower pace to the runner
+        gx = self.X(self.ghost_v) if self.ghost else 0
+        gy = L[[r["country"] for r, _, _ in self.rows].index(self.ghost["country"])] if self.ghost else 0
+        ub = ease_out((t - self.t_double) / 0.8) if self.t_double >= 0 else 0
+        hx = next((x for r, x, y, v in heads if self.ghost and r["country"] == self.ghost["country"]), gx)
+        if ub > 0:
+            yb = gy + 50
+            x1 = gx + (hx - gx) * ub
+            cx.set_source_rgba(*rgb1(GOLD_DK, 0.95))
+            cx.set_line_width(2.6)
+            cx.move_to(gx, yb - 9)
+            cx.line_to(gx, yb)
+            cx.line_to(x1, yb)
+            if ub > 0.98:
+                cx.line_to(x1, yb - 9)
+            cx.stroke()
+        frame.alpha_composite(carto.to_img(s))
+        # distance labels
+        put(frame, T(c.get("axis_label", "Economy, growth since 2020"), "label", 19, (*INK, 150)),
+            self.X0, top - 52, "l", ga)
+        v = step
+        while v <= self.vmax + 1e-6:
+            put(frame, T(f"+{v:.0f}%", "sans_m", 22, (*INK, 140)), self.X(v), top - 14, "c", ga)
+            v += step
+        # lane labels: shape, name, then the yearly rate when it is said
+        for (r, tr, cum), y in zip(self.rows, L):
+            sil = self.sil[r["country"]]
+            frame.alpha_composite(fx.with_alpha(sil, ga), (int(104 + (100 - sil.width) / 2), int(y - sil.height / 2)))
+            put(frame, T(r.get("label", r["country"]), "label", 24, C.get(r["country"], INK)), 236, y - 8, "l", ga)
+            if r.get("rate") is not None:
+                ar, dr = rise(t, tr, 0.5)
+                num = T(f"{r['rate']:.1f}%", "num", 44, INK)
+                put(frame, num, 234, y + 42 + dr, "l", ar)
+                put(frame, T("a year", "sans", 24, (*INK, 160)), 234 + num.w + 10, y + 40 + dr, "l", ar)
+        # the slower pace, a dashed ring in the lane
+        if self.t_ghost >= 0 and t >= self.t_ghost:
+            ag = ease_out((t - self.t_ghost) / 0.6)
+            ring = ghost_ring()
+            paste(frame, fx.with_alpha(ring, ag), gx - ring.width / 2, gy - ring.height / 2)
+            put(frame, T(self.ghost.get("label", "Old pace"), "label", 17, (*INK, 170)), gx, gy - 46, "c", ag)
+        # runners
+        for r, x, y, v in heads:
+            img = runner_head(r["country"])
+            paste(frame, fx.with_alpha(img, ga), x - img.width / 2, y - img.height / 2)
+            if t >= self.t_run:
+                put(frame, T(fmt(v, "+", "%", 1), "sans_b", 28, INK), x, y - 44, "c",
+                    ease_out((t - self.t_run) / 0.4), sub=True)
+        if ub > 0 and self.double.get("text"):
+            put(frame, T(self.double["text"], "serif_i", 30, GOLD_DK), (gx + hx) / 2, gy + 82, "c", ub)
+        # the year being run
+        if t >= self.t_run - 0.3:
+            yr = self.y0 + min(self.n - 1, int(p)) if p < self.n else self.y1
+            ay = ease_out((t - self.t_run + 0.3) / 0.5)
+            put(frame, T(str(yr), "serif_i", 76, GOLD_DK), W - 104, 212, "r", ay)
+        if c.get("note"):
+            put(frame, T(c["note"], "sans", 21, (*INK, 140)), 104, H - 40, "l", ease_out(t / 0.8))
+        self.brand(frame)
+        return frame
+
+
+# --------------------------------------------------------------------------- #
+# people: out of every hundred
+# --------------------------------------------------------------------------- #
+@lru_cache(maxsize=32)
+def person_icon(rgb: tuple, a: float = 1.0) -> Image.Image:
+    """A pictogram of a woman: head and an A-line dress."""
+    def draw(c):
+        c.set_source_rgba(*rgb1(rgb, a))
+        c.arc(15, 7.2, 6.4, 0, 2 * math.pi)
+        c.fill()
+        c.move_to(10.6, 15.5)
+        c.line_to(19.4, 15.5)
+        c.curve_to(21.5, 15.5, 22.4, 17, 23, 19)
+        c.line_to(26.5, 33.5)
+        c.line_to(3.5, 33.5)
+        c.line_to(7, 19)
+        c.curve_to(7.6, 17, 8.5, 15.5, 10.6, 15.5)
+        c.close_path()
+        c.fill()
+        c.rectangle(10.6, 33, 3.2, 10)
+        c.rectangle(16.2, 33, 3.2, 10)
+        c.fill()
+
+    return _sprite(30, 44, draw)
+
+
+class People(Scene):
+    """Ten-by-ten grids of figures, one grid per country, filling to a share.
+
+      rows: [{country, value: 32.4, at, mark: 26.5, mark_at, mark_text: '+6 since 2019'}]
+      unit: '%'
+    The figures added since ``mark`` turn gold when it is said."""
+    dark = False
+    flat = True
+    PX, PY = 46, 50
+    GOLD_ON = (184, 138, 52)
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        c = self.c
+        self.t_head = self.when(c.get("headline_at"), 0.2)
+        self.rows = []
+        after = 0.0
+        for r in c.get("rows") or []:
+            t1 = self.when(r.get("at"), after + 1.2, after=after)
+            t2 = self.when(r.get("mark_at"), -1.0, after=t1) if r.get("mark") is not None else -1.0
+            after = t1
+            self.rows.append((r, t1, t2))
+        gw = 9 * self.PX + 30
+        gap = 150
+        n = len(self.rows)
+        x0 = (W - (n * gw + (n - 1) * gap)) / 2
+        self.gx = [x0 + i * (gw + gap) for i in range(n)]
+        self.gy = 452
+        # bottom row first, left to right, so the share rises like a level
+        self.order = [(i, j) for j in range(9, -1, -1) for i in range(10)]
+
+    FILL = 1.6
+
+    def frame(self, t: float) -> Image.Image:
+        c = self.c
+        frame = self.canvas()
+        a, dy = rise(t, self.t_head)
+        self.kicker(frame, c.get("kicker", ""), 104, 124 + dy, t, self.t_head)
+        put(frame, T(c.get("headline", ""), "serif", 80, INK), 100, 212 + dy, "l", a)
+        unit = c.get("unit", "%")
+        faint = person_icon(INK, 0.12)
+        for k, ((r, t1, t2), x0) in enumerate(zip(self.rows, self.gx)):
+            ga, gdy = rise(t, min(t1 - 0.6, 0.6 + 0.25 * k), 0.6)
+            if ga <= 0:
+                continue
+            n = int(round(r["value"]))
+            m = int(r["mark"]) if r.get("mark") is not None else n
+            full = person_icon(C.get(r["country"], INK))
+            gold = person_icon(self.GOLD_ON)
+            u = clamp((t - t1) / self.FILL)
+            lit_f = n * u
+            gu = ease_out((t - t2) / 0.7) if t2 >= 0 else 0.0
+            for q, (i, j) in enumerate(self.order):
+                x, y = x0 + i * self.PX, self.gy + j * self.PY + gdy
+                frame.alpha_composite(fx.with_alpha(faint, ga), (int(x), int(y)))
+                if q < n and lit_f > q:
+                    pa = clamp((lit_f - q) / 2.5)
+                    frame.alpha_composite(fx.with_alpha(full, pa), (int(x), int(y)))
+                    if q >= m and gu > 0:
+                        frame.alpha_composite(fx.with_alpha(gold, gu * pa), (int(x), int(y)))
+            # name and the share, counting up as the grid fills
+            put(frame, T(r.get("label", r["country"]), "label", 24, C.get(r["country"], INK)), x0, 330 + gdy, "l", ga)
+            if t >= t1:
+                num = T(fmt(r["value"] * ease_out(u), "", unit, 1), "num", 84, INK)
+                put(frame, num, x0 - 4, 420 + gdy, "l", min(1.0, (t - t1) / 0.3))
+                if gu > 0 and r.get("mark_text"):
+                    full_num = T(fmt(r["value"], "", unit, 1), "num", 84, INK)
+                    put(frame, T(r["mark_text"], "serif_i", 30, self.GOLD_ON), x0 + full_num.w + 14, 410 + gdy, "l", gu)
+        if c.get("note"):
+            put(frame, T(c["note"], "sans", 21, (*INK, 140)), 104, H - 40, "l", ease_out(t / 0.8))
+        self.brand(frame)
+        return frame
+
+
+# --------------------------------------------------------------------------- #
+# lifeline: years of life on an age ruler
+# --------------------------------------------------------------------------- #
+class Lifeline(Scene):
+    """An age ruler; each country's line grows to its old value, then on to today's.
+
+      from_label: '1980'   from_at: <cue>      the old values all appear then
+      to_label: Today
+      rows: [{country, from: 53.6, to: 72.2, at: <cue for today>, bracket_at, bracket: '+18.6 years',
+              tag: 'Led in 1980', tag_at}]
+      age_max: 80
+    """
+    dark = True
+    flat = True
+    X0, X1 = 456, 1660
+    LANES = (506, 676, 846)
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        c = self.c
+        self.t_head = self.when(c.get("headline_at"), 0.4)
+        self.t_from = self.when(c.get("from_at"), 1.5)
+        self.rows = []
+        after = self.t_from
+        for r in c.get("rows") or []:
+            t1 = self.when(r.get("at"), after + 1.5, after=after)
+            tb = self.when(r.get("bracket_at"), -1.0, after=t1) if r.get("bracket") else -1.0
+            tg = self.when(r.get("tag_at"), -1.0, after=self.t_from) if r.get("tag") else -1.0
+            after = t1
+            self.rows.append((r, t1, tb, tg))
+        self.amax = float(c.get("age_max", 80))
+        self.sil = {r["country"]: carto.silhouette(r["country"], 64, col(r["country"], True)) for r, *_ in self.rows}
+
+    def X(self, age: float) -> float:
+        return self.X0 + (self.X1 - self.X0) * age / self.amax
+
+    def frame(self, t: float) -> Image.Image:
+        c = self.c
+        frame = self.canvas()
+        self.kicker(frame, c.get("kicker", ""), 104, 98, t, 0.2)
+        a, dy = rise(t, self.t_head)
+        put(frame, T(c.get("headline", ""), "serif", 64, IVORY), 102, 182 + dy, "l", a)
+        ga = ease_out((t - 0.3) / 0.8)
+        top = 356
+        s, cx = surface()
+        # the ruler
+        cx.set_source_rgba(*rgb1(IVORY, 0.5 * ga))
+        cx.set_line_width(2)
+        cx.move_to(self.X0, top)
+        cx.line_to(self.X1, top)
+        cx.stroke()
+        for age in range(0, int(self.amax) + 1, 5):
+            x = self.X(age)
+            major = age % 10 == 0
+            cx.set_source_rgba(*rgb1(IVORY, (0.5 if major else 0.3) * ga))
+            cx.set_line_width(2 if major else 1.4)
+            cx.move_to(x, top)
+            cx.line_to(x, top + (14 if major else 8))
+            cx.stroke()
+            if major and age:
+                cx.set_source_rgba(*rgb1(IVORY, 0.06 * ga))
+                cx.set_line_width(1.4)
+                cx.move_to(x, top + 30)
+                cx.line_to(x, self.LANES[-1] + 60)
+                cx.stroke()
+        heads = []
+        for (r, t1, tb, tg), y in zip(self.rows, self.LANES):
+            k = self.rows.index((r, t1, tb, tg))
+            rgb = col(r["country"], True)
+            u0 = ease_in_out((t - self.t_from - 0.25 * k) / 1.3)
+            u1 = ease_in_out((t - t1) / 1.2)
+            x_old = self.X(r["from"] * u0)
+            # the old life, thin and dim
+            if u0 > 0:
+                cx.set_source_rgba(*rgb1(rgb, 0.42))
+                cx.set_line_width(6)
+                cx.move_to(self.X0, y)
+                cx.line_to(x_old, y)
+                cx.stroke()
+            # the years gained since, bright
+            if u1 > 0:
+                x_new = self.X(r["from"] + (r["to"] - r["from"]) * u1)
+                cx.set_source_rgba(*rgb1(rgb, 1))
+                cx.set_line_width(14)
+                cx.set_line_cap(cairo.LINE_CAP_BUTT)
+                cx.move_to(self.X0, y)
+                cx.line_to(x_new, y)
+                cx.stroke()
+                cx.set_line_cap(cairo.LINE_CAP_ROUND)
+                cx.arc(x_new, y, 12, 0, 2 * math.pi)
+                cx.fill()
+                heads.append((r, x_new, y, u1))
+            if u0 > 0:
+                # where it stood then: a ring that stays
+                cx.set_source_rgba(*rgb1(IVORY, 0.9 * min(1.0, u0 * 3)))
+                cx.set_line_width(2.6)
+                cx.new_sub_path()
+                cx.arc(x_old, y, 11, 0, 2 * math.pi)
+                cx.stroke()
+            if tb >= 0 and t >= tb:
+                ub = ease_out((t - tb) / 0.7)
+                xa, xb = self.X(r["from"]), self.X(r["to"])
+                yb = y - 40
+                cx.set_source_rgba(*rgb1(GOLD, 0.95))
+                cx.set_line_width(2.6)
+                cx.move_to(xa, yb + 10)
+                cx.line_to(xa, yb)
+                cx.line_to(xa + (xb - xa) * ub, yb)
+                if ub > 0.98:
+                    cx.line_to(xb, yb + 10)
+                cx.stroke()
+        frame.alpha_composite(carto.to_img(s))
+        # ruler labels
+        for age in range(10, int(self.amax) + 1, 10):
+            put(frame, T(str(age), "sans_m", 22, (*IVORY, 150)), self.X(age), top - 16, "c", ga)
+        put(frame, T(c.get("axis_label", "Age"), "label", 19, (*IVORY, 150)), self.X0, top - 16, "l", ga)
+        # keys: then and now
+        ka = ease_out((t - self.t_from) / 0.6)
+        if ka > 0:
+            d = ImageDraw.Draw(frame)
+            to_l = T(str(c.get("to_label", "Today")), "label", 19, (*IVORY, int(200 * ka)))
+            fr_l = T(str(c.get("from_label", "")), "label", 19, (*IVORY, int(200 * ka)))
+            xr = self.X1 + 60
+            put(frame, to_l, xr, 288, "r")
+            xb = xr - to_l.w - 14
+            d.rectangle([xb - 34, 280, xb, 288], fill=(*IVORY, int(230 * ka)))
+            xf = xb - 34 - 40
+            put(frame, fr_l, xf, 288, "r")
+            xc = xf - fr_l.w - 22
+            d.ellipse([xc - 9, 275, xc + 9, 293], outline=(*IVORY, int(230 * ka)), width=3)
+        for (r, t1, tb, tg), y in zip(self.rows, self.LANES):
+            rgb = col(r["country"], True)
+            sil = self.sil[r["country"]]
+            frame.alpha_composite(fx.with_alpha(sil, ga), (int(104 + (90 - sil.width) / 2), int(y - sil.height / 2)))
+            put(frame, T(r.get("label", r["country"]), "label", 24, rgb), 214, y + 9, "l", ga)
+            k = [q[0] for q in self.rows].index(r)
+            u0 = ease_out((t - self.t_from - 0.25 * k - 0.9) / 0.5)
+            if u0 > 0 and t < t1 + 0.6:
+                put(frame, T(fmt(r["from"], decimals=1), "sans_b", 26, (*IVORY, 200)), self.X(r["from"]), y + 46, "c",
+                    u0 * (1 - ease_out((t - t1) / 0.5)))
+            if tb >= 0 and t >= tb:
+                ub = ease_out((t - tb - 0.3) / 0.6)
+                put(frame, T(r["bracket"], "serif_i", 32, GOLD), (self.X(r["from"]) + self.X(r["to"])) / 2, y - 54, "c", ub)
+            if tg >= 0 and t >= tg:
+                ug = ease_out((t - tg) / 0.6)
+                put(frame, T(r["tag"], "serif_i", 30, (*IVORY, 210)), self.X(r["from"]), y - 30, "c", ug)
+        for r, x, y, u1 in heads:
+            v = r["from"] + (r["to"] - r["from"]) * u1
+            put(frame, T(fmt(v, decimals=1), "num", 54, IVORY if r.get("hot") else col(r["country"], True)),
+                x + 30, y + 19, "l", min(1.0, u1 * 3))
+        if c.get("note"):
+            put(frame, T(c["note"], "sans", 21, (*IVORY, 130)), 104, H - 40, "l", ease_out(t / 0.8))
+        self.brand(frame)
+        return frame
+
+
+KINDS: dict[str, type[Scene]] = {"title": Title, "reveal": Reveal, "terrain": Terrain, "race": Race, "kinetic": Kinetic,
+                                 "district": District, "bars": Bars, "ledger": Ledger, "close": Close,
+                                 "track": Track, "people": People, "lifeline": Lifeline}
 
 
 def make_scene(chart: dict[str, Any], cues, offset: float, total: float, data=None) -> Scene:
@@ -1446,7 +2333,7 @@ def render_doc(chart: dict[str, Any], cues: list[dict[str, Any]], offset: float,
     n_frames = int(round(total * FPS))
     try:
         for f in range(n_frames):
-            img = scene.frame(f / FPS)
+            img = scene.render(f / FPS)
             enc.write(img)
             if progress:
                 progress(f, n_frames)

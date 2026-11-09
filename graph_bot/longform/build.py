@@ -288,7 +288,9 @@ def _render_scene(ep: dict[str, Any], ch: dict[str, Any], voice_mp3: Path, total
         return render_scorecard(chart, ch.get("heading") or "", word_cues, LEAD_IN, total, chart_mp4,
                                 ffmpeg_exe(settings), footer=footer, encode_args=h264_args(settings))
     if chart["mode"] == "doc":
-        from .doc import render_doc
+        from .doc import render_doc, with_neighbours
+
+        chart = with_neighbours(chart, ep["chapters"], ch)
 
         data = None
         if chart.get("code"):
@@ -377,11 +379,11 @@ def _source_links(ep: dict[str, Any]) -> str:
         url = (ep.get("source_links") or {}).get(code) or f"https://data.worldbank.org/indicator/{code}"
         lines.append(f"{label}: {url}")
     charts = [c.get("chart") or {} for c in ep.get("chapters") or []]
-    if any(c.get("mode") in ("hook", "podium") or (c.get("mode") == "doc" and c.get("kind") in ("reveal", "terrain", "close"))
+    if any(c.get("mode") in ("hook", "podium") or (c.get("mode") == "doc" and c.get("kind") in ("title", "reveal", "terrain", "close"))
            for c in charts):
         lines.append("Map: Natural Earth, with India's boundaries as India officially recognises them: "
                      "https://www.naturalearthdata.com")
-    if any(c.get("mode") == "doc" and c.get("kind") in ("reveal", "terrain", "close") for c in charts):
+    if any(c.get("mode") == "doc" and c.get("kind") in ("title", "reveal", "terrain", "close") for c in charts):
         lines.append("Relief: NOAA ETOPO1 Global Relief Model: https://www.ncei.noaa.gov/products/etopo-global-relief-model")
     return ("\nSources\n" + "\n".join(lines) + "\n\n") if lines else "\n"
 
@@ -473,13 +475,18 @@ def build(key: str, *, only: list[str] | None = None, force: bool = False,
         # loudnorm upsamples internally; bring the result back to 48 kHz.
         norm = f"loudnorm=I={lufs}:TP={peak}:LRA=11,aresample=48000"
         if track is not None:
-            vol = float(conf.get("volume_under_voice", 0.15))
+            # Long-form talks for minutes on end: the bed sits lower than under a
+            # Short, and a sidechain compressor dips it further while the narrator
+            # speaks, letting it breathe back up in the pauses.
+            vol = float(ep.get("music_volume", conf.get("longform_music_volume", 0.09)))
             _run([
                 ffmpeg_exe(settings), "-y", "-loglevel", "error",
                 "-i", str(joined), "-stream_loop", "-1", "-i", str(track),
                 "-filter_complex",
+                "[0:a]asplit=2[v][key];"
                 f"[1:a]volume={vol},afade=t=in:st=0:d=2,afade=t=out:st={max(0.0, total - 3):.2f}:d=3[m];"
-                f"[0:a][m]amix=inputs=2:duration=first:normalize=0,{norm}[a]",
+                "[m][key]sidechaincompress=threshold=0.02:ratio=6:attack=20:release=450:makeup=1[md];"
+                f"[v][md]amix=inputs=2:duration=first:normalize=0,{norm}[a]",
                 "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
                 "-t", f"{total:.3f}", str(video),
             ])
