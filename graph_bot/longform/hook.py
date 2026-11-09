@@ -30,7 +30,7 @@ from PIL import Image
 from . import fx
 from .fx import FPS, H, W, ease_back, ease_in_out, ease_out, paste
 
-VERSION = 1
+VERSION = 1   # unchanged for old scripts; extra lit countries and tinted chips are opt-in
 
 GLOBE_R = 560
 CARD_W, CARD_H = 860, 220
@@ -94,10 +94,18 @@ class Hook:
         self.total = total
         self.bg = fx.backdrop(map_alpha=0.12)
         gs = chart.get("globe") or {}
-        self.gl = fx.globe(GLOBE_R, float(gs.get("lon0", 80)), float(gs.get("lat0", 16)))
+        glows = chart.get("glow") or []
+        self.gl = fx.globe(GLOBE_R, float(gs.get("lon0", 80)), float(gs.get("lat0", 16)),
+                           extra=[(g["country"], g.get("tone", "teal")) for g in glows])
         self.flare = fx.flare(190)
         self.motes = fx.particles(70)
         self.india_t = tl.find("india", 0.3)
+        # Other lit countries: each pulses in its tone and sends a shockwave when named.
+        self.glows = []
+        for k, g in enumerate(glows):
+            info = self.gl["extra"][g["country"]]
+            self.glows.append({"t": tl.find(g.get("at", ""), self.india_t + 0.8 * (k + 1)),
+                               "rgb": info["rgb"], "xy": info["xy"], "img": info["glow"], "ph": 1.3 * (k + 1)})
 
         self.cards = []
         fb = 1.0
@@ -105,13 +113,21 @@ class Hook:
             tone = c.get("tone") or _tone_for(str(c.get("rank", "")))
             t0 = tl.find(c.get("at", ""), fb)
             fb = t0 + 1.5
-            rank = fx.metal_text(str(c.get("rank", "")), 132 if len(str(c.get("rank", ""))) < 4 else 104, tone)
+            rtxt = str(c.get("rank", ""))
+            rsize = 132 if len(rtxt) < 4 else 104
+            while rsize > 60 and fx.font(rsize, "black").getlength(rtxt) > 240:   # "+45%" is wider than "#3"
+                rsize -= 2
+            rank = fx.metal_text(rtxt, rsize, tone)
+            src = c.get("from") or "India"
+            origin = self.gl["india_xy"] if src == "India" else self.gl["extra"][src]["xy"]
             self.cards.append({
                 "t": t0, "tone": tone, "y": CARD_Y[i], "glass": _glass(CARD_W, CARD_H, tone), "rank": rank,
+                "origin": origin,
                 "icon": fx.icon(c.get("icon", "sparkles"), 70, tone),
                 "label": fx.text(str(c.get("label", "")), _fit(str(c.get("label", "")), 38, CARD_W - 420),
                                  (220, 228, 242), "bold"),
-                "value": fx.text(str(c.get("value", "")), 64, fx.FG, "black", glow_r=6, glow_a=0.3),
+                "value": fx.text(str(c.get("value", "")), _fit(str(c.get("value", "")), 64, CARD_W - 360, "black"),
+                                 fx.FG, "black", glow_r=6, glow_a=0.3),
             })
         self.link_t = tl.find((chart.get("link") or {}).get("at", "three"), total + 1)
 
@@ -124,17 +140,23 @@ class Hook:
         gap = 168
         x0 = W / 2 - gap * (n - 1) / 2
         rng = np.random.default_rng(4)
-        for k, lab in enumerate(labels):
-            tone = _tone_for(lab)
+        for k, chip in enumerate(labels):
+            # A chip is "#3", or {label, tone, focus} when it is not a rank.
+            spec = chip if isinstance(chip, dict) else {"label": str(chip)}
+            lab = str(spec["label"])
+            tone = spec.get("tone") or _tone_for(lab)
             size = 70 if len(lab) <= 2 else 54 if len(lab) == 3 else 46
             self.chips.append({"x": x0 + gap * k, "y": 540, "tone": tone,
+                               "focus": bool(spec.get("focus", lab == "#1")),
+                               "sub": fx.text(str(spec["sub"]), 26, fx.TONE_RGB.get(tone, fx.FG), "black",
+                                              glow_r=6, glow_a=0.5) if spec.get("sub") else None,
                                "glass": _glass(140, 140, tone, radius=26), "num": fx.metal_text(lab, size, tone),
                                "from": (rng.uniform(-1, 1) * 900, rng.choice([-1, 1]) * rng.uniform(500, 800)),
                                "spin": rng.uniform(-200, 200), "delay": 0.07 * k, "label": lab})
         sw = chart.get("sweep") or {}
         self.sweep_t = tl.find(sw.get("at", "worst"), total + 1)
-        self.worst = fx.text(sw.get("from", "WORST"), 40, (255, 110, 110), "black", glow_r=8, glow_a=0.5)
-        self.best = fx.text(sw.get("to", "BEST"), 40, (255, 214, 90), "black", glow_r=8, glow_a=0.5)
+        self.worst = fx.text(sw.get("from", "WORST"), 40, (255, 110, 110), "black", glow_r=8, glow_a=0.5)             if sw.get("from", "WORST") else None
+        self.best = fx.text(sw.get("to", "BEST"), 40, (255, 214, 90), "black", glow_r=8, glow_a=0.5)             if sw.get("to", "BEST") else None
         rv = chart.get("reveal") or {}
         self.reveal_t = tl.find(rv.get("at", "number"), total + 1)
         self.known = fx.text(rv.get("known", "PEOPLE"), 44, fx.FG, "black", glow_r=6, glow_a=0.3)
@@ -172,6 +194,11 @@ class Hook:
             iy = gy + (self.gl["india_xy"][1] - self.gl["size"] / 2) * push
             pulse = 0.55 + 0.35 * math.sin(t * 2.4)
             paste(frame, self.gl["india"], gx, gy, pulse * a, push * (0.92 + 0.08 * gin))
+            for g in self.glows:   # the other lit countries, each pulsing on its own beat once named
+                lit = ease_out((t - g["t"]) / 0.5)
+                if lit > 0:
+                    gp = 0.55 + 0.35 * math.sin(t * 2.4 + g["ph"])
+                    paste(frame, g["img"], gx, gy, gp * a * lit, push * (0.92 + 0.08 * gin))
             paste(frame, self.flare, gx + 330 * push, gy - 470 * push, 0.8 * a)
             surf, ctx = fx.canvas_surface(W, H)
             # A shockwave ring from India when it is named.
@@ -182,6 +209,16 @@ class Hook:
                 ctx.set_source_rgba(1.0, 0.7, 0.3, 0.8 * (1 - d / 1.4))
                 ctx.set_line_width(6 * (1 - d / 1.4) + 1)
                 ctx.stroke()
+            for g in self.glows:
+                d = t - g["t"]
+                if 0 < d < 1.4:
+                    px = gx + (g["xy"][0] - self.gl["size"] / 2) * push
+                    py = gy + (g["xy"][1] - self.gl["size"] / 2) * push
+                    for rr, ww, aa in ((30 + 420 * ease_out(d / 1.4), 6, 0.8), (20 + 260 * ease_out(d / 1.1), 3, 0.5)):
+                        ctx.arc(px, py, rr, 0, 2 * math.pi)
+                        ctx.set_source_rgba(*(v / 255 for v in g["rgb"]), aa * (1 - d / 1.4))
+                        ctx.set_line_width(ww * (1 - d / 1.4) + 1)
+                        ctx.stroke()
             fx.draw_particles(ctx, self.motes, t, a)
             # "All three are true": arcs from India to each card.
             if t > self.link_t:
@@ -189,7 +226,9 @@ class Hook:
                     u = (t - self.link_t - 0.12 * k) / 0.7
                     if u > 0:
                         end = (CARD_X - CARD_W / 2 + dx - 6, c["y"] + dy)
-                        pts = fx.arc_path((ix, iy), end, lift=60 + 40 * k)
+                        ox = gx + (c["origin"][0] - self.gl["size"] / 2) * push
+                        oy = gy + (c["origin"][1] - self.gl["size"] / 2) * push
+                        pts = fx.arc_path((ox, oy), end, lift=60 + 40 * k)
                         col = tuple(v / 255 for v in fx.TONE_RGB[c["tone"]])
                         fx.draw_arc(ctx, pts, ease_out(u), colour=col, alpha=a,
                                     pulse=((t - self.link_t) / 1.4) % 1 if u > 1 else None)
@@ -246,7 +285,7 @@ class Hook:
                     ctx.set_source_rgba(1.0, 0.82, 0.3, 1 - focus)
                     ctx.fill()
             frame.alpha_composite(fx.surface_to_image(surf))
-            if t > self.sweep_t:
+            if t > self.sweep_t and self.worst is not None and self.best is not None:
                 paste(frame, self.worst, self.chips[0]["x"], 750, ease_out((t - self.sweep_t) / 0.4) * (1 - focus))
                 paste(frame, self.best, self.chips[-1]["x"], 750,
                       ease_out((t - self.sweep_t - 0.9) / 0.4) * (1 - focus))
@@ -263,14 +302,15 @@ class Hook:
                     q = (t - pass_t) / 0.35
                     if 0 < q < 1:
                         lift = 1 + 0.18 * math.sin(q * math.pi)
-                is_one = ch["label"] == "#1"
-                last_one = k == len(self.chips) - 1
+                is_one = ch["focus"]
+                focus_ks = [i for i, c in enumerate(self.chips) if c["focus"]]
+                last_one = k == focus_ks[-1] if focus_ks else False
                 a = v * (1 - focus * (0.0 if is_one else 0.88))
                 s = lift
                 if is_one and focus > 0:
                     # The two #1s come forward to the middle.
-                    first_one = next(i for i, c in enumerate(self.chips) if c["label"] == "#1")
-                    tx = W / 2 + (-200 if k == first_one else 200)
+                    # The focus chips come forward: two side by side, or one alone in the middle.
+                    tx = W / 2 if len(focus_ks) == 1 else W / 2 + (-200 if k == focus_ks[0] else 200)
                     x = x + (tx - x) * focus
                     y = y + (500 - y) * focus
                     s = lift * (1 + 1.1 * focus)
@@ -280,6 +320,8 @@ class Hook:
                     spr_g = spr_g.rotate(ang, Image.BICUBIC, expand=True)
                     spr_n = spr_n.rotate(ang, Image.BICUBIC, expand=True)
                 paste(frame, spr_g, x, y, a, s)
+                if ch["sub"] is not None:   # who led that year
+                    paste(frame, ch["sub"], x, y + 102 * s, a)
                 if is_one and last_one and focus > 0.4:
                     # The second #1 is still a secret.
                     pulse = 1 + 0.05 * math.sin((t - self.reveal_t) * 6)
@@ -290,7 +332,7 @@ class Hook:
                           if 0 < t - self.ranks_t - 0.7 - 0.05 * k < 0.8 else spr_n, x, y, a, s)
                 if is_one and not last_one and focus > 0.5:
                     paste(frame, self.known, x, y + 175, ease_out((focus - 0.5) / 0.4))
-            if focus > 0.5:
+            if focus > 0.5 and sum(c["focus"] for c in self.chips) > 1:
                 q = fx.text("?", 44, (255, 214, 90), "black", glow_r=8, glow_a=0.6)
                 paste(frame, q, W / 2 + 200, 675, ease_out((focus - 0.5) / 0.4))
 

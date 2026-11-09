@@ -26,9 +26,9 @@ OUT_ROOT = PROJECT_ROOT / "output" / "longform"
 # neural voices read documentary copy at about this speed.
 WORDS_PER_MINUTE = 150
 
-MODES = ("bar_race", "bump_race", "line_grow", "line_multi", "scorecard", "podium", "hook")
+MODES = ("bar_race", "bump_race", "line_grow", "line_multi", "scorecard", "podium", "hook", "doc")
 # Animated scenes drawn from the script itself (no data chart), timed to the narration.
-SCENES = ("scorecard", "podium", "hook")
+SCENES = ("scorecard", "podium", "hook", "doc")
 _KEY_RE = re.compile(r"^[a-z0-9_]+$")
 
 
@@ -98,7 +98,7 @@ def validate(ep: dict[str, Any]) -> None:
         if chart.get("mode") not in MODES:
             raise EpisodeError(f"Chapter {i} ({cid}): chart mode must be one of {', '.join(MODES)}")
         if chart["mode"] in SCENES:
-            need = {"scorecard": "tiers", "podium": "podium", "hook": "cards"}[chart["mode"]]
+            need = {"scorecard": "tiers", "podium": "podium", "hook": "cards", "doc": "kind"}[chart["mode"]]
             if not chart.get(need):
                 raise EpisodeError(f"Chapter {i} ({cid}): a {chart['mode']} scene needs `{need}:`")
             continue

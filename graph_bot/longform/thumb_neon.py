@@ -71,19 +71,34 @@ def build_neon(ep: dict[str, Any], out_path: Path, settings: dict[str, Any]) -> 
     canvas = bg.convert("RGBA")
 
     # Globe, low on the left, with India lit up and glowing hard.
-    gl = fx.globe(400, 80.0, 6.0)
+    glows = spec.get("glow") or []   # more lit countries: [{country: Pakistan, tone: green}]
+    gl = fx.globe(400, 80.0, 6.0, extra=[(g["country"], g.get("tone", "teal")) for g in glows])
     gx, gy = 300, 640
     fx.paste(canvas, gl["base"], gx, gy)
     for a in (1.0, 0.8):
         fx.paste(canvas, gl["india"], gx, gy, a)
+        for info in gl["extra"].values():
+            fx.paste(canvas, info["glow"], gx, gy, a)
     fx.paste(canvas, fx.flare(130), gx + 255, gy - 330, 0.95)
     ix = gx - gl["size"] / 2 + gl["india_xy"][0]
     iy = gy - gl["size"] / 2 + gl["india_xy"][1]
-    # Arcs flying out from India towards the rank cards.
+    # Arcs flying out from India (or the card's own country) towards the rank cards.
     surf, ctx = fx.canvas_surface(TW, TH)
-    for k, (tx, ty) in enumerate([(700, 80), (760, 250), (700, 420), (880, 640)]):
-        pts = fx.arc_path((ix, iy), (tx, ty), lift=60 + 30 * k)
-        fx.draw_arc(ctx, pts, 1.0, alpha=0.55, pulse=0.7)
+    froms = [r.get("from") for r in (spec.get("ranks") or []) if not r.get("gap")]
+    targets = [(700, 80), (760, 250), (700, 420), (880, 640)]
+    if any(froms):
+        n = len(froms)
+        targets = [(705, 34 + (TH - 74) * (k + 0.5) / n) for k in range(n)]
+    for k, (tx, ty) in enumerate(targets):
+        src = froms[k] if k < len(froms) and froms[k] else "India"
+        if src == "India":
+            ox, oy, col = ix, iy, (1.0, 0.75, 0.35)
+        else:
+            info = gl["extra"][src]
+            ox, oy = gx - gl["size"] / 2 + info["xy"][0], gy - gl["size"] / 2 + info["xy"][1]
+            col = tuple(v / 255 for v in info["rgb"])
+        pts = fx.arc_path((ox, oy), (tx, ty), lift=60 + 30 * k)
+        fx.draw_arc(ctx, pts, 1.0, colour=col, alpha=0.6, pulse=0.7)
     canvas.alpha_composite(fx.surface_to_image(surf))
 
     # Headline: kicker, then INDIA (saffron metal), then RANK? (silver metal).
@@ -91,7 +106,7 @@ def build_neon(ep: dict[str, Any], out_path: Path, settings: dict[str, Any]) -> 
     kick = fx.text(spec.get("kicker", ""), 66, fx.FG, "black", glow_r=8, glow_a=0.35)
     fx.paste(canvas, kick, left - 18, 78, anchor="lm")
     lines = spec.get("headline") or []
-    tones = ["saffron_bright", "silver"]
+    tones = spec.get("headline_tones") or ["saffron_bright", "silver"]
     sizes = [196, 150]
     ys = [215, 362]
     for i, line in enumerate(lines[:2]):

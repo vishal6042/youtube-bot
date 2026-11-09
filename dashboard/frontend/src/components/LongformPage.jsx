@@ -715,10 +715,11 @@ function Editor({ epKey, meta, onBack, toast, confirm, onOpen }) {
                   </span>}
             </div>
 
-            {["scorecard", "podium", "hook"].includes(ch.chart.mode) ? (
+            {["scorecard", "podium", "hook", "doc"].includes(ch.chart.mode) ? (
               <p className="muted" style={{ fontSize: 13 }}>
-                This chapter is an animated scene: everything in it appears as the narrator
-                says its trigger word. The scene is set in the script file, not here.
+                This chapter is an animated {ch.chart.mode === "doc" ? `documentary scene (${ch.chart.kind})` : "scene"}:
+                everything in it appears as the narrator says its trigger word. The scene is set in the
+                script file, not here.
               </p>
             ) : (<>
             <div className="rowf" style={{ alignItems: "flex-end" }}>

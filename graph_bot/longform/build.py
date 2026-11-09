@@ -67,8 +67,16 @@ INDICATORS: dict[str, dict[str, Any]] = {
                        "unit_suffix": "%", "value_decimals": 1},
     "SP.POP.TOTL": {"subtitle": "Population",
                     "value_scale": 1e9, "unit_suffix": "B", "value_decimals": 2},
+    "NY.GDP.MKTP.KD.ZG": {"subtitle": "Real GDP growth (annual %)", "unit_suffix": "%", "value_decimals": 1},
+    "NY.GDP.PCAP.PP.CD": {"subtitle": "Income per person, adjusted for prices (GDP per capita, PPP dollars)",
+                          "prefix": "$", "value_decimals": 0},
+    "SP.DYN.TFRT.IN": {"subtitle": "Births per woman (fertility rate)", "value_decimals": 1},
     "SP.DYN.LE00.IN": {"subtitle": "Life expectancy at birth (years)",
                        "unit_suffix": " yrs", "value_decimals": 1},
+    "SL.TLF.CACT.FE.ZS": {"subtitle": "Women in the workforce (% of women 15+, ILO estimate)",
+                          "unit_suffix": "%", "value_decimals": 1},
+    "SH.DYN.MORT": {"subtitle": "Children who die before age five (per 1,000 born)",
+                    "value_decimals": 0},
     "IS.AIR.PSGR": {"subtitle": "Air passengers carried by the country's airlines",
                     "value_fmt": "compact"},
     "IT.CEL.SETS": {"subtitle": "Mobile phone subscriptions", "value_fmt": "compact"},
@@ -132,8 +140,8 @@ def chapter_topic(ep: dict[str, Any], ch: dict[str, Any], settings: dict[str, An
         "years_window": 500,     # the chapter's own year range is the window
         "top_n": int(chart.get("top_n") or 10),
         **{k: v for k, v in info.items() if k not in ("subtitle", "prefix")},
-        **{k: chart[k] for k in ("value_scale", "unit_suffix", "value_decimals", "value_fmt", "flags")
-           if k in chart},
+        **{k: chart[k] for k in ("value_scale", "unit_suffix", "value_decimals", "value_fmt", "flags",
+                                 "colors", "moments") if k in chart},
     }
     if chart.get("highlight"):
         topic["highlight"] = rn(chart["highlight"])
@@ -179,6 +187,10 @@ def _chapter_hash(ep: dict[str, Any], ch: dict[str, Any]) -> str:
         # The drawing code changes more often than the script, so its version
         # is part of what the chapter was made from.
         parts["sc"] = _scene_module(mode).VERSION
+        if mode == "doc":
+            from .carto import VERSION as CARTO_VERSION
+
+            parts["carto"] = CARTO_VERSION
     blob = json.dumps(parts, sort_keys=True)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -201,7 +213,14 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
     tell("chart", voice_secs=round(voice_secs, 1), frame=0, frames=0)
 
     if (ch.get("chart") or {}).get("mode") in SCENES:
-        chart_secs = _render_scene(ep, ch, voice_mp3, total, chart_mp4, settings)
+        last = [0.0]
+
+        def on_scene_frame(i: int, n: int) -> None:
+            if time.time() - last[0] >= 1.0 or i + 1 >= n:
+                last[0] = time.time()
+                tell("chart", voice_secs=round(voice_secs, 1), frame=i + 1, frames=n)
+
+        chart_secs = _render_scene(ep, ch, voice_mp3, total, chart_mp4, settings, on_scene_frame)
         return _combine(ep, ch, voice_mp3, chart_mp4, final_mp4, voice_secs, total, chart_secs,
                         cues, began, settings, tell)
 
@@ -226,7 +245,8 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
         from . import neon
 
         footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or "Data in Motion"
-        prefix = INDICATORS.get((ch.get("chart") or {}).get("code"), {}).get("prefix", "")
+        chart = ch.get("chart") or {}
+        prefix = chart.get("prefix", INDICATORS.get(chart.get("code"), {}).get("prefix", ""))
         chart_secs = neon.render(mode, data, topic, rs, chart_mp4, heading=ch.get("heading") or "",
                                  prefix=prefix, footer=footer, encode_args=h264_args(settings))
     else:
@@ -248,7 +268,8 @@ def _scene_module(mode: str):
 
 
 def _render_scene(ep: dict[str, Any], ch: dict[str, Any], voice_mp3: Path, total: float,
-                  chart_mp4: Path, settings: dict[str, Any]) -> float:
+                  chart_mp4: Path, settings: dict[str, Any],
+                  on_frame: Callable[[int, int], None] | None = None) -> float:
     """An animated scene (scorecard.py, podium.py, hook.py), timed from the
     narration's word timings.
 
@@ -266,6 +287,17 @@ def _render_scene(ep: dict[str, Any], ch: dict[str, Any], voice_mp3: Path, total
     if chart["mode"] == "scorecard":
         return render_scorecard(chart, ch.get("heading") or "", word_cues, LEAD_IN, total, chart_mp4,
                                 ffmpeg_exe(settings), footer=footer, encode_args=h264_args(settings))
+    if chart["mode"] == "doc":
+        from .doc import render_doc
+
+        data = None
+        if chart.get("code"):
+            df = _indicator(chart["code"], settings)
+            df = df[df["entity"].isin(chart.get("entities") or [])]
+            data = {e: {int(y): float(v) for y, v in zip(g["year"], g["value"])} for e, g in df.groupby("entity")}
+        return render_doc(chart, word_cues, LEAD_IN, total, chart_mp4, ffmpeg_exe(settings), footer=footer,
+                          source=chart.get("source", "World Bank"), encode_args=h264_args(settings), data=data,
+                          progress=on_frame, preview=chart_mp4.parent / "live.jpg")
     render = getattr(_scene_module(chart["mode"]), f"render_{chart['mode']}")
     return render(chart, word_cues, LEAD_IN, total, chart_mp4, ffmpeg_exe(settings), footer=footer,
                   source=chart.get("source", "World Bank"), encode_args=h264_args(settings))
@@ -344,9 +376,13 @@ def _source_links(ep: dict[str, Any]) -> str:
         # `source_links:` replaces a dataset's page when the standard one is broken.
         url = (ep.get("source_links") or {}).get(code) or f"https://data.worldbank.org/indicator/{code}"
         lines.append(f"{label}: {url}")
-    if any((c.get("chart") or {}).get("mode") in ("hook", "podium") for c in ep.get("chapters") or []):
+    charts = [c.get("chart") or {} for c in ep.get("chapters") or []]
+    if any(c.get("mode") in ("hook", "podium") or (c.get("mode") == "doc" and c.get("kind") in ("reveal", "terrain", "close"))
+           for c in charts):
         lines.append("Map: Natural Earth, with India's boundaries as India officially recognises them: "
                      "https://www.naturalearthdata.com")
+    if any(c.get("mode") == "doc" and c.get("kind") in ("reveal", "terrain", "close") for c in charts):
+        lines.append("Relief: NOAA ETOPO1 Global Relief Model: https://www.ncei.noaa.gov/products/etopo-global-relief-model")
     return ("\nSources\n" + "\n".join(lines) + "\n\n") if lines else "\n"
 
 

@@ -38,9 +38,17 @@ METALS = {
     "teal": [(214, 255, 248), (94, 230, 205), (28, 150, 130), (150, 245, 226), (12, 86, 76)],
     "saffron": [(255, 236, 200), (255, 170, 70), (220, 110, 20), (255, 190, 110), (150, 64, 6)],
     "saffron_bright": [(255, 246, 214), (255, 190, 72), (255, 128, 20), (255, 212, 120), (196, 88, 8)],
+    # Country identities for head-to-heads: Pakistan's emerald, Bangladesh's flag-disc crimson.
+    "green": [(216, 255, 230), (80, 228, 146), (18, 146, 78), (140, 242, 182), (8, 84, 44)],
+    "crimson": [(255, 222, 230), (255, 98, 132), (200, 26, 70), (255, 146, 172), (112, 10, 38)],
 }
 TONE_RGB = {"gold": (255, 200, 60), "silver": (205, 215, 230), "bronze": (230, 145, 80),
-            "red": (255, 70, 80), "teal": (70, 225, 205), "saffron": SAFFRON, "saffron_bright": (255, 160, 40)}
+            "red": (255, 70, 80), "teal": (70, 225, 205), "saffron": SAFFRON, "saffron_bright": (255, 160, 40),
+            "green": (46, 214, 122), "crimson": (255, 64, 110)}
+
+# Where a country's arcs and shockwaves start (lon, lat), for countries a scene can light up.
+COUNTRY_CENTRES = {"India": (79.0, 22.5), "Pakistan": (69.5, 29.8), "Bangladesh": (90.2, 23.8),
+                   "Sri Lanka": (80.7, 7.8), "Nepal": (84.0, 28.3), "China": (104.0, 34.0)}
 
 
 # --------------------------------------------------------------------------- #
@@ -368,6 +376,19 @@ def _world_paths():
     return paths
 
 
+@lru_cache(maxsize=16)
+def country_rings(name: str) -> tuple[np.ndarray, ...]:
+    """Outer rings of one Natural Earth country (matched on its common name)."""
+    data = json.loads((ASSETS / "geo" / "ne_110m_admin_0_countries.geojson").read_text(encoding="utf-8"))
+    for f in data["features"]:
+        p = f["properties"]
+        if name in (p.get("NAME"), p.get("ADMIN"), p.get("NAME_LONG")):
+            g = f["geometry"]
+            polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+            return tuple(np.array(poly[0], np.float64) for poly in polys)
+    raise KeyError(f"No country named {name!r} in the Natural Earth file")
+
+
 def india_rings() -> list[np.ndarray]:
     data = json.loads((ASSETS / "geo" / "india_pov.json").read_text(encoding="utf-8"))
     return [np.array(r, np.float64) for r in data["rings"]]
@@ -416,10 +437,18 @@ def ortho(lon, lat, lon0: float, lat0: float):
     return x, y, vis
 
 
-def globe(radius: int, lon0: float = 80.0, lat0: float = 16.0, seed: int = 7) -> dict[str, Any]:
+def globe(radius: int, lon0: float = 80.0, lat0: float = 16.0, seed: int = 7,
+          extra: list[tuple[str, str]] | None = None) -> dict[str, Any]:
     """The globe as layers: ``base`` (sphere, land dots, lights, India) and
     ``india`` (India's glow alone, to pulse), plus India's centre in sprite
-    coordinates."""
+    coordinates.
+
+    ``extra`` lights up more countries, each in its own tone, for head-to-heads:
+    [("Pakistan", "green"), ("Bangladesh", "crimson")]. Each gets the same fill,
+    city lights and border as India, plus its own glow layer and centre under
+    ``out["extra"][name]``. India is drawn last, on India's own map, so a shared
+    border region is shown as India shows it.
+    """
     rng = np.random.default_rng(seed)
     pts = land_points()
     margin = int(radius * 0.22)
@@ -462,14 +491,47 @@ def globe(radius: int, lon0: float = 80.0, lat0: float = 16.0, seed: int = 7) ->
         ctx.set_source_rgba(1.0, 0.78, 0.40, 0.25 + 0.5 * v)
         ctx.fill()
 
-    # India: a saffron fill, bright border, dense golden lights.
-    def india_path(cx: cairo.Context) -> None:
-        for ring in india_rings():
+    def rings_path(cx: cairo.Context, rings) -> None:
+        for ring in rings:
             rx, ry, _ = ortho(ring[:, 0], ring[:, 1], lon0, lat0)
             cx.move_to(c + rx[0] * radius, c - ry[0] * radius)
             for a, b in zip(rx[1:], ry[1:]):
                 cx.line_to(c + a * radius, c - b * radius)
             cx.close_path()
+
+    # Other lit countries first, each in its tone, so India's map sits on top.
+    from matplotlib.path import Path as MPath
+
+    lit: dict[str, dict[str, Any]] = {}
+    for name, tone in extra or []:
+        rings = country_rings(name)
+        rgb = TONE_RGB[tone]
+        f = tuple(v / 255 for v in rgb)
+        rings_path(ctx, rings)
+        ctx.set_source_rgba(*f, 0.30)
+        ctx.fill()
+        allr = np.vstack(rings)
+        g = np.mgrid[allr[:, 0].min():allr[:, 0].max():0.28, allr[:, 1].min():allr[:, 1].max():0.28].reshape(2, -1).T
+        g = g[_in_any([MPath(r) for r in rings], g)]
+        gx_, gy_, _ = ortho(g[:, 0], g[:, 1], lon0, lat0)
+        keep = rng.random(len(gx_)) < 0.55
+        light = tuple(min(1.0, 0.55 + 0.45 * v) for v in f)
+        for xi, yi in zip(gx_[keep], gy_[keep]):
+            ctx.arc(c + xi * radius, c - yi * radius, radius * rng.uniform(0.002, 0.0055), 0, 2 * math.pi)
+            ctx.set_source_rgba(*light, rng.uniform(0.55, 1.0))
+            ctx.fill()
+        rings_path(ctx, rings)
+        ctx.set_source_rgba(*light, 0.95)
+        ctx.set_line_width(max(1.5, radius * 0.0045))
+        ctx.stroke()
+        lo, la = COUNTRY_CENTRES.get(name, (float(allr[:, 0].mean()), float(allr[:, 1].mean())))
+        px, py, _ = ortho([lo], [la], lon0, lat0)
+        lit[name] = {"rings": rings, "rgb": rgb,
+                     "xy": (c + float(px[0]) * radius, c - float(py[0]) * radius)}
+
+    # India: a saffron fill, bright border, dense golden lights.
+    def india_path(cx: cairo.Context) -> None:
+        rings_path(cx, india_rings())
 
     india_path(ctx)
     ctx.set_source_rgba(1.0, 0.55, 0.12, 0.30)
@@ -505,8 +567,21 @@ def globe(radius: int, lon0: float = 80.0, lat0: float = 16.0, seed: int = 7) ->
     india.putalpha(s2_img.getchannel("A"))
     india = india.filter(ImageFilter.GaussianBlur(radius * 0.035))
 
+    # Each extra country's glow, with India's area cut out so glows never stack.
+    india_a = np.asarray(s2_img.getchannel("A"), np.float32) / 255
+    for name, info in lit.items():
+        s3, c3 = canvas_surface(size, size)
+        rings_path(c3, info["rings"])
+        c3.set_source_rgba(1, 1, 1, 1)
+        c3.fill()
+        a = np.asarray(surface_to_image(s3).getchannel("A"), np.float32) * (1 - india_a)
+        layer = Image.new("RGBA", (size, size), (*info["rgb"], 0))
+        layer.putalpha(Image.fromarray(a.astype(np.uint8)))
+        info["glow"] = layer.filter(ImageFilter.GaussianBlur(radius * 0.035))
+        del info["rings"]
+
     ix, iy, _ = ortho([79.0], [22.5], lon0, lat0)
-    return {"base": base, "india": india, "size": size,
+    return {"base": base, "india": india, "size": size, "extra": lit,
             "india_xy": (c + float(ix[0]) * radius, c - float(iy[0]) * radius)}
 
 

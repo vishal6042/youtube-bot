@@ -24,7 +24,7 @@ from PIL import Image
 from . import fx
 from .. import render as R
 
-VERSION = 2   # 2: labels fade while bars overlap mid-swap
+VERSION = 2   # 2: labels fade while bars overlap mid-swap (colours and moments are opt-in)
 W, H = fx.W, fx.H
 SAFF = (1.0, 0.6, 0.2)
 COOL = [(0.30, 0.79, 0.94), (0.62, 0.31, 0.87), (0.37, 0.88, 0.78), (0.97, 0.15, 0.52), (0.63, 0.77, 1.0)]
@@ -218,6 +218,45 @@ class Frame:
             ctx.fill()
 
 
+def _colour(v: Any) -> tuple[float, float, float]:
+    """A tone name from fx ("green"), "#rrggbb", or an RGB triple, as cairo floats."""
+    if isinstance(v, str) and v in fx.TONE_RGB:
+        v = fx.TONE_RGB[v]
+    if isinstance(v, str):
+        h = v.lstrip("#")
+        v = tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return tuple(float(c) / 255 for c in v)
+
+
+def _callout(title: str, sub: str, tone: str) -> cairo.ImageSurface:
+    """A glass card naming a moment on the chart ("PASSES INDIA" / "$2,130 vs $2,041")."""
+    rgb = fx.TONE_RGB.get(tone, fx.TONE_RGB["teal"])
+    t_img = fx.text(title, 30, fx.FG, "black", shadow=False)
+    s_img = fx.text(sub, 23, (196, 206, 224), "semibold", shadow=False) if sub else None
+    w = max(t_img.width, s_img.width if s_img else 0) + 34
+    h = 58 + (34 if s_img else 0)
+    S, pad = 2, 26
+    surf, ctx = fx.canvas_surface((w + pad * 2) * S, (h + pad * 2) * S)
+    ctx.scale(S, S)
+    rrect(ctx, pad, pad, pad + w, pad + h, 18)
+    g = cairo.LinearGradient(0, pad, 0, pad + h)
+    g.add_color_stop_rgba(0, 0.10, 0.13, 0.27, 0.95)
+    g.add_color_stop_rgba(1, 0.03, 0.05, 0.13, 0.95)
+    ctx.set_source(g)
+    ctx.fill_preserve()
+    ctx.set_source_rgba(*(c / 255 for c in rgb), 1)
+    ctx.set_line_width(3)
+    ctx.stroke()
+    rrect(ctx, pad, pad, pad + 10, pad + h, 5)      # tone strip on the left
+    ctx.set_source_rgba(*(c / 255 for c in rgb), 0.95)
+    ctx.fill()
+    img = fx.surface_to_image(surf).resize((w + pad * 2, h + pad * 2), Image.LANCZOS)
+    fx.paste(img, t_img, pad + 22, pad + 30, anchor="lm")
+    if s_img:
+        fx.paste(img, s_img, pad + 22, pad + 66, anchor="lm")
+    return to_surface(fx.glow(img, 16, 0.8, tint=rgb))
+
+
 def _tick_labels(ticks: list[float], topic: dict[str, Any]) -> list[str]:
     """Axis labels with the fewest decimals that still show each tick exactly
     ("80 yrs", "0.5B"), not the chart's value precision ("80.0 yrs", "0.50B")."""
@@ -355,6 +394,9 @@ def render_line_multi(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     cols = {nm: COOL[i % len(COOL)] for i, nm in enumerate(others)}
     if hero:
         cols[hero] = SAFF
+    for nm, c in (topic.get("colors") or {}).items():   # fixed country colours, e.g. Pakistan green
+        if nm in cols:
+            cols[nm] = _colour(c)
     base = Frame(heading, topic.get("subtitle", ""), topic.get("source", ""), footer)
     flags = {nm: _flag(nm, 32) for nm in names} if topic.get("flags", True) else {}
 
@@ -369,6 +411,21 @@ def render_line_multi(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     tick_labels = _tick_labels(ticks, topic)
     rng = np.random.default_rng(5)
     sparks = rng.uniform(0, 1, (28, 4))
+
+    # Moments: an overtake or a gap worth naming, fired as the line reaches that year.
+    moments = []
+    for m in topic.get("moments") or []:
+        yr, ent = int(m["year"]), m.get("entity") or hero or names[0]
+        if ent not in names or yr < lo or yr > hi or yr not in wide.index:
+            continue
+        hit = next((i for i, kk in enumerate(frames) if float(cx_all[kk]) >= yr - 1e-6), len(frames) - 1)
+        tone = m.get("tone", "gold")
+        moments.append({"t": hit / fps, "x": X(yr), "y": Y(float(wide.loc[yr, ent])),
+                        "rgb": _colour(tone), "card": _callout(str(m.get("title", "")), str(m.get("sub", "")), tone),
+                        "year": to_surface(fx.text(str(yr), 22, fx.TONE_RGB.get(tone, (255, 255, 255)), "black",
+                                                   shadow=False))})
+    for i, m in enumerate(moments):
+        m["until"] = moments[i + 1]["t"] if i + 1 < len(moments) else 1e9
 
     out = Stream(out_path, R.ffmpeg_exe(settings), encode_args)
     try:
@@ -403,8 +460,8 @@ def render_line_multi(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
                     ctx.line_to(xsx[-1], Y1)
                     ctx.close_path()
                     g = cairo.LinearGradient(0, Y0, 0, Y1)
-                    g.add_color_stop_rgba(0, *SAFF, 0.30)
-                    g.add_color_stop_rgba(1, *SAFF, 0.0)
+                    g.add_color_stop_rgba(0, *cols[nm], 0.30)
+                    g.add_color_stop_rgba(1, *cols[nm], 0.0)
                     ctx.set_source(g)
                     ctx.fill()
                 widths = ((26, 0.06), (16, 0.12), (8, 1.0)) if is_hero else ((14, 0.06), (8, 0.12), (4.5, 0.95))
@@ -435,8 +492,11 @@ def render_line_multi(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
                     ang = math.pi * (0.75 + 0.5 * s[1])
                     ctx.arc(hx + math.cos(ang) * d, hy + math.sin(ang) * d * 0.5 - 6 * ph, 1 + 2 * s[2], 0,
                             2 * math.pi)
-                    ctx.set_source_rgba(1, 0.8, 0.45, 0.9 * (1 - ph))
+                    hc = cols[hero]
+                    ctx.set_source_rgba(min(1, hc[0] + 0.25), min(1, hc[1] + 0.25), min(1, hc[2] + 0.25),
+                                        0.9 * (1 - ph))
                     ctx.fill()
+            _draw_moments(ctx, moments, t, Y0)
             # End tags, pushed apart so they never overlap.
             order = sorted(names, key=lambda nm: heads[nm][1])
             placed: list[float] = []
@@ -478,6 +538,64 @@ def render_line_multi(wide: pd.DataFrame, topic: dict[str, Any], settings: dict[
     finally:
         out.close()
     return len(frames) / fps
+
+
+def _draw_moments(ctx: cairo.Context, moments: list[dict[str, Any]], t: float, top: float) -> None:
+    """Each moment: a bloom and two shockwave rings where it happens, a callout card
+    on a leader line while it is the latest, then a small glowing marker and year."""
+    for m in moments:
+        d = t - m["t"]
+        if d < 0:
+            continue
+        x, y, rgb = m["x"], m["y"], m["rgb"]
+        if d < 0.8:   # bloom
+            g = cairo.RadialGradient(x, y, 0, x, y, 190)
+            g.add_color_stop_rgba(0, 1, 1, 1, 0.55 * (1 - d / 0.8))
+            g.add_color_stop_rgba(0.25, *rgb, 0.35 * (1 - d / 0.8))
+            g.add_color_stop_rgba(1, *rgb, 0)
+            ctx.arc(x, y, 190, 0, 2 * math.pi)
+            ctx.set_source(g)
+            ctx.fill()
+        for delay, reach, wd in ((0.0, 230, 6), (0.18, 140, 3)):   # rings
+            u = (d - delay) / 1.2
+            if 0 < u < 1:
+                ctx.new_path()
+                ctx.arc(x, y, 14 + reach * fx.ease_out(u), 0, 2 * math.pi)
+                ctx.set_source_rgba(*rgb, 0.9 * (1 - u))
+                ctx.set_line_width(wd * (1 - u) + 1)
+                ctx.stroke()
+        # The marker stays for the rest of the chapter.
+        for r, a in ((16, 0.22), (8, 0.6)):
+            ctx.new_path()
+            ctx.arc(x, y, r, 0, 2 * math.pi)
+            ctx.set_source_rgba(*rgb, a)
+            ctx.fill()
+        ctx.new_path()
+        ctx.arc(x, y, 4.5, 0, 2 * math.pi)
+        ctx.set_source_rgba(1, 1, 1, 1)
+        ctx.fill()
+        live = fx.ease_back(d / 0.4, 1.4) * (1 - fx.ease_out((t - m["until"]) / 0.45))
+        if live > 0.01:
+            card = m["card"]
+            cw, chh = card.get_width(), card.get_height()
+            above = y - top > 240
+            cy = y - 150 if above else y + 150
+            cx = min(max(x, 190 + cw / 2 - 30), 1440 - cw / 2 + 60)
+            ctx.new_path()
+            ctx.move_to(x, y + (-18 if above else 18))
+            ctx.line_to(cx, cy + (chh / 2 - 30 if above else -chh / 2 + 30))
+            ctx.set_source_rgba(*rgb, 0.75 * min(1.0, live))
+            ctx.set_line_width(2.5)
+            ctx.stroke()
+            sc = max(0.05, live)
+            ctx.save()
+            ctx.translate(cx, cy)
+            ctx.scale(sc, sc)
+            blit(ctx, card, 0, 0, min(1.0, live))
+            ctx.restore()
+        else:
+            blit(ctx, m["year"], x, y + (-34 if y - top > 60 else 34),
+                 0.9 * fx.ease_out((t - m["until"] - 0.3) / 0.4))
 
 
 def _tell(settings: dict[str, Any], i: int, n: int) -> None:

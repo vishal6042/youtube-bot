@@ -55,6 +55,10 @@ TONES = {   # badge fill, badge text
     "bronze": ((229, 154, 91), (43, 22, 7)),
     "teal": ((94, 224, 200), (6, 38, 33)),
     "red": ((255, 77, 77), (255, 255, 255)),
+    # Country identities for head-to-heads (India, Bangladesh, Pakistan).
+    "saffron": ((255, 168, 62), (44, 20, 0)),
+    "crimson": ((255, 72, 112), (255, 255, 255)),
+    "green": ((48, 206, 118), (4, 36, 18)),
 }
 
 
@@ -244,6 +248,8 @@ def render_scorecard(chart: dict[str, Any], heading: str, cues: list[dict[str, A
     span_h = n * row_h + (n - 1) * gap
     top += max(0, (H - 70 - top - span_h) // 2)
     widths = [int(1000 + (1500 - 1000) * (i / max(1, n - 1))) for i in range(n)]   # a pyramid
+    if chart.get("pyramid") == "down":   # widest row first, when the first tier has the most to say
+        widths.reverse()
 
     rows = []
     fallback = 0.6

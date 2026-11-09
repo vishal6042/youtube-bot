@@ -484,6 +484,19 @@ def api_thumbnail(key: str) -> Response:
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/{key}/live.jpg")
+def api_live_frame(key: str) -> Response:
+    """The frame the renderer drew last (documentary scenes write one every
+    1.5 seconds of video), for the live view while a chapter renders."""
+    try:
+        path = longform.out_dir(key) / "chapters" / "live.jpg"
+    except EpisodeError as exc:
+        raise HTTPException(404, str(exc))
+    if not path.exists():
+        raise HTTPException(404, "No live frame yet")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
 @router.get("/{key}/chapter/{chapter_id}/video")
 def api_chapter_video(key: str, chapter_id: str, request: Request) -> Response:
     try:

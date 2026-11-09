@@ -218,6 +218,10 @@ def _fit(draw: ImageDraw.ImageDraw, text: str, names: list[str], start: int, max
 
 def build_hero(ep: dict[str, Any], out_path: Path, settings: dict[str, Any]) -> Path:
     spec = ep["thumbnail"]
+    if spec.get("style") == "doc":     # the documentary look (thumb_doc.py)
+        from .thumb_doc import build_doc
+
+        return build_doc(ep, out_path, settings)
     if spec.get("style") == "neon":   # the look of the animated intro/outro (thumb_neon.py)
         from .thumb_neon import build_neon
 

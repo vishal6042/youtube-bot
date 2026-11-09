@@ -59,6 +59,31 @@ function Stages({ build }) {
   );
 }
 
+/* The frame the renderer drew last, refreshed every 1.5 s while a chapter's
+   picture is being drawn. Only documentary scenes write one; until the first
+   arrives (or for chapters that do not) the panel stays hidden. */
+function LiveFrame({ epKey, build, chapter }) {
+  const [n, setN] = useState(0);
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    const t = setInterval(() => setN((v) => v + 1), 1500);
+    return () => clearInterval(t);
+  }, []);
+  const src = `/api/longform/${encodeURIComponent(epKey)}/live.jpg?n=${n}`;
+  return (
+    <figure className="lf-liveframe" style={{ margin: 0, display: ok ? "block" : "none" }}>
+      <img src={src} alt={`Frame being rendered now for ${chapter?.heading || chapter?.id || "this chapter"}`}
+           onLoad={() => setOk(true)} onError={() => setOk(false)}
+           style={{ width: "100%", maxWidth: 768, aspectRatio: "16 / 9", display: "block", borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,.08)", background: "#0e1013" }} />
+      <figcaption className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+        Live: {chapter?.heading || chapter?.id}
+        {build.frames ? ` · frame ${build.frame.toLocaleString("en-US")} of ${build.frames.toLocaleString("en-US")}` : ""}
+      </figcaption>
+    </figure>
+  );
+}
+
 /* The one "a long-form episode is rendering" card, shown on Overview (compact),
    and in full in the episode editor: elapsed time, time left, and a row per
    chapter with the working chapter opened into its voice / chart / combine
@@ -133,6 +158,8 @@ export default function LongformLive({ ep, onOpen, onStop, compact }) {
              aria-label="Long-form render in progress">
       {head}
       <Bar pct={pct} running height={8} />
+
+      {inChapters && <LiveFrame epKey={ep.key} build={build} chapter={chapters[at]} />}
 
       <ol className="plain-list rd-rows" aria-label="Chapters">
         <li className="rd-row rd-cols" aria-hidden="true">

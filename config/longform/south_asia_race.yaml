@@ -1,0 +1,367 @@
+# Long-form episode: The South Asia Race.  Script v2, written 2026-11-09, for the
+# documentary look (Visual Direction v2.0, chapter mode `doc`, see longform/doc.py).
+#
+# India, Pakistan and Bangladesh started 1960 level on income per person and
+# have swapped the lead ever since. Every number in the narration comes from
+# the World Bank API as fetched on 2026-11-09 (NY.GDP.PCAP.CD, NY.GDP.PCAP.PP.CD,
+# NY.GDP.MKTP.CD, NY.GDP.MKTP.KD.ZG, NE.EXP.GNFS.CD, SP.POP.TOTL, SP.DYN.TFRT.IN,
+# SL.TLF.CACT.FE.ZS, SP.DYN.LE00.IN, SH.DYN.MORT). 2025 figures are first
+# estimates. Overtake years were computed from the yearly series:
+#   income per person: India ahead of Pakistan for good from 2009; Bangladesh
+#   passed Pakistan 2016, India 2019 (ahead 2019-2024); India back in front 2025
+#   ($2,702 v $2,597). Buying power (PPP): India ahead of Bangladesh every year
+#   since 1990. Real growth 2019: Bangladesh 7.9%, India 3.9%; 2020: Bangladesh
+#   3.4%, India -5.8%. Exports: Bangladesh passed Pakistan 2014. Population:
+#   Pakistan passed Bangladesh 1987. Life expectancy: Bangladesh passed Pakistan
+#   2000, India 2003. Under-5 deaths: Bangladesh lower than India 1998-2021, India
+#   lower again from 2022. India's GDP is 8.7 times Bangladesh's (2025).
+# Lines marked `check:` state something that is NOT in that data.
+
+key: south_asia_race
+title: 'The South Asia Race: India vs Pakistan vs Bangladesh'
+yt_title: 'Pakistan Was Richer. Bangladesh Overtook India. Who''s Winning Now?'
+series: india_in_data
+voice: en-GB-SoniaNeural
+voice_rate: +5%
+music_mood: majestic
+target_minutes: 6
+reviewed: false
+chapters:
+- id: cold_open
+  heading: The South Asia Race
+  chart:
+    mode: doc
+    kind: reveal
+    map: wide
+    kicker: 2019 · income per person
+    headline: Bangladesh overtook India.
+    big: {country: Bangladesh, value: 2130, prefix: $}
+    small: {country: India, value: 2041, prefix: $, at: indian}
+    note: Current US dollars · World Bank
+    ring: {country: Bangladesh, at: bangladesh}
+    labels:
+    - {country: India, at: indian, dy: 40}
+    then:
+    - {at: how, headline: 'How did the poorest of the three get here?'}
+    - {at: winning, headline: 'And who is winning now?'}
+  narration: In 2019, something happened that almost nobody predicted. Bangladesh, once the poorest
+    of the three, overtook India. The average Bangladeshi produced two thousand one hundred and thirty
+    dollars that year. The average Indian, two thousand and forty-one. How did a country that began life
+    in ruins get here? And who is really winning the South Asia race today?
+  check: '"Began life in ruins": Bangladesh''s 1971 war of independence devastated the country (history, not in the data).'
+  short:
+    skip: true
+- id: starting_line
+  heading: 1960 · The starting line
+  chart:
+    mode: doc
+    kind: terrain
+    view: level
+    kicker: The starting line
+    big: '1960'
+    big_at: '1960'
+    headline: "Three countries, one\nstarting line."
+    headline_at: neighbours
+    note: Income per person, current US$. *Then East Pakistan. World Bank.
+    cards:
+    - {country: India, label: India, value: $85, at: indias}
+    - {country: Pakistan, label: Pakistan, value: $82, at: pakistans}
+    - {country: Bangladesh, label: Bangladesh*, value: $82, at: bangladesh}
+  narration: Rewind to 1960, and the three were dead level. India's income per person was eighty-five
+    dollars. Pakistan's was eighty-two. And Bangladesh, then East Pakistan, was level with both, also at
+    eighty-two. Three neighbours, one starting line. What happened next is one of the great economic
+    races of our time.
+  short:
+    skip: true
+- id: pakistan_lead
+  heading: 1960–2009 · Pakistan's long lead
+  chart:
+    mode: doc
+    kind: race
+    code: NY.GDP.PCAP.CD
+    entities: [India, Pakistan, Bangladesh]
+    highlight: Pakistan
+    year_min: 1960
+    year_max: 2025
+    prefix: $
+    kicker: Income per person · current US$
+    headline: The long race
+    deck: '**For forty years, Pakistan led.** India pulled ahead for good only in 2009.'
+    who_led: true
+    marks:
+    - {year: 1971, label: 1971 · Bangladesh born}
+    - {year: 1991, label: 1991 · India opens up}
+    keys:
+    - {year: 1970, at: '1970'}
+    - {year: 1971, at: '1971'}
+    - {year: 1988, at: eighties}
+    - {year: 2000, at: '2000'}
+    - {year: 2009, at: '2009'}
+    moments:
+    - {year: 1970, entity: Pakistan, label: Pakistan 46% richer, title: '1970', at: '1970'}
+    - {year: 2000, entity: Pakistan, label: Still 45% ahead, title: '2000', at: '2000'}
+    - {year: 2009, entity: India, label: India pulls ahead, title: '2009', at: '2009'}
+  narration: For the first forty years, the race was Pakistan's. By 1970, the average Pakistani was
+    almost half as rich again as the average Indian. Bangladesh won its independence in 1971, after a
+    devastating war. India briefly caught up in the late eighties, but Pakistan surged again, and in
+    2000 it was still forty-five per cent ahead. Only in 2009, almost two decades after India opened up
+    its economy in 1991, did India pull ahead for good.
+  check: Bangladesh's 1971 war of independence and India's 1991 economic reforms are history, not in the data.
+  short:
+    title: Pakistan Was Richer Than India for Most of 40 Years
+- id: bangladesh_sprint
+  heading: 2010–2025 · Bangladesh's sprint
+  chart:
+    mode: doc
+    kind: race
+    continues: true
+    code: NY.GDP.PCAP.CD
+    entities: [India, Pakistan, Bangladesh]
+    highlight: Bangladesh
+    year_min: 1960
+    year_max: 2025
+    start: 2010
+    prefix: $
+    kicker: Income per person · current US$
+    headline: The long race
+    deck: '**For forty years, Pakistan led.** Then the lead changed hands three times in sixteen years.'
+    who_led: true
+    marks:
+    - {year: 1971, label: 1971 · Bangladesh born}
+    - {year: 1991, label: 1991 · India opens up}
+    keys:
+    - {year: 2016, at: '2016'}
+    - {year: 2019, at: '2019'}
+    - {year: 2024, at: six}
+    - {year: 2025, at: '2025'}
+    moments:
+    - {year: 2016, entity: Bangladesh, label: Bangladesh passes Pakistan, title: '2016', at: '2016'}
+    - {year: 2019, entity: Bangladesh, label: Bangladesh passes India, title: '2019', at: '2019'}
+    - {year: 2025, entity: India, label: India back in front, title: '2025', at: '2025'}
+  narration: Then came the surprise. Bangladesh grew year after year, and passed Pakistan in 2016. In
+    2019, it passed India too. For six years, Bangladesh produced more per person than India. Only in
+    2025 did India move back in front, at two thousand seven hundred and two dollars against two
+    thousand five hundred and ninety-seven. Count what money actually buys at home, though, and India
+    stayed ahead the whole time.
+  short:
+    title: Bangladesh Overtook India in 2019. Then This Happened.
+- id: why_2019
+  heading: Why 2019?
+  chart:
+    mode: doc
+    kind: kinetic
+    kicker: Why 2019? · Real GDP growth
+    intro: Why 2019?
+    headline:
+    - {text: Bangladesh ran twice as fast., at: running}
+    - {text: Then the pandemic hit India harder., at: pandemic}
+    format: {decimals: 1, suffix: '%', sign: true}
+    columns:
+    - title: '2019'
+      at: running
+      rows:
+      - {country: Bangladesh, value: 7.9, at: seven, hot: true}
+      - {country: India, value: 3.9, at: three}
+    - title: 2020 · the pandemic
+      at: pandemic
+      rows:
+      - {country: Bangladesh, value: 3.4, at: three point four, hot: true}
+      - {country: India, value: -5.8, at: five}
+  narration: Why did Bangladesh pull ahead in 2019? Two reasons. First, it was simply running faster.
+    In 2019, Bangladesh's economy grew by seven point nine per cent. India's grew by three point nine.
+    Then came the pandemic, and it hit India much harder. In 2020, India's economy shrank by five point
+    eight per cent. Bangladesh's still grew, by three point four. Two years did it, a faster sprint and
+    then a softer fall.
+  short:
+    title: Why Bangladesh Overtook India in 2019
+- id: garment_engine
+  heading: The garment engine
+  chart:
+    mode: doc
+    kind: district
+    code: NE.EXP.GNFS.CD
+    entities: [Bangladesh, Pakistan]
+    unit: 1000000000
+    kicker: The engine · exports
+    headline: The garment engine
+    deck: '**Every building is $1 billion of exports.** Clothing made Bangladesh''s pile overtake Pakistan''s in 2014.'
+    note: Exports of goods and services, current US$, rounded to the nearest billion · World Bank
+    keys:
+    - {year: 1990, at: '1990'}
+    - {year: 2014, at: '2014'}
+    - {year: 2025, at: '2025'}
+  narration: What powered the sprint? Clothes. Bangladesh became the world's second-biggest exporter of
+    garments, after China, and its factories employ millions of women. Every building here is a billion
+    dollars of exports. In 1990, Pakistan sold the world three times as much as Bangladesh did.
+    Bangladesh passed it in 2014, and by 2025 it was exporting fifty-one billion dollars a year, against
+    Pakistan's forty-one. But the engine is under strain. In recent weeks, wage strikes have shut
+    hundreds of factories, and on the twenty-fourth of November, Bangladesh leaves the United Nations'
+    list of least developed countries, which will eventually end some of its duty-free access to Europe.
+  check: Second-biggest garment exporter after China (WTO). Strikes shut 529 to 690 factories
+    from 31 October 2026 (Business Standard, bne IntelliNews). LDC graduation on 24 November
+    2026; the EU keeps duty-free access for a three-year transition.
+  short:
+    title: How Clothes Made Bangladesh Richer Than Pakistan
+- id: population_twist
+  heading: The population twist
+  chart:
+    mode: doc
+    kind: terrain
+    view: flanks
+    kicker: The population twist
+    headline: "In 1971, Bangladesh had more people.\nToday, Pakistan has **80 million more.**"
+    headline_w: 820
+    headline_at: twist
+    note: Gold ring = population in 1971 · World Bank
+    columns:
+    - {country: Bangladesh, lonlat: [90.3, 23.9], from: 70.3, to: 175.7, from_at: seventy, at: today,
+       label: Bangladesh · 2025, suffix: m, from_label: 1971 · 70m, from_title: Bangladesh · 1971, side: -1}
+    - {country: Pakistan, lonlat: [70.6, 29.2], from: 61.8, to: 255.2, from_at: sixty, at: today,
+       label: Pakistan · 2025, suffix: m, from_label: 1971 · 62m, from_title: Pakistan · 1971, side: 1}
+  narration: Here is a twist few people know. When Bangladesh became independent in 1971, it had more
+    people than Pakistan, seventy million against sixty-two. Pakistan overtook it in 1987, and today it
+    has two hundred and fifty-five million people, to Bangladesh's hundred and seventy-six. The reason
+    is family size. In 1971, Bangladeshi women had nearly seven children each. Today they have about
+    two. In Pakistan, the figure is still three and a half.
+  short:
+    title: In 1971, Bangladesh Had More People Than Pakistan
+- id: women_work
+  heading: Women at work
+  chart:
+    mode: doc
+    kind: bars
+    kicker: Women at work · share of women 15+ in the workforce
+    headline: Who goes out to work
+    max: 50
+    format: {decimals: 1, suffix: '%'}
+    rows:
+    - {country: Bangladesh, value: 38.6, at: bangladeshi}
+    - {country: India, value: 32.4, at: india, mark: 26.5, mark_label: '2019', mark_at: twenty-six}
+    - {country: Pakistan, value: 24.0, at: pakistan}
+    note: ILO modelled estimates, 2025 · World Bank
+  narration: Smaller families meant more women could go out to work. Today, almost thirty-nine per cent
+    of Bangladeshi women are in the workforce. In India it is thirty-two per cent, up from twenty-six
+    just six years earlier, the fastest rise of the three. In Pakistan, it is twenty-four.
+  short:
+    title: More Women Work in Bangladesh Than in India or Pakistan
+- id: life_expectancy
+  heading: How long people live
+  chart:
+    mode: doc
+    kind: kinetic
+    kicker: Life expectancy at birth · years
+    headline:
+    - {text: From the shortest lives to the longest.}
+    format: {decimals: 1}
+    columns:
+    - title: '1980'
+      at: '1980'
+      rows:
+      - {country: Bangladesh, value: 52.3, at: fifty-two}
+      - {country: India, value: 53.6}
+      - {country: Pakistan, value: 57.2}
+    - title: Today
+      at: today
+      rows:
+      - {country: Bangladesh, value: 74.9, at: seventy-five, hot: true}
+      - {country: India, value: 72.2, at: seventy-two}
+      - {country: Pakistan, value: 67.8, at: sixty-eight}
+  narration: Bangladesh's biggest win is health. In 1980, a baby born in Bangladesh could expect to live
+    fifty-two years, the shortest life of the three. It passed Pakistan in 2000 and India in 2003, and
+    today it leads at almost seventy-five years. India is at seventy-two, and Pakistan at sixty-eight.
+  short:
+    title: Bangladeshis Now Outlive Indians and Pakistanis
+- id: child_survival
+  heading: Children lost before five
+  chart:
+    mode: doc
+    kind: race
+    code: SH.DYN.MORT
+    entities: [India, Pakistan, Bangladesh]
+    highlight: India
+    year_min: 1990
+    year_max: 2024
+    kicker: Children who die before five · per 1,000 born
+    headline: Children lost before five
+    deck: '**Lower is better.** India went from 127 to 27 in a generation.'
+    keys:
+    - {year: 1998, at: '1998'}
+    - {year: 2022, at: '2022'}
+    - {year: 2024, at: today}
+    moments:
+    - {year: 1998, entity: Bangladesh, label: Bangladesh does better, title: '1998', at: '1998'}
+    - {year: 2022, entity: India, label: India takes it back, title: '2022', at: '2022'}
+  narration: But look at the youngest. In 1990, out of every thousand children born in India, a hundred
+    and twenty-seven died before their fifth birthday. Bangladesh did better than India from 1998. Then
+    India's numbers fell faster, and in 2022 it took the lead back. Today the figure is twenty-seven in
+    India, just over thirty in Bangladesh, and fifty-six in Pakistan.
+  short:
+    title: India Just Took Back the Lead on Child Survival
+- id: verdict
+  heading: Who is winning?
+  chart:
+    mode: doc
+    kind: ledger
+    kicker: The ledger · four measures, latest year
+    headline: A dead heat
+    columns:
+    - country: India
+      at: india
+      items:
+      - {label: Income per person, value: '$2,702', at: income}
+      - {label: Fewest child deaths, value: '26.6 per 1,000', at: alive}
+    - country: Bangladesh
+      at: bangladesh
+      items:
+      - {label: Life expectancy, value: 74.9 years, at: long}
+      - {label: Women in work, value: '38.6%', at: women}
+    - country: Pakistan
+      at: pakistan
+      empty: Leads none of the four
+    note: India's economy is 8.7 times the size of Bangladesh's (GDP, 2025) · World Bank
+  narration: So, who is winning? Count the four measures in this film. India leads on income per person,
+    and on keeping young children alive. Bangladesh leads on how long people live, and on women at
+    work. Pakistan, richer than India for most of forty years, leads on none. It is a dead heat. India's
+    economy, though, is almost nine times the size of Bangladesh's.
+  short:
+    skip: true
+- id: outro
+  heading: Who leads in 2035?
+  chart:
+    mode: doc
+    kind: close
+    map: wide
+    kicker: Sixty-five years later
+    at: lead
+    lines: [The lead keeps, changing hands.]
+    legend: [India, Bangladesh, Pakistan]
+    legend_at: south
+    question: {text: 'Who leads in 2035?', at: who}
+    subscribe: {at: subscribe}
+    share: {at: share}
+  narration: Sixty-five years after they started level, the lead keeps changing hands in South Asia. Who
+    do you think leads in 2035? Tell us in the comments. And if you enjoyed this, subscribe for more of
+    the world in numbers, and share it with a friend who thinks they know who's ahead.
+  short:
+    skip: true
+shorts_outro: The full South Asia race is on the channel.
+thumbnail:
+  style: doc
+  map: east
+  lines:
+  - {text: BANGLADESH, box: Bangladesh}
+  - {text: IS RICHER THAN}
+  - {text: 'INDIA?', country: India}
+  big: $2,130
+  footnote: per person · 2019
+  ring: {country: Bangladesh}
+# Quoted in the narration but not charted.
+extra_sources: [NY.GDP.PCAP.PP.CD, NY.GDP.MKTP.CD, NY.GDP.MKTP.KD.ZG, SP.POP.TOTL, SP.DYN.TFRT.IN,
+  SL.TLF.CACT.FE.ZS, SP.DYN.LE00.IN]
+hashtags:
+- India
+- Pakistan
+- Bangladesh
+- SouthAsia
+- IndiaInData
+- Economy
