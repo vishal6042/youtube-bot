@@ -74,3 +74,15 @@ retention:
 youtube:
   channel_id: UCEekmhdfptp7tvPVe5cZthg
   channel_name: Data in Motion
+
+# Spoken sign-off at the end of every Short (graph_bot/outro.py): the last frame
+# holds ~1 s while the line plays. Topics: `outro: false`, `outro: "..."`, `outro_voice`.
+outro:
+  enabled: true
+  text: Subscribe for more.
+  voice: en-US-AndrewMultilingualNeural   # for videos with no narrator of their own
+  rate: "+0%"
+  min_seconds: 15     # loop-length Shorts get none: a replay is worth more
+  overlap: 0.5        # the line starts this far before the video's own end
+  tail: 0.45          # held after the last word
+  duck: 0.3           # the video's own sound dips to this under the line

@@ -32,7 +32,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
-from graph_bot import audio, caption, fetch, render, transform
+from graph_bot import audio, caption, fetch, outro, render, transform
 from graph_bot.config import get_topic, load_settings, resolve_path
 from graph_bot.pipeline import pick_batch
 from graph_bot.publish.manual import export_one
@@ -142,9 +142,16 @@ def produce(key: str, *, refresh: bool = False) -> None:
 
     agent("mixing", "active")
     try:
+        # "Subscribe for more." over the last image (graph_bot/outro.py): hold
+        # the last frame before the music so the bed covers it, speak after.
+        sign_off = outro.plan(topic, settings, video_path, duration)
+        if sign_off:
+            duration = sign_off.extend()
         track = results.get("track")
         music_track = audio.mux_track(video_path, settings, duration, track) if track else None
-        if is_sim:
+        if sign_off:
+            sign_off.mix()
+        if is_sim or sign_off:
             audio.normalize(video_path, settings)
         agent("mixing", "done")
     except Exception:

@@ -14,7 +14,7 @@ import datetime as dt
 import json
 from pathlib import Path
 
-from . import audio, caption, fetch, render, transform
+from . import audio, caption, fetch, outro, render, transform
 from .config import (
     get_topic,
     load_settings,
@@ -107,12 +107,20 @@ def run_topic(topic: dict, *, refresh: bool = False, auto_approve: bool = False,
         print(f"[3/4] Rendering {mode} -> {video_path} ...")
         duration = render.render(mode, data, topic, settings, video_path)
 
+    # "Subscribe for more." over the last image: hold the last frame now, so
+    # the music below covers it, and speak the line once the music is in.
+    sign_off = outro.plan(topic, settings, video_path, duration)
+    if sign_off:
+        duration = sign_off.extend()
+
     stage("music")
     # A simulation's soundtrack is its own events (every bounce is a note);
     # music on top would bury it.
     music_track = (None if is_sim else
                    audio.add_music(video_path, settings, duration, topic, on_stage=on_stage))
-    if is_sim:
+    if sign_off:
+        sign_off.mix()
+    if is_sim or sign_off:
         audio.normalize(video_path, settings)
 
     stage("subtitle")
