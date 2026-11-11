@@ -17,7 +17,7 @@ takes a famous claim and shows the precise version, with one clear visual result
 ## Format and look
 
 - 30–35 s vertical, cold open: frame one is the finished image plus a spoken serif hook,
-  then rewind and build (same rule as Math in Motion). Sonia +10%, word-timed captions.
+  then rewind and build (same rule as Math in Motion). Voice: Andrew (en-US-AndrewMultilingualNeural, +0%; Sonia sounded robotic here), word-timed captions.
 - Visual Direction v2.0: warm charcoal-navy (not black), gold only on the key number,
   serif hook, heavy sans numbers. No neon, HUD or lens flares.
 - Planets are lit from the Sun's real direction (`space.lit_planet`); positions on any date
