@@ -69,11 +69,21 @@ class Texture:
             im = im.resize((im.width // 2, im.height // 2), Image.LANCZOS)
 
     def sample(self, lon: np.ndarray, lat: np.ndarray, r_px: float) -> np.ndarray:
+        """Trilinear: blend the two mip levels around the detail this size needs,
+        so a planet that grows or shrinks never jumps sharp->soft at a level
+        boundary. Bigger than the full-size map: the full-size map."""
         want = 2 * math.pi * max(r_px, 1) * 1.3
-        tex = self.levels[-1]
-        for lv in self.levels:
-            if lv.shape[1] >= want:
-                tex = lv
+        lod = math.log2(self.levels[0].shape[1] / want)
+        lod = min(max(lod, 0.0), len(self.levels) - 1.0)
+        i = int(math.floor(lod))
+        f = lod - i
+        a = self._bilinear(self.levels[i], lon, lat)
+        if f < 1e-3 or i + 1 >= len(self.levels):
+            return a
+        return a * (1 - f) + self._bilinear(self.levels[i + 1], lon, lat) * f
+
+    @staticmethod
+    def _bilinear(tex: np.ndarray, lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
         h, w = tex.shape[:2]
         u = (lon / (2 * math.pi) % 1.0) * w - 0.5
         v = np.clip((0.5 - lat / math.pi) * h - 0.5, 0, h - 1.001)

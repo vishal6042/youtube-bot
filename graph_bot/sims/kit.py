@@ -290,7 +290,9 @@ def workers() -> int:
     env = os.environ.get("MIM_WORKERS")
     if env:
         return max(1, int(env))
-    return max(1, min(16, (os.cpu_count() or 2) - 4))
+    # Every core but two (one for the UI, one for joining the pieces). Each
+    # process holds ~0.8 GB, so 30 of them fit easily in 64 GB.
+    return max(1, min(30, (os.cpu_count() or 2) - 2))
 
 
 def encode(out_path, ffmpeg: str, total: float, frame, sound, fps: int = 60, progress=None,

@@ -48,7 +48,7 @@ def _has_audio(video: Path, settings: dict[str, Any]) -> bool:
 def voice_for(topic: dict[str, Any], settings: dict[str, Any]) -> tuple[str, str]:
     """The video's own narrator if it has one, else the default outro voice."""
     conf = _conf(settings)
-    voice, rate = conf.get("voice", "en-US-AndrewMultilingualNeural"), conf.get("rate", "+0%")
+    voice, rate = conf.get("voice", "en-US-AndrewNeural"), conf.get("rate", "+0%")
     if topic.get("mode") == "sim":
         import importlib
 
@@ -100,7 +100,7 @@ class Outro:
         tmp = self.video.with_suffix(".hold.mp4")
         cmd = [ffmpeg_exe(s), "-y", "-loglevel", "error", "-i", str(self.video),
                "-vf", f"tpad=stop_mode=clone:stop_duration={self.hold:.3f},format=yuv420p",
-               *h264_args(s)]
+               *h264_args(s), "-maxrate", "16M", "-bufsize", "32M"]   # dense frames otherwise hit ~25 Mbps
         if _has_audio(self.video, s):
             cmd += ["-af", f"apad=pad_dur={self.hold:.3f}", "-c:a", "aac", "-b:a", "192k"]
         cmd += ["-t", f"{self.total:.3f}", str(tmp)]

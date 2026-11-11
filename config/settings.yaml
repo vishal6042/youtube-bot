@@ -80,7 +80,7 @@ youtube:
 outro:
   enabled: true
   text: Subscribe for more.
-  voice: en-US-AndrewMultilingualNeural   # for videos with no narrator of their own
+  voice: en-US-AndrewNeural   # English-only; for videos with no narrator of their own
   rate: "+0%"
   min_seconds: 15     # loop-length Shorts get none: a replay is worth more
   overlap: 0.5        # the line starts this far before the video's own end

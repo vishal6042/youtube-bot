@@ -55,7 +55,7 @@ TAU_S = 20.0                    # seconds: the log-time knee for the clock's pac
 TOP_LABEL_Y, CLOCK_Y, DIST_Y = 130, 207, 280
 WARM = (255, 226, 182)
 HOOK_T0 = -0.45                 # the hook is already rising on frame one
-VOICE, RATE = "en-US-AndrewMultilingualNeural", "+0%"   # user's pick (2026-11-11): Sonia sounded robotic
+VOICE, RATE = "en-US-AndrewNeural", "+0%"   # English-only Andrew (the Multilingual one read planet names as French)
 
 HOOK = [[("A", WHITE), ("signal", WHITE), ("from", WHITE), ("Voyager", WHITE), ("1", WHITE)],
         [("now", WHITE), ("takes", WHITE), ("a", GOLD), ("full", GOLD), ("day.", GOLD)]]

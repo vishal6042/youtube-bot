@@ -124,9 +124,19 @@ def build_title(topic: dict[str, Any], year_min: int, year_max: int, *, shorts: 
         # Concept scenes have no year range — drop the placeholder cleanly.
         title = template.replace(" ({range})", "").replace("({range})", "").replace("{range}", "")
         title = " ".join(title.split())
-    if shorts and "#shorts" not in title.lower():
-        candidate = f"{title} #Shorts"
-        title = candidate if len(candidate) <= TITLE_MAX else title
+    if shorts:
+        # The topic's first hashtags go in the title too (searchable, tappable),
+        # then #Shorts; each only while the title stays within YouTube's limit.
+        # Two is enough: more reads as spam and crowds the title on a phone.
+        # #Shorts has priority: a topic tag is added only if #Shorts still fits after it.
+        tags = [f"#{str(h).lstrip('#')}" for h in (topic.get("hashtags") or [])]
+        has_shorts = "#shorts" in title.lower()
+        reserve = 0 if has_shorts else len(" #Shorts")
+        for tag in tags[: int(topic.get("title_tags", 2))]:
+            if tag.lower() not in title.lower() and len(title) + 1 + len(tag) + reserve <= TITLE_MAX:
+                title = f"{title} {tag}"
+        if not has_shorts and len(title) + reserve <= TITLE_MAX:
+            title = f"{title} #Shorts"
     return title[:TITLE_MAX]
 
 
