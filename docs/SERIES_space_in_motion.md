@@ -17,7 +17,7 @@ takes a famous claim and shows the precise version, with one clear visual result
 ## Format and look
 
 - 30–35 s vertical, cold open: frame one is the finished image plus a spoken serif hook,
-  then rewind and build (same rule as Math in Motion). Voice: Andrew (en-US-AndrewMultilingualNeural, +0%; Sonia sounded robotic here), word-timed captions.
+  then rewind and build (same rule as Math in Motion). Voice: Andrew, English-only (en-US-AndrewNeural, +0%; the Multilingual variant read planet names as French, and Sonia sounded robotic), word-timed captions.
 - Visual Direction v2.0: warm charcoal-navy (not black), gold only on the key number,
   serif hook, heavy sans numbers. No neon, HUD or lens flares.
 - Planets are lit from the Sun's real direction (`space.lit_planet`); positions on any date
@@ -29,10 +29,10 @@ takes a famous claim and shows the precise version, with one clear visual result
 | # | Key | Hook | Status |
 |---|-----|------|--------|
 | 1 | `space_voyager_light_day` | A signal from Voyager 1 now takes a full day (18 Nov 2026) | built 2026-11-11 |
-| 2 | | How many Earths fit in the Sun? (packing twist, physics pour) | idea |
-| 3 | | All the planets between Earth and the Moon (only sometimes) | idea |
+| 2 | `space_earths_in_sun` | 1.3 million Earths fit in the Sun? As balls, ~940,000 (938,086 counted) | built 2026-11-12 |
+| 3 | `space_planets_earth_moon` | All the planets fit between Earth and the Moon, ~9 days a month | built 2026-11-12 |
 | 4 | | How long to Proxima Centauri? light 4.2 y · Parker ~6,600 y · Voyager ~75,000 y | idea |
-| 5 | | Planets → Sun → Betelgeuse size ladder (zoom out) | idea |
+| 5 | `space_star_ladder` | If Betelgeuse replaced the Sun it would swallow Mars (size ladder) | built 2026-11-12 |
 | 6 | | How big is the Milky Way? (Solar System as a coin) | idea |
 | 7 | | The Sun's last lap of the galaxy began with the first dinosaurs (~230 Myr) | idea |
 | 8 | | Andromeda: 2.5 million ly away, yet ~6 full Moons wide in our sky | idea |
@@ -54,3 +54,11 @@ time for the crossing). Light times from Earth that day: Sun 8.2 min, Jupiter 43
 Saturn 73 min, Uranus 2 h 33 min, Neptune 4 h 4 min; one light-day = 173.1 AU = 25.9 billion km.
 Voyager and Proxima are placed by ecliptic longitude with their latitude folded into
 the plane (distances exact). Proxima: 4.2465 ly; at 16.95 km/s ≈ 75,000 years.
+
+## Shared-code notes (2026-11-12)
+
+- `space3d.Texture.sample` is trilinear: it blends the two mip levels around the size on
+  screen, so bodies never jump blurry→sharp while zooming. (Before, anything over ~250 px
+  fell back to the 64 px level.)
+- Every Short ends with the spoken "Subscribe for more." (graph_bot/outro.py), in the episode's VOICE.
+- Check new lines with Whisper (heard as English, names right) before rendering.

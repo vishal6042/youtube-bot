@@ -24,6 +24,9 @@ SIMS = {
     "pendulum_wave": "graph_bot.sims.pendulum_wave",
     # Space in Motion (keys start space_; shared pieces in sims/space.py)
     "voyager_light_day": "graph_bot.sims.voyager_light_day",
+    "planets_earth_moon": "graph_bot.sims.planets_earth_moon",
+    "star_ladder": "graph_bot.sims.star_ladder",
+    "earths_in_sun": "graph_bot.sims.earths_in_sun",
 }
 
 

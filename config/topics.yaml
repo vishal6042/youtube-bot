@@ -1763,3 +1763,63 @@ topics:
     thumb_at: 0.533
     thumb_crop: [0.04, 0.22]
     hashtags: ["space", "voyager1", "nasa", "astronomy", "lightspeed", "solarsystem"]
+
+  - key: "space_planets_earth_moon"
+    title: "Do All the Planets Fit Between Earth and the Moon?"
+    subtitle: "Only when the Moon is far away"
+    yt_title: "Do All 7 Planets Fit Between Earth and the Moon? 🌍🌕 Only Sometimes"
+    mode: "sim"
+    sim: "planets_earth_moon"
+    seed: 7
+    series: "space_in_motion"
+    source: "NASA"
+    blurb: "The famous claim: every other planet fits in the gap between Earth and the Moon. It's true, but only for part of each month. 🌕"
+    how_label: "🔭 How it's made"
+    how: "The seven other planets are lined up side by side using NASA's equatorial diameters: together 387,928 km. The gap between Earth's and the Moon's surfaces is about 376,000 km on average, so on an average day they do not fit. The Moon's orbit is an ellipse: near its farthest point the gap grows to about 398,000 km, and then they fit with room to spare. That happens about 9 days a month. Sizes and distances are to scale; the Moon's surface is illustrated."
+    data_note: "NASA planetary fact sheets (diameters, Moon distance). Planet textures: Solar System Scope (CC BY 4.0)"
+    sound_note: "🎵 Sound: a soft note as each planet slides into place"
+    cta: "🔔 New Space in Motion every week — subscribe for more!"
+    prompt: "💬 Did you know this one was only sometimes true? Tell me 👇"
+    thumb_at: 0.53
+    thumb_crop: [0.04, 0.14]
+    hashtags: ["space", "moon", "planets", "solarsystem", "astronomy", "nasa"]
+
+  - key: "space_star_ladder"
+    title: "If Betelgeuse Replaced the Sun"
+    subtitle: "From Earth to a red supergiant"
+    yt_title: "If Betelgeuse Replaced Our Sun, It Would Swallow Mars ⭐ Star Size Comparison"
+    mode: "sim"
+    sim: "star_ladder"
+    seed: 7
+    series: "space_in_motion"
+    source: "NASA / published stellar radii"
+    blurb: "Earth, Jupiter, the Sun, Sirius, Arcturus, Rigel... then Betelgeuse, a star so big it would reach past Mars. ⭐"
+    how_label: "🔭 How it's made"
+    how: "Each body is drawn to scale with the one before it as the camera pulls back. Radii: Earth 6,371 km; Jupiter 69,911 km; the Sun 695,700 km; Sirius A 1.7 Suns; Arcturus 25 Suns; Rigel 79 Suns; Betelgeuse about 760 Suns, roughly 3.5 times the Earth–Sun distance. Placed at the Sun's position, Betelgeuse's surface would sit beyond Mars and the asteroid belt, short of Jupiter. Planet sizes in the top-down view are enlarged so you can see them; orbits and the star are to scale. Star colours follow their temperatures; their surfaces are illustrated."
+    data_note: "NASA planetary fact sheets; stellar radii: Davis et al. 2011 (Sirius), Ramírez & Allende Prieto 2011 (Arcturus), Moravveji et al. 2012 (Rigel), Joyce et al. 2020 (Betelgeuse). Planet textures: Solar System Scope (CC BY 4.0)"
+    sound_note: "🎵 Sound: a deeper note for each bigger star"
+    cta: "🔔 New Space in Motion every week — subscribe for more!"
+    prompt: "💬 Which star surprised you most? Tell me 👇"
+    thumb_at: 0.94
+    thumb_crop: [0.04, 0.22]
+    hashtags: ["space", "betelgeuse", "stars", "sizecomparison", "astronomy", "universe"]
+
+  - key: "space_earths_in_sun"
+    title: "How Many Earths Fit Inside the Sun?"
+    subtitle: "1.3 million, or 940,000?"
+    yt_title: "How Many Earths Fit Inside the Sun? ☀️ It's Not 1.3 Million"
+    mode: "sim"
+    sim: "earths_in_sun"
+    seed: 7
+    series: "space_in_motion"
+    source: "NASA"
+    blurb: "Everyone says 1.3 million Earths fit inside the Sun. That's only if you melt them down. As whole balls, far fewer fit. ☀️"
+    how_label: "🔭 How it's made"
+    how: "The Sun's radius is 109 times Earth's, so its volume is 109 × 109 × 109 ≈ 1.3 million Earths. But round balls leave gaps. Even stacked perfectly, like oranges in a shop, spheres fill at most 74% of a space (proven by Hales in 1998), and a perfect stack placed inside the Sun fits about 940,000 whole Earths (938,086 counted; the 74% ceiling would be 964,000, but balls can't fill the curved wall). Poured in at random, they fill about 64%: roughly 830,000."
+    data_note: "NASA Sun and Earth fact sheets; sphere packing densities (Kepler conjecture, Hales 1998; random close packing ~64%). Textures: Solar System Scope (CC BY 4.0)"
+    sound_note: "🎵 Sound: Earths pouring in"
+    cta: "🔔 New Space in Motion every week — subscribe for more!"
+    prompt: "💬 Did you know about the gaps? Tell me 👇"
+    thumb_at: 0.895
+    thumb_crop: [0.04, 0.22]
+    hashtags: ["space", "sun", "earth", "sizecomparison", "astronomy", "math"]
