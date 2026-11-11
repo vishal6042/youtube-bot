@@ -22,6 +22,8 @@ SIMS = {
     "golden_angle": "graph_bot.sims.golden_angle",
     "chaos_game": "graph_bot.sims.chaos_game",
     "pendulum_wave": "graph_bot.sims.pendulum_wave",
+    # Space in Motion (keys start space_; shared pieces in sims/space.py)
+    "voyager_light_day": "graph_bot.sims.voyager_light_day",
 }
 
 

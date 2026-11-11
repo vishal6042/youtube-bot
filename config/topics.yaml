@@ -1738,3 +1738,28 @@ topics:
     thumb_at: 0.02
     thumb_crop: [0.19, 0.19]
     hashtags: ["physics", "pendulum", "pendulumwave", "math", "satisfying"]
+
+  # ------------------------------------------------------------------ #
+  # Space in Motion (keys start space_ -> playlist "Space in Motion").
+  # Simulated like Math in Motion; shared pieces in graph_bot/sims/space.py.
+  # ------------------------------------------------------------------ #
+  - key: "space_voyager_light_day"
+    title: "A Signal From Voyager 1 Now Takes a Full Day"
+    subtitle: "One light-day from Earth, 18 November 2026"
+    yt_title: "Voyager 1 Is Now One Light-Day From Earth 🚀 How Far Is That?"
+    mode: "sim"
+    sim: "voyager_light_day"
+    seed: 7
+    series: "space_in_motion"
+    source: "NASA/JPL"
+    blurb: "On 18 November 2026, Voyager 1 becomes the first spacecraft one light-day from Earth. Ride a beam of light out past every planet to see how far that really is. 🚀"
+    how_label: "🔭 How it's made"
+    how: "The camera rides the front of a light signal leaving Earth. The planets sit where they really are on 18 Nov 2026, worked out from NASA/JPL orbital elements, so each light time is the real one that day: the Sun 8 min, Jupiter 43 min, Saturn 1 h 13 min, Uranus 2 h 33 min, Neptune 4 h 4 min. One light-day is 25.9 billion km. Proxima Centauri is 4.25 light-years away; at Voyager's ~17 km/s that is about 75,000 years. Voyager is shown at its real height, 35° above the planets' plane; Proxima is folded into the plane. Planet sizes are enlarged so you can see them; distances are exact."
+    data_note: "NASA/JPL (Voyager 1 one-light-day crossing, 18 Nov 2026; planetary orbital elements). Planet textures: Solar System Scope (CC BY 4.0)"
+    sound_note: "🎵 Sound: a soft note each time the light reaches a planet"
+    cta: "🔔 New Space in Motion every week — subscribe for more!"
+    prompt: "💬 Did you expect the gap after Neptune to be that big? Tell me 👇"
+    # Thumbnail: the moment the light reaches Voyager (clock at 24:00:00).
+    thumb_at: 0.533
+    thumb_crop: [0.04, 0.22]
+    hashtags: ["space", "voyager1", "nasa", "astronomy", "lightspeed", "solarsystem"]

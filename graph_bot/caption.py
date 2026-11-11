@@ -189,9 +189,13 @@ def build_description(topic: dict[str, Any], year_min: int, year_max: int,
     if topic.get("mode") == "sim":
         # A simulation has no data source or music: say how it works instead,
         # and that the sound is the simulation itself.
+        # Space episodes override the labels (`how_label`, `sound_note`) and
+        # name their sources (`data_note`).
         if topic.get("how"):
-            lines.append(f"🧮 How it works: {topic['how']}")
-        lines.append("🎵 Sound: every note is a real bounce or event in the simulation")
+            lines.append(f"{topic.get('how_label', '🧮 How it works')}: {topic['how']}")
+        if topic.get("data_note"):
+            lines.append(f"📊 Data: {topic['data_note']}")
+        lines.append(topic.get("sound_note") or "🎵 Sound: every note is a real bounce or event in the simulation")
     else:
         lines.append(f"📊 Data source: {source}")
         credit = music_credit(music)

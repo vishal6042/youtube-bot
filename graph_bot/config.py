@@ -73,6 +73,7 @@ SERIES_INDIA = "india_in_data"
 SERIES_SPORTS = "sports"
 SERIES_VS = "country_vs_country"
 SERIES_MATH = "math_in_motion"
+SERIES_SPACE = "space_in_motion"
 
 
 def topic_series(topic: dict[str, Any]) -> str:
@@ -82,6 +83,7 @@ def topic_series(topic: dict[str, Any]) -> str:
       * key starting ``ai_``            -> ai_trends
       * key starting ``ml_`` or a Manim scene -> ml_concept
       * key starting ``vs_``            -> country_vs_country
+      * key starting ``space_``         -> space_in_motion (simulated too)
       * key starting ``math_`` or a simulation (``mode: sim``) -> math_in_motion
       * everything else                 -> world_in_data
     """
@@ -91,6 +93,8 @@ def topic_series(topic: dict[str, Any]) -> str:
 
     key = str(topic.get("key", ""))
     # Some callers (the uploader) only know the key, so the prefix must say it.
+    if key.startswith("space_"):
+        return SERIES_SPACE
     if key.startswith("math_") or topic.get("mode") == "sim":
         return SERIES_MATH
     if key.startswith("ai_"):

@@ -31,6 +31,7 @@ export const PLAYLIST_COLORS = {
   charts_lie: "#ff7a90",
   country_vs_country: "#6f9bff",
   math_in_motion: "#c8f560",
+  space_in_motion: "#e8c48a",
 };
 
 // The render pipeline's steps, in order. Keys match the ::agent:: markers
