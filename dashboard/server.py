@@ -2961,6 +2961,16 @@ IDEAS: list[dict[str, Any]] = [
         },
     },
     {
+        "id": "math_golden_angle",
+        "reason": 'Seeds placed by a fixed turn: 90°, 120°, 135°, 137° all jam; 137.5° packs a sunflower perfectly and Fibonacci spirals appear.',
+        "topic": {
+            "key": "math_golden_angle", "title": 'Why Do Sunflowers Turn Each Seed 137.5°?', "subtitle": 'The golden angle, grown seed by seed',
+            "mode": "sim", "sim": "golden_angle", "series": "math_in_motion", "source": "Simulation",
+            "cta": "🔔 New Math in Motion every few days — subscribe for more!",
+            "hashtags": ['math', 'fibonacci', 'goldenratio', 'sunflower', 'satisfying'],
+        },
+    },
+    {
         "id": "math_birthday",
         "reason": 'People walk into a room until two match; repeated 500 times, the answer is usually just 23.',
         "topic": {

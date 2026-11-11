@@ -1687,3 +1687,54 @@ topics:
     thumb_at: 0.98
     thumb_crop: [0.18, 0.2]
     hashtags: ["math", "pi", "probability", "montecarlo", "satisfying"]
+  - key: "math_golden_angle"
+    title: "Why Do Sunflowers Turn Each Seed 137.5°?"
+    subtitle: "The golden angle, grown seed by seed"
+    yt_title: "Why Sunflowers Turn Every Seed 137.5° 🌻 The Golden Angle"
+    mode: "sim"
+    sim: "golden_angle"
+    seed: 7
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "Turn every seed by the same angle and watch what grows. 90°, 120°, 137°… only one angle packs a sunflower perfectly. 🌻"
+    how: "Seed n turns n × the angle around the centre and sits at a radius that grows with √n (Vogel's sunflower model). The counter shows seeds sitting closer than ¾ of the normal spacing to a neighbour. Simple fractions of a turn (¼, ⅓, ⅜) stack seeds into straight spokes. 137.5° is the golden angle, the turn that is hardest to approximate with a fraction, so seeds never line up and none jam. The spirals that appear come in Fibonacci numbers: 34 one way, 55 the other."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Have you ever counted the spirals on a real sunflower? Tell me 👇"
+    # Thumbnail: the finished flower with both spiral counts.
+    thumb_at: 0.97
+    thumb_crop: [0.19, 0.19]
+    hashtags: ["math", "fibonacci", "goldenratio", "sunflower", "satisfying"]
+  - key: "math_chaos_game"
+    title: "Every Dot Is Random. So Why This Shape?"
+    subtitle: "The chaos game"
+    yt_title: "Random Dots Draw a Perfect Fractal 🔺 The Chaos Game"
+    mode: "sim"
+    sim: "chaos_game"
+    seed: 5
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "Pick a random corner, jump halfway, leave a dot. 150,000 random jumps later, a perfect fractal appears. 🔺"
+    how: "From the current point, a corner is picked at random and the point jumps halfway towards it, leaving a dot coloured like that corner. Halfway to a corner always lands inside that corner's half-size triangle, so the middle triangle can never be hit, and the same is true inside every smaller triangle. That is the Sierpinski triangle. The zoom only adds points the game could have landed on (halfway from a real earlier position to a corner)."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Did you expect random jumps to make this? Tell me 👇"
+    # Thumbnail: the finished three-colour triangle and its name.
+    thumb_at: 0.79
+    thumb_crop: [0.19, 0.19]
+    hashtags: ["math", "fractal", "sierpinski", "chaosgame", "satisfying"]
+  - key: "math_pendulum_wave"
+    title: "15 Pendulums. One Release. What Happens Next?"
+    subtitle: "A pendulum wave"
+    yt_title: "15 Pendulums, One Release 🌊 Watch Them Dance Back Into Line"
+    mode: "sim"
+    sim: "pendulum_wave"
+    seed: 7
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "15 pendulums, each a little shorter than the last, let go at once. Snakes, waves, chaos… and then? 🌊"
+    how: "Each pendulum is tuned to swing a whole number of times in 24 seconds: the longest 16 times, the next 17, up to 30. They drift apart into waves, but at 24 seconds every one has finished a whole number of swings, so they all line up again. Lengths come from the exact large-angle pendulum period and the motion is the full pendulum equation; the numbers beside them count real swings."
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Did you see the moment they lined up? Tell me 👇"
+    # Thumbnail: the snake from the cold open.
+    thumb_at: 0.02
+    thumb_crop: [0.19, 0.19]
+    hashtags: ["physics", "pendulum", "pendulumwave", "math", "satisfying"]

@@ -209,13 +209,14 @@ def add_rgba(img: Image.Image, spr: Image.Image, x: float, y: float) -> None:
 class Encoder:
     """Pipe raw RGB frames straight into ffmpeg (no frames on disk)."""
 
-    def __init__(self, path: Path, ffmpeg: str, fps: int = FPS):
+    def __init__(self, path: Path, ffmpeg: str, fps: int = FPS, threads: int | None = None):
         self.path = Path(path)
+        extra = ["-threads", str(threads)] if threads else []
         self.proc = subprocess.Popen(
             [ffmpeg, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
              "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
              "-c:v", "libx264", "-preset", "medium", "-crf", "17", "-pix_fmt", "yuv420p",
-             str(self.path)],
+             *extra, str(self.path)],
             stdin=subprocess.PIPE,
         )
 

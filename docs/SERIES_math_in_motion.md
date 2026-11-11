@@ -33,17 +33,32 @@ what the maths actually does.
 | 3 | **Can random dots find π?** | Dots rain into a square; inside the circle turn gold; the estimate updates | The estimate settles on 3.14159… | **Built** (`sim: monte_carlo_pi`) |
 | 4 | **Two balls, 0.001 apart. Same path?** | Two balls bounce in a circle, together at first | They split completely: chaos | Planned |
 | 5 | **100 pendulums, almost identical** | Double pendulums released a hair apart, in a rainbow | They fan out into chaos | Planned |
-| 6 | **15 pendulums, one release** | Pendulum wave: snakes, lines, chaos, then back in sync | All 15 line up again at 60 s | Planned |
-| 7 | **What do random dots draw?** | The chaos game: jump halfway to a random corner, again and again | A Sierpinski triangle appears | Planned |
+| 6 | **15 pendulums. One release. What happens next?** | Pendulum wave (exact large-angle physics): snakes, rows, chaos; swing counters beside each bob | Slow motion into the line-up at 24 s; counters read 16…30 | **Built** (`sim: pendulum_wave`) |
+| 7 | **Every dot is random. So why this shape?** | The chaos game: jump halfway to a random corner, 150,000 times | Sierpinski triangle, then a 4× self-similar zoom | **Built** (`sim: chaos_game`) |
 | 8 | **How many people until two share a birthday?** | People walk into a room until a match; repeated 500 times | Usually just 23 people | **Built** (`sim: birthday`) |
 | 9 | **Will a lost walker ever get home?** | Random walks on a grid, 2D vs 3D side by side | 2D always returns; 3D often never | Planned |
 | 10 | **Light in a coffee cup** | Rays reflect inside a circle | A glowing cardioid (the cup caustic) | Planned |
 | 11 | **Which sort finishes first?** | Bubble, quick and merge sort race on the same bars, with sound | Quick sort wins by miles | Planned |
 | 12 | **Plot the primes in a spiral** | Numbers spiral out; primes light up | Arms appear out of nowhere | Planned |
+| 13 | **Why do sunflowers turn each seed 137.5°?** | Seeds placed by a fixed turn; 90°, 120°, 135°, 137° tried with a live "seeds jammed" count (800, 800, 795, 525) | 137.5° jams none, petals bloom, spirals counted: 34 and 55 | **Built** (`sim: golden_angle`) |
 
 Build order: 2, 3 and 8 next (probability, closest to the channel's data audience), then a
 spectacle piece (4 or 6), then the rest. Each new sim reuses `sims/canvas.py` (drawing,
 encoding) and `sims/sound.py` (event sounds).
+
+## What the first four taught us (views, 9 Nov 2026)
+
+Pi 1,685 views in 3 days and Galton 1,537 (both channel top 5); Monty Hall 13 and birthday 57.
+Spectacle with one clear visual result wins; puzzles explained with tubes and charts don't.
+The pi version that worked had a short British voice-over (Sonia) and word-timed captions.
+
+## Hook rule (from episode 6 on, `sims/kit.py`)
+
+- Frame one already shows the finished, most beautiful image, with the hook question in a large
+  serif over it (words rise in one by one) and spoken aloud. Never an empty board or title card.
+- Then the scene rewinds to the start and builds back up, so the payoff is earned.
+- A live counter that makes the idea measurable (seeds jammed, jumps, swings).
+- Voice: Sonia at +10%, 4–5 short lines, captions under the hook. Keep it to 30–35 s.
 
 ## Test plan
 

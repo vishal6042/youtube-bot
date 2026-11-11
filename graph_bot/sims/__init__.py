@@ -19,6 +19,9 @@ SIMS = {
     "monty_hall": "graph_bot.sims.monty_hall",
     "monte_carlo_pi": "graph_bot.sims.monte_carlo_pi",
     "birthday": "graph_bot.sims.birthday",
+    "golden_angle": "graph_bot.sims.golden_angle",
+    "chaos_game": "graph_bot.sims.chaos_game",
+    "pendulum_wave": "graph_bot.sims.pendulum_wave",
 }
 
 
