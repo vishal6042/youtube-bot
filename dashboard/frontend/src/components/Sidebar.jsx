@@ -33,7 +33,7 @@ export default function Sidebar({ view, setView, counts, online, running }) {
     <nav className="nav" aria-label="Main">
       <button type="button" className="brand" onClick={() => setView(null)}>
         <span className="brand-mark"><Icon name="chart" /></span>
-        Data in Motion
+        Wonderlapse
       </button>
       {NAV.map((section, i) => (
         <div key={section.group || i}>

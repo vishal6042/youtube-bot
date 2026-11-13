@@ -235,7 +235,7 @@ def _background(subtitle: str, title: str, source: str, footer: str) -> Image.Im
 # Render
 # --------------------------------------------------------------------------- #
 def render_scorecard(chart: dict[str, Any], heading: str, cues: list[dict[str, Any]], offset: float,
-                     total: float, out_path: Path, ffmpeg: str, footer: str = "Data in Motion",
+                     total: float, out_path: Path, ffmpeg: str, footer: str = "Wonderlapse",
                      encode_args: list[str] | None = None) -> float:
     """Write the scorecard video (silent, ``total`` seconds) and return its length."""
     import subprocess

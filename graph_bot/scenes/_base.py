@@ -109,7 +109,9 @@ class _Furniture:
             credit.move_to([0, -7.52, 0])
             self.add(credit)
 
-        footer = brand_text("Data in Motion", size=16, color=GRID)
+        from graph_bot.config import channel_name
+
+        footer = brand_text(channel_name(), size=16, color=GRID)
         footer.move_to([0, -7.85, 0])
         self.add(footer)
 

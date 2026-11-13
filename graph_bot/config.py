@@ -30,6 +30,22 @@ def load_settings() -> dict[str, Any]:
         return yaml.safe_load(fh)
 
 
+# The channel was "Data in Motion" until 2026-11-14, when it grew past data
+# charts into maths, science and space. Its handle was kept; only the name moved.
+CHANNEL_NAME = "Wonderlapse"
+CHANNEL_TAGLINE = "math, science, space and the world's numbers, animated."
+
+
+def channel_name(settings: dict[str, Any] | None = None) -> str:
+    """The channel's display name, as written on videos and in descriptions."""
+    if settings is None:
+        try:
+            settings = load_settings()
+        except OSError:
+            settings = {}
+    return ((settings or {}).get("youtube") or {}).get("channel_name") or CHANNEL_NAME
+
+
 # topics.yaml is parsed on nearly every helper call (topic_episode looks up its
 # peers, for one), so a 26KB YAML parse per topic added up to seconds. Cache on
 # the file's mtime+size: edits are picked up, repeat calls are free.

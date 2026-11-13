@@ -27,6 +27,7 @@ from typing import Any
 import requests
 
 from . import store
+from .config import channel_name
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:27b")
@@ -89,7 +90,7 @@ def _llm_review(picks: list[dict[str, Any]],
     ch = store.latest_channel_stats() or {}
     lines = [
         f"Date: {today}.",
-        f"Channel 'Data in Motion' — YouTube Shorts, animated data charts "
+        f"Channel '{channel_name()}' — YouTube Shorts: maths and science simulations, space scale, animated data charts "
         f"({ch.get('subscribers', '?')} subscribers).",
         "Measured facts: videos ≤10s median 642 views; 30s+ median 52. "
         "Sports has the best click-through; ML explainers convert subscribers "

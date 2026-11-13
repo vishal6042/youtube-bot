@@ -89,7 +89,7 @@ def _glass(w: int, h: int, tone: str, radius: int = 30) -> Image.Image:
 
 class Hook:
     def __init__(self, chart: dict[str, Any], cues: list[dict[str, Any]], offset: float, total: float,
-                 footer: str = "Data in Motion", source: str = "World Bank"):
+                 footer: str = "Wonderlapse", source: str = "World Bank"):
         tl = fx.Timeline(cues, offset)
         self.total = total
         self.bg = fx.backdrop(map_alpha=0.12)
@@ -344,7 +344,7 @@ class Hook:
 
 
 def render_hook(chart: dict[str, Any], cues: list[dict[str, Any]], offset: float, total: float,
-                out_path: Path, ffmpeg: str, footer: str = "Data in Motion", source: str = "World Bank",
+                out_path: Path, ffmpeg: str, footer: str = "Wonderlapse", source: str = "World Bank",
                 encode_args: list[str] | None = None) -> float:
     scene = Hook(chart, cues, offset, total, footer, source)
     enc = fx.Encoder(out_path, ffmpeg, encode_args)

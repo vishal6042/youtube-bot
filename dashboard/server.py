@@ -349,7 +349,7 @@ class JobManager:
 
 
 manager = JobManager()
-app = FastAPI(title="Data in Motion — Mission Control")
+app = FastAPI(title="Wonderlapse — Mission Control")
 
 
 @app.exception_handler(psycopg.OperationalError)

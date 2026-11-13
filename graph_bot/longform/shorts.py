@@ -37,7 +37,7 @@ from typing import Any
 
 import matplotlib
 
-from ..config import load_settings
+from ..config import CHANNEL_TAGLINE, channel_name, load_settings
 from ..render import ACCENT, ffmpeg_exe, h264_args, render
 from .. import transform
 from . import EpisodeError, load, out_dir, validate
@@ -312,7 +312,7 @@ def _description(ep: dict[str, Any], ch: dict[str, Any], title: str) -> str:
     return (f"{full}\n\n"
             f"📊 Data: {source}. Latest-year figures are first estimates and get revised.\n"
             "🎙️ Narration is a synthetic voice; the script is written and checked by the channel.\n"
-            "🔔 Data in Motion: the world's numbers, animated.\n\n"
+            f"🔔 {channel_name()}: {CHANNEL_TAGLINE}\n\n"
             + " ".join(f"#{t.lstrip('#')}" for t in tags) + "\n")
 
 

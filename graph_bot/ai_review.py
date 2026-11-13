@@ -18,7 +18,7 @@ from typing import Any, List, Literal
 from pydantic import BaseModel
 
 from . import store
-from .config import PROJECT_ROOT  # noqa: F401  (imported for its .env side effect)
+from .config import PROJECT_ROOT, channel_name  # noqa: F401  (imported for its .env side effect)
 
 MODEL = "claude-opus-5"
 
@@ -48,7 +48,7 @@ def _context(picks: list[dict[str, Any]]) -> str:
 
     lines = [
         f"Date: {today}",
-        f"Channel: 'Data in Motion' — short-form data-visualisation videos "
+        f"Channel: '{channel_name()}' — Shorts on maths, science, space and world data "
         f"({ch.get('subscribers', '?')} subscribers, {ch.get('views', '?')} total views).",
         "Measured facts: videos ≤10s median 642 views; 30s+ median 52. "
         "Sports carries the best CTR; ML content converts subscribers but reaches poorly.",

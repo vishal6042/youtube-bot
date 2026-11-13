@@ -236,7 +236,7 @@ class Podium:
     """The scene, built once; ``frame(t)`` draws any moment of it."""
 
     def __init__(self, chart: dict[str, Any], cues: list[dict[str, Any]], offset: float, total: float,
-                 footer: str = "Data in Motion", source: str = "World Bank"):
+                 footer: str = "Wonderlapse", source: str = "World Bank"):
         self._build(chart, cues, offset, total, footer, source)
 
     def _build(self, chart, cues, offset, total, footer, source) -> None:
@@ -406,7 +406,7 @@ class Podium:
 
 
 def render_podium(chart: dict[str, Any], cues: list[dict[str, Any]], offset: float, total: float,
-                  out_path: Path, ffmpeg: str, footer: str = "Data in Motion", source: str = "World Bank",
+                  out_path: Path, ffmpeg: str, footer: str = "Wonderlapse", source: str = "World Bank",
                   encode_args: list[str] | None = None) -> float:
     scene = Podium(chart, cues, offset, total, footer, source)
     enc = fx.Encoder(out_path, ffmpeg, encode_args)

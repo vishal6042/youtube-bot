@@ -32,6 +32,7 @@ import cairo
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from ..config import channel_name
 from . import carto
 from . import fx
 from .fx import FPS, H, W, clamp, ease_in_out, ease_out
@@ -562,7 +563,7 @@ class Scene:
             put(frame, sp, x, y + dy, "l", a)
 
     def brand(self, frame: Image.Image) -> None:
-        sp = T("Data in Motion", "label", 17, (*(IVORY if self.dark else INK), 110))
+        sp = T(channel_name(), "label", 17, (*(IVORY if self.dark else INK), 110))
         put(frame, sp, W - 64, H - 40, "r")
 
 
@@ -2325,7 +2326,7 @@ def make_scene(chart: dict[str, Any], cues, offset: float, total: float, data=No
 
 
 def render_doc(chart: dict[str, Any], cues: list[dict[str, Any]], offset: float, total: float,
-               out_path: Path, ffmpeg: str, footer: str = "Data in Motion", source: str = "World Bank",
+               out_path: Path, ffmpeg: str, footer: str = "Wonderlapse", source: str = "World Bank",
                encode_args: list[str] | None = None, data: dict[str, dict[int, float]] | None = None,
                progress: Callable[[int, int], None] | None = None, preview: Path | None = None) -> float:
     scene = make_scene(chart, cues, offset, total, data)

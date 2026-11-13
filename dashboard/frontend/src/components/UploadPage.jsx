@@ -187,7 +187,7 @@ export default function UploadPage({
     const n = pending.length;
     const ok = await confirm({
       title: `Send ${n} video${n === 1 ? "" : "s"} to YouTube?`,
-      message: "Each one goes to Data in Motion with its title, description, thumbnail "
+      message: "Each one goes to Wonderlapse with its title, description, thumbnail "
              + "and playlist set automatically.",
       items: pending.map((b) => ({ title: b.title, meta: [b.playlist, mb(b.bytes)].filter(Boolean).join(" · ") })),
       detail: "They arrive as Private, and you switch them to Public in YouTube Studio. This uses "

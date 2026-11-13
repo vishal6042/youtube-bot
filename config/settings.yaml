@@ -55,7 +55,7 @@ audio:
 
 # Branding shown on every video
 branding:
-  footer: "Data in Motion  •  new data every day"
+  footer: "Wonderlapse  •  a new Short every day"
 
 # Disk retention. Durations are measured from the LIFECYCLE EVENT, not from the
 # folder date: a working copy is only disposable once it has been exported, and
@@ -73,7 +73,7 @@ retention:
 # token resolves to exactly this channel.
 youtube:
   channel_id: UCEekmhdfptp7tvPVe5cZthg
-  channel_name: Data in Motion
+  channel_name: Wonderlapse   # display name only; the handle was kept at the 2026-11-14 rename
 
 # Spoken sign-off at the end of every Short (graph_bot/outro.py): the last frame
 # holds ~1 s while the line plays. Topics: `outro: false`, `outro: "..."`, `outro_voice`.

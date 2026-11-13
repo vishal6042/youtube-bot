@@ -23,7 +23,7 @@ import pandas as pd
 
 from .. import fetch as fetch_mod
 from .. import transform
-from ..config import load_settings
+from ..config import CHANNEL_TAGLINE, channel_name, load_settings
 from ..render import ffmpeg_exe, h264_args, render
 from . import SCENES, EpisodeError, load, out_dir, validate, words
 from .history import RenderRecord
@@ -244,7 +244,7 @@ def _render_chapter(ep: dict[str, Any], ch: dict[str, Any], work: Path,
     if _neon(ep, ch):
         from . import neon
 
-        footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or "Data in Motion"
+        footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or channel_name(settings)
         chart = ch.get("chart") or {}
         prefix = chart.get("prefix", INDICATORS.get(chart.get("code"), {}).get("prefix", ""))
         chart_secs = neon.render(mode, data, topic, rs, chart_mp4, heading=ch.get("heading") or "",
@@ -282,7 +282,7 @@ def _render_scene(ep: dict[str, Any], ch: dict[str, Any], voice_mp3: Path, total
     _, word_cues = speak(ch.get("narration", ""), ep.get("voice") or DEFAULT_VOICE, probe, settings,
                          rate=ep.get("voice_rate") or "+0%", words=True)
     probe.unlink(missing_ok=True)
-    footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or "Data in Motion"
+    footer = (settings.get("branding", {}).get("footer") or "").split("•")[0].strip() or channel_name(settings)
     chart = ch["chart"]
     if chart["mode"] == "scorecard":
         return render_scorecard(chart, ch.get("heading") or "", word_cues, LEAD_IN, total, chart_mp4,
@@ -360,7 +360,7 @@ def _write_text_assets(ep: dict[str, Any], built: list[tuple[dict[str, Any], dic
         f"Data: {', '.join(sources)}. Latest-year figures are first estimates and get revised.\n"
         + _source_links(ep) +
         "Narration is a synthetic voice; the script is written and checked by the channel.\n\n"
-        "Data in Motion: the world's numbers, animated.\n",
+        f"{channel_name()}: {CHANNEL_TAGLINE}\n",
         encoding="utf-8")
 
 
