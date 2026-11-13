@@ -120,12 +120,14 @@ def stars(seed: int = 7, n: int = 70) -> str:
 
 def banner() -> str:
     W, H = 2560, 1440
-    orbit = dict(cx=1300, cy=820, rx=1150, ry=220, tilt=-4)
+    # The whole orbit stays inside the 423px band phones and desktops show:
+    # far side behind the kicker, near side just under the topic line.
+    orbit = dict(cx=1300, cy=742, rx=1150, ry=168, tilt=-4)
     ring_full, ring = ellipse_arc(**orbit, t0=0, t1=360, n=720)
     # the gold path rides the near side of the orbit, round the right-hand tip,
     # and stops on the far side at "now", inside the phone-safe band
-    k_end = min(range(len(ring)), key=lambda i: (ring[i][0] - 1990) ** 2 + (ring[i][1] - 600) ** 2
-                if ring[i][1] < 820 else 1e12)
+    k_end = min(range(len(ring)), key=lambda i: (ring[i][0] - 1960) ** 2 + (ring[i][1] - 572) ** 2
+                if ring[i][1] < 742 else 1e12)
     t_end = 360 * k_end / 720 - 360
     path, pts = ellipse_arc(**orbit, t0=165, t1=t_end, n=240)
     ex, ey = pts[-1]
@@ -140,22 +142,22 @@ def banner() -> str:
 <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
 <mask id="clear" maskUnits="userSpaceOnUse" x="0" y="0" width="{W}" height="{H}">
   <rect width="{W}" height="{H}" fill="white"/>
-  <rect x="560" y="520" width="1460" height="420" rx="60" fill="black" filter="url(#soft)"/>
+  <rect x="560" y="540" width="1180" height="370" rx="60" fill="black" filter="url(#soft)"/>
 </mask>
 {stars()}
-{phyllotaxis(2330, 720, 260, 15.5)}
+{phyllotaxis(1890, 722, 260, 12.8)}
 <g fill="none" stroke-linecap="round" stroke-linejoin="round">
   <path d="{ring_full}" stroke="{IVORY}" stroke-opacity="0.16" stroke-width="4" mask="url(#clear)"/>
   <path d="{path}" stroke="{CHARCOAL}" stroke-width="22"/>
   <path d="{path}" stroke="url(#goldline)" stroke-width="9"/>
-  <circle cx="{ex:.1f}" cy="{ey:.1f}" r="38" stroke="{GOLD}" stroke-width="4"/>
+  <circle cx="{ex:.1f}" cy="{ey:.1f}" r="32" stroke="{GOLD}" stroke-width="4"/>
 </g>
-<circle cx="{ex:.1f}" cy="{ey:.1f}" r="13" fill="{GOLD_HI}"/>
+<circle cx="{ex:.1f}" cy="{ey:.1f}" r="11" fill="{GOLD_HI}"/>
 <!-- left column -->
-<text x="{L + 2}" y="562" class="sans" font-weight="700" font-size="27" letter-spacing="6" fill="{GOLD}">SHORTS EVERY DAY · DOCUMENTARIES EVERY WEEK</text>
-<text x="{L - 8}" y="738" class="serif" font-weight="600" font-size="172" letter-spacing="-3" fill="{IVORY}">{NAME}</text>
-<text x="{L}" y="842" class="serif" font-style="italic" font-weight="400" font-size="58" fill="{IVORY}" fill-opacity="0.82">The universe, one big idea at a time.</text>
-<text x="{L}" y="908" class="sans" font-weight="600" font-size="26" letter-spacing="6" fill="{IVORY}" fill-opacity="0.55">MATH · SCIENCE · SPACE · WORLD DATA · INDIA · SPORTS</text>
+<text x="{L + 2}" y="604" class="sans" font-weight="700" font-size="25" letter-spacing="6" fill="{GOLD}">SHORTS EVERY DAY · DOCUMENTARIES EVERY WEEK</text>
+<text x="{L - 8}" y="754" class="serif" font-weight="600" font-size="150" letter-spacing="-3" fill="{IVORY}">{NAME}</text>
+<text x="{L}" y="834" class="serif" font-style="italic" font-weight="400" font-size="50" fill="{IVORY}" fill-opacity="0.82">The universe, one big idea at a time.</text>
+<text x="{L}" y="882" class="sans" font-weight="600" font-size="23" letter-spacing="6" fill="{IVORY}" fill-opacity="0.55">MATH · SCIENCE · SPACE · WORLD DATA · INDIA · SPORTS</text>
 """
     return page(W, H, svg)
 
