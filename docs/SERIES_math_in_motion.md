@@ -41,6 +41,8 @@ what the maths actually does.
 | 11 | **Which sort finishes first?** | Bubble, quick and merge sort race on the same bars, with sound | Quick sort wins by miles | Planned |
 | 12 | **Plot the primes in a spiral** | Numbers spiral out; primes light up | Arms appear out of nowhere | Planned |
 | 13 | **Why do sunflowers turn each seed 137.5°?** | Seeds placed by a fixed turn; 90°, 120°, 135°, 137° tried with a live "seeds jammed" count (800, 800, 795, 525) | 137.5° jams none, petals bloom, spirals counted: 34 and 55 | **Built** (`sim: golden_angle`) |
+| 14 | **Drop needles on a floor. Count them. Get π.** | Buffon's needle in 3D (Blender, Cycles): 5,000 steel needles fall on an oak floor whose boards are one needle wide; the ones across a crack turn brass; 2 × dropped ÷ crossed runs live | 3.1417 after 5,000 (seed picked so needle 1 crosses, 2 misses) | **Built** (`sim: buffon`) |
+| 15 | **A perfect curve hides in your coffee.** | A glazed mug of milky coffee in low sun (Blender); rays drawn from above crowd into the bright curve (photon-traced for this cup); a clip-on LED on the rim turns it into a heart | Nephroid, then cardioid, with their exact outlines | **Built** (`sim: coffee`) |
 
 Build order: 2, 3 and 8 next (probability, closest to the channel's data audience), then a
 spectacle piece (4 or 6), then the rest. Each new sim reuses `sims/canvas.py` (drawing,
@@ -59,6 +61,13 @@ The pi version that worked had a short British voice-over (Sonia) and word-timed
 - Then the scene rewinds to the start and builds back up, so the payoff is earned.
 - A live counter that makes the idea measurable (seeds jammed, jumps, swings).
 - Voice: Sonia at +10%, 4–5 short lines, captions under the hook. Keep it to 30–35 s.
+
+## Blender episodes (from ep 14, 2026-11-14)
+
+Real-looking 3D: `sims/blend.py` runs Blender headless on `scripts/blender/<scene>.py` and caches one PNG per
+frame under `data/cache/blender/<scene>/<hash of job + scripts>`; the sim draws text, counters and sound on top.
+Drawn at 1440 x 2560. Shared Blender helpers (render setup, ring-geometry wood, lathe) in `scripts/blender/bkit.py`.
+Cycles at 64 samples + OptiX denoise is about 1–2.5 s a frame on the RTX 4090; static stretches render once.
 
 ## Test plan
 

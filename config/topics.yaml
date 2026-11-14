@@ -1738,6 +1738,42 @@ topics:
     thumb_at: 0.02
     thumb_crop: [0.19, 0.19]
     hashtags: ["physics", "pendulum", "pendulumwave", "math", "satisfying"]
+  - key: "math_buffon_needle"
+    title: "Drop Needles on a Floor. Count Them. Get π."
+    subtitle: "Buffon's needle"
+    yt_title: "Drop 5,000 Needles on a Wooden Floor and Out Comes π 🪡 Buffon's Needle"
+    mode: "sim"
+    sim: "buffon"
+    seed: 7
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "Needles exactly as long as the floorboards are wide. Drop them at random, count the ones that land across a crack, and π appears. 🪡"
+    how: "Each needle's centre and angle are random. A needle as long as a board is wide crosses a crack with probability exactly 2/π (Buffon, 1777), so 2 × needles dropped ÷ needles crossing estimates π. The counter counts every needle that has settled: a needle crosses when its two ends lie on different boards. 5,000 needles gave 3,183 crossings: 2 × 5,000 ÷ 3,183 = 3.1417. The floor, needles and light are rendered in 3D with Blender."
+    sound_note: "🎵 Sound: one tiny ping for every needle that lands"
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Would you have guessed π hides in a floor? Tell me 👇"
+    # Thumbnail: the finished floor with the brass and steel needles.
+    thumb_at: 0.03
+    thumb_crop: [0.19, 0.19]
+    hashtags: ["math", "pi", "probability", "buffonsneedle", "satisfying"]
+  - key: "math_coffee_curve"
+    title: "A Perfect Curve Hides in Your Coffee"
+    subtitle: "The nephroid and the cardioid"
+    yt_title: "There's a Perfect Curve Hiding in Your Coffee ☕ Light Draws a Heart"
+    mode: "sim"
+    sim: "coffee"
+    seed: 7
+    series: "math_in_motion"
+    source: "Simulation"
+    blurb: "Low morning sun bounces off the inside of your cup and draws a bright curve on the coffee: a nephroid. Put a tiny light on the rim and it becomes a heart: a cardioid. ☕"
+    how: "Every ray of light that hits the cup's curved inner wall reflects at its own angle. The reflected rays all touch one curve, their envelope, so the light piles up along it: a caustic. For sunlight (parallel rays) it is a nephroid; for a light on the rim it is a cardioid. The bright curves on the coffee were traced ray by ray for this exact cup, sun and lamp, with the glaze's real reflectance, then rendered with the scene in Blender. The dashed lines are the exact curves."
+    sound_note: "🎵 Sound: a note when the first ray hits the wall, a chord when the curve appears"
+    cta: "🔔 New Math in Motion every few days — subscribe for more!"
+    prompt: "💬 Go check your mug in the morning sun. Did you spot it? Tell me 👇"
+    # Thumbnail: the heart in the coffee, lit by the clip-on light.
+    thumb_at: 0.96
+    thumb_crop: [0.16, 0.16]
+    hashtags: ["math", "physics", "light", "coffee", "cardioid", "satisfying"]
 
   # ------------------------------------------------------------------ #
   # Space in Motion (keys start space_ -> playlist "Space in Motion").

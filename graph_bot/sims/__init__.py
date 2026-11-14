@@ -23,6 +23,9 @@ SIMS = {
     "golden_angle": "graph_bot.sims.golden_angle",
     "chaos_game": "graph_bot.sims.chaos_game",
     "pendulum_wave": "graph_bot.sims.pendulum_wave",
+    # rendered in Blender (sims/blend.py, scripts/blender/<scene>.py)
+    "buffon": "graph_bot.sims.buffon",
+    "coffee": "graph_bot.sims.coffee",
     # Space in Motion (keys start space_; shared pieces in sims/space.py)
     "voyager_light_day": "graph_bot.sims.voyager_light_day",
     "planets_earth_moon": "graph_bot.sims.planets_earth_moon",
