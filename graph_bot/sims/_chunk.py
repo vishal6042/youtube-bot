@@ -2,7 +2,7 @@
 
 Started by kit.encode (one process per slice, so all CPU cores draw at once):
 
-    python -m graph_bot.sims._chunk <module> <first frame> <end frame> <fps> <out.mp4> <ffmpeg> [json kwargs]
+    python -m graph_bot.sims._chunk <module> <first frame> <end frame> <fps> <out.mp4> <ffmpeg> [json kwargs] [WxH]
 
 Prints "p <frames done>" lines so the parent can report progress.
 """
@@ -24,7 +24,8 @@ def main() -> None:
 
     mod = importlib.import_module(mod_name)
     _, frame, _ = mod.build(ffmpeg, **kw)
-    enc = cv.Encoder(Path(out), ffmpeg, fps=fps, threads=2)
+    size = tuple(int(v) for v in sys.argv[8].split("x")) if len(sys.argv) > 8 and sys.argv[8] else None
+    enc = cv.Encoder(Path(out), ffmpeg, fps=fps, threads=2, size=size)
     try:
         for i, fi in enumerate(range(a, b)):
             enc.write(np.asarray(frame(fi / fps)))

@@ -30,6 +30,7 @@ SIMS = {
     "earths_in_sun": "graph_bot.sims.earths_in_sun",
     # Science in Motion (keys start science_)
     "ocean_depth": "graph_bot.sims.ocean_depth",
+    "earth_water": "graph_bot.sims.earth_water",
 }
 
 

@@ -42,13 +42,28 @@ comparison; the body is the journey that proves it.
   says so on screen, next to it.
 - Say plainly in the description what is to scale and what is not.
 
+## What belongs here (and what goes to Space in Motion)
+
+- **Science in Motion:** things on or inside the Earth, and physics: the ocean, water, drilling,
+  atoms, weather.
+- **Space in Motion:** anything looking outward beyond the Earth: planets, stars, galaxies, cosmic
+  scale. "How high is space?", "How fast are you moving right now?" and the city-to-universe
+  zoom-out ("How vast is space?") were moved there for that reason (2026-11-14).
+
+## Resolution
+
+New 3D episodes are drawn above 1080 x 1920 when they can be: `earth_water.py` renders everything,
+text included, at 1440 x 2560 (`EARTH_WATER_SIZE=2160x3840` for 4K) and passes
+`size=(w, h)` to `kit.encode`. Sizes in such a sim are written for a 1080-wide frame and
+multiplied by `K = OUT_W / 1080`. `ocean_depth.py` is still 1080 x 1920.
+
 ## Episodes
 
 | # | Key | Hook | Status |
 |---|-----|------|--------|
-| 1 | `science_ocean_depth` | Drop Everest into the deepest ocean: its peak is still 2 km underwater | built 2026-11-14 |
-| 2 | | How fast are you moving right now? (spin, orbit, galaxy) | idea |
-| 3 | | Why is the sky blue and the sunset red? (scattering, one beam) | idea |
-| 4 | | How big is an atom, really? (zoom from a hand) | idea |
-| 5 | | What a lightning bolt does in one second | idea |
-| 6 | | How much of Earth's water is drinkable? (spheres over the globe) | idea |
+| 1 | `science_ocean_depth` | How deep is the ocean? The Titanic isn't even halfway down (Everest in the trench) | uploaded 2026-11-14 |
+| 2 | `science_earth_water` | All the water on Earth fits in this one ball (1,385 km; fresh 273 km; lakes and rivers 56 km) | built 2026-11-14 |
+| 3 | | How deep have we ever drilled? (Kola, 12,262 m: deeper than the ocean, 0.2% of the way down) | idea |
+| 4 | | Why is the sky blue and the sunset red? (scattering, one beam) | idea |
+| 5 | | How big is an atom, really? (zoom from a hand) | idea |
+| 6 | | What a lightning bolt does in one second | idea |

@@ -297,7 +297,7 @@ def workers() -> int:
 
 def encode(out_path, ffmpeg: str, total: float, frame, sound, fps: int = 60, progress=None,
            module: str | None = None, build_kw: dict | None = None, cost=None,
-           max_workers: int | None = None) -> float:
+           max_workers: int | None = None, size: tuple[int, int] | None = None) -> float:
     """Draw every frame, make the sound with sound(wav), mux. Returns seconds.
 
     With `module` (the sim's module name, whose build(ffmpeg, **build_kw) gives
@@ -307,7 +307,8 @@ def encode(out_path, ffmpeg: str, total: float, frame, sound, fps: int = 60, pro
 
     `cost(t)` (optional): roughly how long the frame at t takes to draw, in any
     unit. The slices are then cut to equal work instead of equal length, so no
-    single slow slice keeps one core busy long after the rest have finished."""
+    single slow slice keeps one core busy long after the rest have finished.
+    `size` (w, h): the frames' size when it is not the usual 1080 x 1920."""
     import tempfile
     from pathlib import Path
 
@@ -319,17 +320,17 @@ def encode(out_path, ffmpeg: str, total: float, frame, sound, fps: int = 60, pro
         tmp = Path(tmp)
         silent = tmp / "video.mp4"
         if n_work <= 1:
-            _encode_serial(silent, ffmpeg, n_frames, frame, fps, progress)
+            _encode_serial(silent, ffmpeg, n_frames, frame, fps, progress, size)
             sound(tmp / "sound.wav")
         else:
             _encode_parallel(silent, ffmpeg, n_frames, fps, progress, module, build_kw or {}, n_work, tmp,
-                             lambda: sound(tmp / "sound.wav"), cost)
+                             lambda: sound(tmp / "sound.wav"), cost, size)
         cv.mux(silent, tmp / "sound.wav", Path(out_path), ffmpeg)
     return total
 
 
-def _encode_serial(silent, ffmpeg, n_frames, frame, fps, progress) -> None:
-    enc = cv.Encoder(silent, ffmpeg, fps=fps)
+def _encode_serial(silent, ffmpeg, n_frames, frame, fps, progress, size=None) -> None:
+    enc = cv.Encoder(silent, ffmpeg, fps=fps, size=size)
     try:
         for fi in range(n_frames):
             enc.write(np.asarray(frame(fi / fps)))
@@ -356,7 +357,7 @@ def _slice_edges(n_frames: int, n_work: int, fps: int, cost) -> np.ndarray:
 
 
 def _encode_parallel(silent, ffmpeg, n_frames, fps, progress, module, build_kw, n_work, tmp, make_sound,
-                     cost=None) -> None:
+                     cost=None, size=None) -> None:
     import json
     import subprocess
     import sys
@@ -370,7 +371,8 @@ def _encode_parallel(silent, ffmpeg, n_frames, fps, progress, module, build_kw, 
         part = tmp / f"part{w:02d}.mp4"
         parts.append(part)
         p = subprocess.Popen([sys.executable, "-m", "graph_bot.sims._chunk", module, str(edges[w]),
-                              str(edges[w + 1]), str(fps), str(part), ffmpeg, json.dumps(build_kw)],
+                              str(edges[w + 1]), str(fps), str(part), ffmpeg, json.dumps(build_kw),
+                              f"{size[0]}x{size[1]}" if size else ""],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
         procs.append(p)
 

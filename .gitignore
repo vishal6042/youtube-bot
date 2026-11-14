@@ -63,6 +63,11 @@ media/           # Manim's own scratch directory
 #   .venv/Scripts/python.exe scripts/make_ocean_models.py
 assets/ocean/
 
+# NASA Earth images (64 MB) and the texture cache built from them (~500 MB):
+#   .venv/Scripts/python.exe scripts/fetch_earth_textures.py
+assets/earth/*
+!assets/earth/CREDITS.md
+
 # Music is licensed per-track and stays local; keep the folder's README.
 assets/music/*
 !assets/music/README.md

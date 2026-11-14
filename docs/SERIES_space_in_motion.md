@@ -38,6 +38,9 @@ takes a famous claim and shows the precise version, with one clear visual result
 | 8 | | Andromeda: 2.5 million ly away, yet ~6 full Moons wide in our sky | idea |
 | 9 | | How old is the light you see? (Sun 8 min 20 s, stars...) | idea |
 | 10 | | Your age and weight on every planet | idea |
+| 11 | | How vast is space? One zoom out: city → state → India → Asia → Earth → Solar System → Milky Way → observable universe (93 billion light-years). The user's idea, 2026-11-14; start from an Indian city; India's official boundary on every map step | idea (next) |
+| 12 | | How high is space? A climb with a live altitude read-out: Burj Khalifa 828 m, Everest 8,849 m, airliner ~11 km, highest skydive 41 km, the edge of space 100 km, the ISS ~400 km (moved here from Science in Motion) | idea |
+| 13 | | How fast are you moving right now? Spin up to 1,670 km/h, orbit 107,000 km/h, the galaxy ~2 million km/h (moved here from Science in Motion) | idea |
 | 11 | | Jupiter's Great Red Spot is shrinking (3 Earths → ~1.3) | idea |
 | 12 | | Mangalyaan cost less than the film *Gravity* (India in Data crossover) | idea |
 

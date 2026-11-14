@@ -1847,3 +1847,24 @@ topics:
     thumb_at: 0.535
     thumb_crop: [0.255, 0.42]
     hashtags: ["science", "ocean", "marianatrench", "everest", "deepsea", "titanic"]
+
+  - key: "science_earth_water"
+    title: "All of Earth's Water Fits in This Ball"
+    subtitle: "Oceans, ice, rivers and all"
+    yt_title: "All the Water on Earth Fits in This One Ball 💧 What We Use Is a Tiny Drop"
+    mode: "sim"
+    sim: "earth_water"
+    seed: 7
+    series: "science_in_motion"
+    source: "USGS / NASA"
+    blurb: "Drain every ocean and gather all of Earth's water into one ball: it is only 1,385 km wide. The fresh water is far smaller, and the lakes and rivers we live on are a speck. 💧"
+    how_label: "💧 How it's made"
+    how: "The three balls are drawn to scale with the Earth (12,742 km across). All the water on, in and above the Earth, including oceans, ice, groundwater, lakes, rivers and the air, would make a ball 1,385 km wide (1.386 billion cubic km). All the liquid fresh water, about 99% of it groundwater, would make a ball 273 km wide. The fresh water in lakes and rivers, the source of most of the water people and other life use every day, would make a ball 56 km wide. The seabed you see when the oceans drain is the real one, from depth soundings; sea level falls evenly, and the big ball grows by exactly the volume drained. The land is left as it is: the ice caps are counted in the big ball but not melted in the picture."
+    data_note: "USGS Water Science School, 'How Much Water is There on Earth?' (H. Perlman; data: I. Shiklomanov, 1993). Imagery by NASA's Earth Observatory (Blue Marble Next Generation, J. Allen) using ocean depths and land heights from GEBCO. Clouds: Solar System Scope (CC BY 4.0)"
+    sound_note: "🎵 Sound: a smaller note for each smaller ball"
+    cta: "🔔 New Science in Motion every week — subscribe for more!"
+    prompt: "💬 Did you expect it to be that small? Tell me 👇"
+    # Thumbnail: the ball of all Earth's water beside India, oceans drained (the opening picture, without its text).
+    thumb_at: 0.075
+    thumb_crop: [0.22, 0.34]
+    hashtags: ["science", "water", "earth", "ocean", "geography", "space"]
