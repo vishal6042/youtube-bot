@@ -1823,3 +1823,27 @@ topics:
     thumb_at: 0.895
     thumb_crop: [0.04, 0.22]
     hashtags: ["space", "sun", "earth", "sizecomparison", "astronomy", "math"]
+
+  # ===================== SCIENCE IN MOTION =====================
+  # One physical idea per Short, shown in 3D (mode: sim, keys science_).
+  # Plan: docs/SERIES_science_in_motion.md
+  - key: "science_ocean_depth"
+    title: "The Titanic Isn't Even Halfway Down"
+    subtitle: "How deep is the ocean, really?"
+    yt_title: "How Deep Is the Ocean? 🌊 The Titanic Isn't Even Halfway Down"
+    mode: "sim"
+    sim: "ocean_depth"
+    seed: 7
+    series: "science_in_motion"
+    source: "NOAA / published records"
+    blurb: "Dive 10,935 metres to the bottom of the Mariana Trench, past the deepest diver, whale, wreck and fish. Then drop Everest in. 🌊"
+    how_label: "🌊 How it's made"
+    how: "Depths are to scale: the camera's read-out is the true depth at every moment. Deepest scuba dive 332 m (Ahmed Gabr, 2014); Cuvier's beaked whale 2,992 m; Titanic wreck about 3,800 m; deepest fish ever filmed, a snailfish, 8,336 m; Challenger Deep 10,935 m. Everest is 8,849 m tall, so its summit would sit about 2,086 m under the surface. Widths are not to scale: the diver, the whale, the wreck, the fish and the mountain are shown much larger than life so you can see them, and the trench is drawn far narrower than the real one. The Titanic's bow lies in the North Atlantic; it is shown here only to mark its depth. The fish is a hadal snailfish (genus Pseudoliparis), the kind filmed at 8,336 m in the Izu-Ogasawara Trench in 2022. The diver, whale, wreck and fish are 3D models made for this video."
+    data_note: "Challenger Deep: Greenaway et al. 2021 (10,935 m ± 6). Everest: 2020 Nepal–China survey (8,848.86 m). Scuba: Guinness World Records. Whale: Schorr et al. 2014. Fish: University of Western Australia / Tokyo University of Marine Science, 2023. Titanic: NOAA"
+    sound_note: "🎵 Sound: the drone sinks lower the deeper you go"
+    cta: "🔔 New Science in Motion every week — subscribe for more!"
+    prompt: "💬 Which depth surprised you most? Tell me 👇"
+    # Thumbnail: the Titanic's wrecked bow with its depth label (matches the title).
+    thumb_at: 0.535
+    thumb_crop: [0.255, 0.42]
+    hashtags: ["science", "ocean", "marianatrench", "everest", "deepsea", "titanic"]

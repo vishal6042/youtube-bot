@@ -59,6 +59,10 @@ data/manim_media/
 data/flags/
 media/           # Manim's own scratch directory
 
+# 3D model loops rendered by Blender (~115 MB): regenerate with
+#   .venv/Scripts/python.exe scripts/make_ocean_models.py
+assets/ocean/
+
 # Music is licensed per-track and stays local; keep the folder's README.
 assets/music/*
 !assets/music/README.md

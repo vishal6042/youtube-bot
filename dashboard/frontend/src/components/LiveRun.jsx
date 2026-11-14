@@ -12,14 +12,15 @@ function stepStates(job) {
     const p = prog[s.key] || { state: job?.agents?.[s.key] || "idle", pct: 0 };
     const state = allDone ? "done" : p.state;
     const pct = state === "done" || state === "failed" ? 100 : state === "active" ? p.pct || 0 : 0;
-    return { ...s, state, pct };
+    return { ...s, state, pct, measured: !!p.measured };
   });
 }
 
 /* Seconds left for the current video, or null when it cannot be told. The
    server's percent is elapsed / typical, so elapsed and percent give the
    typical length back. The video step dwarfs the rest, so nothing is claimed
-   before it has started, nor once a step is pinned at the server's 95% cap. */
+   before it has started, nor once a step is pinned at the server's 95% cap
+   (a measured percent, from frames actually drawn, has no such cap). */
 function secsLeft(job, steps) {
   const video = steps.find((s) => s.key === "video");
   if (!video || video.state === "idle" || video.state === "failed") return null;
@@ -30,7 +31,7 @@ function secsLeft(job, steps) {
     const rec = [...(job.steps || [])].reverse()
       .find((r) => r.agent === s.key && r.state === "active" && r.at);
     const elapsed = rec ? secsBetween(rec.at) : null;
-    if (elapsed == null || s.pct < 5 || s.pct >= 95) return null;
+    if (elapsed == null || s.pct < 5 || (s.pct >= 95 && !s.measured)) return null;
     left = Math.max(left, (elapsed * (100 - s.pct)) / s.pct);
   }
   return left;

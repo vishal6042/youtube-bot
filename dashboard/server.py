@@ -63,6 +63,9 @@ HISTORY_KEPT = 40
 # Typical seconds per agent, used only to estimate an in-flight percentage —
 # capped at 95% so a bar never claims done before the marker says so.
 AGENT_RE = re.compile(r"::agent::(\w+)::(active|done|failed)\b")
+# Real progress, when an agent can measure it (simulated Shorts count frames):
+# ::progress::<name>::<0-100>. It replaces the time estimate for that agent.
+PROGRESS_RE = re.compile(r"::progress::(\w+)::(\d{1,3})\b")
 
 AGENT_EST_SEC = {
     "video": 110.0,
@@ -88,6 +91,7 @@ class Job:
         self.stage: str | None = None
         self.agents: dict[str, str] = {}  # agent name -> active | done | failed
         self.agent_started: dict[str, float] = {}  # agent name -> epoch seconds
+        self.agent_pct: dict[str, int] = {}  # agent name -> measured percent, if it reports one
         self.steps: list[dict[str, Any]] = []  # ordered agent timeline for the whole job
         self.log: list[str] = []
         self.results: dict[str, dict[str, Any]] = {}
@@ -121,6 +125,8 @@ class Job:
             st = self.agents.get(name)
             if st in ("done", "failed"):
                 prog[name] = {"state": st, "pct": 100}
+            elif st == "active" and name in self.agent_pct:
+                prog[name] = {"state": "active", "pct": min(99, self.agent_pct[name]), "measured": True}
             elif st == "active":
                 elapsed = time.time() - self.agent_started.get(name, time.time())
                 prog[name] = {"state": "active", "pct": min(95, int(elapsed / est * 100))}
@@ -307,10 +313,15 @@ class JobManager:
         # Markers are matched anywhere in the line: the worker's threads can
         # still leave a partial line in front of one.
         marker = AGENT_RE.search(line)
+        measured = PROGRESS_RE.search(line)
+        if measured:
+            job.agent_pct[measured.group(1)] = min(100, int(measured.group(2)))
+            return                                  # not worth a log line each
         if line.startswith("::topic::"):
             job.current_key = line.split("::topic::", 1)[1].strip()
             job.stage = "video"
             job.agents = {}
+            job.agent_pct = {}
             job.results.setdefault(job.current_key, {"status": "working"})
         elif marker:
             name, state = marker.group(1), marker.group(2)

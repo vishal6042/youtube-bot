@@ -9,6 +9,11 @@ python-dotenv>=1.0
 imageio-ffmpeg>=0.4.9   # bundles an ffmpeg binary so no system install is needed
 edge-tts>=7.3.1         # long-form narration; 7.2.8 and older get a 403 from the service
 
+# Optional: heavy 3D sims (graph_bot/sims/ocean_depth.py) compute on an NVIDIA GPU when
+# CuPy can reach one, and fall back to NumPy on the CPU when it is missing. Install by hand:
+#   pip install "cupy-cuda12x[ctk]"      (about 1 GB with NVIDIA's CUDA 12 runtime)
+# Their 3D models are built in Blender 4.5 LTS (scripts/make_ocean_models.py; set BLENDER).
+
 # Mission-control dashboard (python -m dashboard.server)
 fastapi>=0.110
 uvicorn[standard]>=0.29

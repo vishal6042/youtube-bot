@@ -296,18 +296,25 @@ def workers() -> int:
 
 
 def encode(out_path, ffmpeg: str, total: float, frame, sound, fps: int = 60, progress=None,
-           module: str | None = None, build_kw: dict | None = None) -> float:
+           module: str | None = None, build_kw: dict | None = None, cost=None,
+           max_workers: int | None = None) -> float:
     """Draw every frame, make the sound with sound(wav), mux. Returns seconds.
 
     With `module` (the sim's module name, whose build(ffmpeg, **build_kw) gives
     the same frames), the frames are split into contiguous slices drawn by
     separate processes at once, one video piece each, then joined without
-    re-encoding. Without it (or with one worker) frames are drawn here, in order."""
+    re-encoding. Without it (or with one worker) frames are drawn here, in order.
+
+    `cost(t)` (optional): roughly how long the frame at t takes to draw, in any
+    unit. The slices are then cut to equal work instead of equal length, so no
+    single slow slice keeps one core busy long after the rest have finished."""
     import tempfile
     from pathlib import Path
 
     n_frames = int(total * fps)
     n_work = workers() if module else 1
+    if max_workers:                       # e.g. a sim that draws on the one GPU
+        n_work = max(1, min(n_work, max_workers))
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         silent = tmp / "video.mp4"
@@ -316,7 +323,7 @@ def encode(out_path, ffmpeg: str, total: float, frame, sound, fps: int = 60, pro
             sound(tmp / "sound.wav")
         else:
             _encode_parallel(silent, ffmpeg, n_frames, fps, progress, module, build_kw or {}, n_work, tmp,
-                             lambda: sound(tmp / "sound.wav"))
+                             lambda: sound(tmp / "sound.wav"), cost)
         cv.mux(silent, tmp / "sound.wav", Path(out_path), ffmpeg)
     return total
 
@@ -337,13 +344,25 @@ def _encode_serial(silent, ffmpeg, n_frames, frame, fps, progress) -> None:
     enc.close()
 
 
-def _encode_parallel(silent, ffmpeg, n_frames, fps, progress, module, build_kw, n_work, tmp, make_sound) -> None:
+def _slice_edges(n_frames: int, n_work: int, fps: int, cost) -> np.ndarray:
+    """Frame numbers where the slices start and end: equal frames, or equal work."""
+    if cost is None:
+        return np.linspace(0, n_frames, n_work + 1).astype(int)
+    w = np.maximum(1e-6, np.array([float(cost(fi / fps)) for fi in range(n_frames)]))
+    cum = np.concatenate([[0.0], np.cumsum(w)])
+    edges = np.searchsorted(cum, np.linspace(0, cum[-1], n_work + 1)).astype(int)
+    edges[0], edges[-1] = 0, n_frames
+    return np.maximum.accumulate(edges)
+
+
+def _encode_parallel(silent, ffmpeg, n_frames, fps, progress, module, build_kw, n_work, tmp, make_sound,
+                     cost=None) -> None:
     import json
     import subprocess
     import sys
     import threading
 
-    edges = np.linspace(0, n_frames, n_work + 1).astype(int)
+    edges = _slice_edges(n_frames, n_work, fps, cost)
     env = dict(os.environ, PYTHONUTF8="1", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1")
     done = [0] * n_work
     procs, parts, errs = [], [], []

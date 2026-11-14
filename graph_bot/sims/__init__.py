@@ -10,6 +10,7 @@ always agree. Shared pieces live in `canvas` and `sound`. Topics use them with
 from __future__ import annotations
 
 import importlib
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,8 @@ SIMS = {
     "planets_earth_moon": "graph_bot.sims.planets_earth_moon",
     "star_ladder": "graph_bot.sims.star_ladder",
     "earths_in_sun": "graph_bot.sims.earths_in_sun",
+    # Science in Motion (keys start science_)
+    "ocean_depth": "graph_bot.sims.ocean_depth",
 }
 
 
@@ -39,4 +42,14 @@ def render_topic(topic: dict[str, Any], settings: dict[str, Any], out_path: Path
         raise ValueError(f"Unknown sim {name!r} for topic '{topic.get('key')}'. "
                          f"Built sims: {', '.join(SIMS)}")
     mod = importlib.import_module(SIMS[name])
-    return mod.render(Path(out_path), ffmpeg_exe(settings), seed=int(topic.get("seed", 7)))
+    last = [-1]
+
+    def progress(done: int, total: int) -> None:
+        """Frames drawn so far, as a ::progress::video::<pct> line for the dashboard."""
+        pct = int(100 * done / max(1, total))
+        if pct != last[0]:
+            last[0] = pct
+            sys.stdout.write(f"\n::progress::video::{pct}\n")
+            sys.stdout.flush()
+
+    return mod.render(Path(out_path), ffmpeg_exe(settings), seed=int(topic.get("seed", 7)), progress=progress)
