@@ -106,8 +106,8 @@ class Plan:
         at["rule"] = self.r1 + 0.15
         T1 = self.r1 + 2.15                                       # needle one lands (slow motion)
         T2 = max(T1 + 1.9, at["rule"] + sec["rule"] + 0.9)        # needle two
-        at["count"] = T1 + 0.75
-        T2 = max(T2, at["count"] + 1.0)
+        at["count"] = max(T1 + 0.75, at["rule"] + sec["rule"] + 0.35)   # let the rule finish first
+        T2 = max(T2, at["count"] + 0.5)                          # needle two lands on "drop them"
         firsts = [T1, T2] + list(np.linspace(T2 + 0.95, T2 + 3.1, N_FIRST - 2))
         self.rain0 = firsts[-1] + 0.35
         at["formula"] = max(at["count"] + sec["count"] + 0.45, self.rain0 + 0.4)
